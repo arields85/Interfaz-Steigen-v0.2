@@ -1,0 +1,191 @@
+# Hoja de Ruta - Fase 5: Interactividad del Builder
+
+## Fase 5: Interactividad del Dashboard Builder
+
+### 1. Preparación del Estado y Componentización
+- [x] Refactorizar `DashboardBuilderPage` delegando estado a un Contexto o reducers locales si crece, o manteniendo `draft` centralizado pasándolo a subcomponentes.
+- [x] Extraer `CatalogSidebar` (panel izquierdo) a su propio componente.
+- [x] Extraer `PropertiesPanel` (panel derecho) a su propio componente, y separar en sub-configuradores (`WidgetIdentityEditor`, `BindingEditor`).
+
+### 2. Catálogo a Canvas (Agregar)
+- [x] Implementar función en `CatalogSidebar` para instanciar un nuevo `WidgetConfig` por tipo.
+- [x] Agregarlo al final del layout actual del canvas con tamaño por defecto.
+- [x] Selección automática del nuevo widget.
+
+### 3. Edición de Propiedades Visuales y Layout
+- [x] Permitir modificar el `title` desde `PropertiesPanel` (y verlo en vivo).
+- [x] Permitir editar el ancho `w` (col-span en el Grid actual) y que el `BuilderCanvas` lo refleje.
+- [x] Implementar botón de Eliminar Widget (sacarlo de `draft.widgets` y `draft.layout`).
+
+### 4. Configuración de Bindings y Thresholds
+- [x] Selector principal de Modo (`real_variable` vs `simulated_value`).
+- [x] **Modo Simulado**: Input para ingresar `simulatedValue` y verlo instantáneo en el widget.
+- [x] **Modo Real**: Dos selects anidados. Primero el asset (mock de Planta), luego las métricas mapeadas de ese equipo.
+- [x] Añadir o remover umbrales (`ThresholdRules`): Ingresar un valor y elegir severidad (`warning` o `critical`), permitiendo que el `WidgetRenderer` evalúe su color.
+
+### 5. Validación Visual y Funcional
+- [x] Iniciar Dashboard vacío.
+- [x] Agregar 1 MetricsCard y 1 StatusBadge.
+- [x] Configurar el MetricsCard en modo simulado `25.4` y configurarle un Threshold crítico en `20`. Ver cómo se enrojece automáticamente. 
+- [x] Cambiar el StatusBadge al equipo `eq-001` y ver cómo toma su estado.
+
+## Fase 6: Persistencia y Ciclo de Vida del Draft
+
+### 1. Sistema Base de Almacenamiento
+- [x] Crear el servicio `src/services/DashboardStorageService.ts` encapsulando LocalStorage de forma async.
+- [x] Migrar los mocks de `admin.mock.ts` al nuevo servicio para auto-popular bases vacías.
+
+### 2. Integración en Manager
+- [x] Refactorizar `DashboardManagerPage` para solicitar los dashboards desde `DashboardStorageService`.
+- [x] Opcional: Agregar funcionalidad para clonar o crear un dashboard nuevo.
+
+### 3. Ciclo Draft/Save en Builder
+- [x] Refactorizar `DashboardBuilderPage` para pedir el dashboard por ID al Storage Service asíncronamente.
+- [x] Implementar un *dirty state* (estado de cambios sin guardar).
+- [x] Implementar la acción "Guardar Cambios" serializando el `draft` via `StorageService` y modificando su signature `lastUpdateAt`.
+
+### 4. Verificación
+- [x] Entrar al Builder, editar un título y apretar F5 antes de guardar: *debe perderse*.
+- [x] Hacer el mismo cambio, pulsar "Guardar", hacer F5: *debe mantenerse*.
+
+## Fase 7: Drag & Drop en Grilla
+
+### 1. Sistema Drag and Drop HTML5
+- [x] Hacer los contenedores de los widgets `draggable={true}` en `BuilderCanvas`.
+- [x] Implementar handlers para `onDragStart`, `onDragOver` y `onDrop`.
+
+### 2. Feedback Visual
+- [x] Añadir estado intermedio al Canvas (`draggedItemId`, `hoveredItemId`).
+- [x] Mostrar indicador de colocación (ghosting y outline cyan) cuando se arrastra sobre un elemento.
+
+### 3. Mutación del Layout
+- [x] Al efectuar `onDrop`, cambiar de posición el elemento arrastrado hacia el índice del elemento sobre el cual se arrojó.
+- [x] Emitir la mutación `draft.layout` hacia `DashboardBuilderPage`.
+
+### 4. Verificación de Persistencia
+- [x] Comprobar que reordenar genera estado "Dirty" y que, al guardar y refrescar, el orden se mantiene.
+
+## Fase 8: Jerarquía de Planta
+
+- [x] Mock de jerarquía (`hierarchy.mock.ts`) con 11 nodos.
+- [x] `HierarchyStorageService` con persistencia async en localStorage.
+- [x] Utilidad `buildTree()` y `getAncestors()`.
+- [x] Componente `HierarchyTree` con render recursivo e íconos por NodeType.
+- [x] `HierarchyPage` con panel doble (árbol + detalle de nodo).
+- [x] Ruta `/admin/hierarchy` y link activo en sidebar del Admin.
+- [x] Build limpio sin errores TypeScript.
+
+## Fase 9: Trend Chart Funcional
+
+### 1. Datos Temporales
+- [x] Crear `utils/trendDataGenerator.ts` con función de generación de serie temporal.
+
+### 2. Renderer
+- [x] Crear `widgets/renderers/TrendChartWidget.tsx` usando Recharts (LineChart + área + gradient).
+
+### 3. Registro en Dispatcher
+- [x] Añadir caso `'trend-chart'` en `WidgetRenderer.tsx`.
+
+### 4. Builder
+- [x] Ajustar ancho por defecto a `w: 2` para `trend-chart` en `handleAddWidget`.
+
+### 5. Verificación
+- [ ] Agregar trend-chart desde catálogo, verificar render, binding, persistencia y sin regresión.
+
+## Fase 10: Duplicación y Templates
+
+### 1. Duplicación de Dashboards
+- [x] Añadir método `duplicateDashboard` en `DashboardStorageService`.
+- [x] Conectar botón Duplicar en `DashboardManagerPage`.
+
+### 2. Sistema de Templates
+- [x] Crear `TemplateStorageService` con CRUD + `createFromDashboard`.
+- [x] Crear mock de template (`template.mock.ts`).
+- [x] Añadir método `createFromTemplate` en `DashboardStorageService`.
+
+### 3. UI de Templates en Manager
+- [x] Botón "Guardar como Template" por dashboard.
+- [x] Sección de Templates con tabla, "Crear desde Template" y "Eliminar".
+
+### 4. Badge en Builder
+- [x] Indicador "Basado en template" en `DashboardBuilderPage`.
+
+### 5. Verificación
+- [x] Duplicar, crear template, crear desde template, persistencia.
+
+## Fase 11: Sistema de Publicación
+
+### 1. Acciones en el Builder
+- [x] Cambiar "Guardar Cambios" por "Guardar Draft".
+- [x] Añadir botón "Publicar" (status: published, version++).
+- [x] Mostrar badge de estado (Draft vs Published).
+
+### 2. DashboardStorageService
+- [x] Añadir método `publishDashboard(id)`.
+
+### 3. Visor Dinámico (`DashboardViewer.tsx`)
+- [x] Crear componente `DashboardViewer` estático (isDraggable={false}).
+- [x] Refactorizar `pages/Dashboard.tsx` para cargar dashboards publicados.
+- [x] Renderizar visor solo con el dashboard publicado o mostrar empty state.
+
+### 4. Verificación
+- [x] Probar guardar draft, publicar y ver en Visor.
+
+## Fase 12: Edición del Árbol Jerárquico
+
+### 1. HierarchyStorageService
+- [x] Añadir validación a `deleteNode` (bloquear si tiene hijos).
+- [x] Añadir método `createNode(name, type, parentId?)`.
+- [x] Añadir método `updateNodeParent(id, newParentId)` con validación anti-ciclos.
+- [x] Añadir método `updateNode(id, partialData)` para renombrar y asignar dashboard.
+
+### 2. NodeDetailPanel (HierarchyPage)
+- [x] Implementar UI de renombrado in-place (input).
+- [x] Modal/UI para "+ Añadir Nodo Hijo" (pedir nombre y tipo).
+- [x] Modal/UI para "Mover Nodo" (selector de nuevo padre).
+- [x] Botón "Eliminar Nodo" condicionado a hijos vacíos.
+- [x] Editar Dashboard vinculado vía Select dinámico (`DashboardStorageService`).
+
+### 3. Ajustes Adicionales
+- [x] Botón en la cabecera de la Sidebar para agregar "Nodo Raíz".
+
+### 4. Verificación
+- [x] Crear nodo, borrar nodo hoja, intentar borrar nodo padre, mover nodo, asignar dashboard.
+
+## Fase 13: Panel de Propiedades Enriquecido
+
+### 1. Tipado (`domain/admin.types.ts`)
+- [x] Asegurar soporte estricto de `displayOptions: { icon?, subtext? }` en `WidgetConfig`.
+
+### 2. PropertiesPanel (`components/admin/PropertiesPanel.tsx`)
+- [x] Añadir sub-sección "Visualización & Formato".
+- [x] Selector de Íconos predefinidos (Lucide).
+- [x] Input para "Unidad de Medida" que modifique `binding.unit`.
+- [x] Input para "Subtexto" (opcional, ej. para MetricsCard).
+
+### 3. Ajuste de Widgets (`widgets/renderers/*`)
+- [x] `MetricsCardWidget`: Leer y pintar `displayOptions.icon`, `binding.unit` y `displayOptions.subtext`.
+- [ ] Opcional: Extender a otros como `StatusBadgeWidget`.
+
+### 4. Verificación
+- [x] Crear un MetricsCard, editar sus nuevas propiedades visuales y ver el redibujado instantáneo.
+
+## Fase 14: Resize Dinámico de Widgets
+
+### 1. Extensión de la Grilla Base (`BuilderCanvas.tsx`)
+- [x] Definir `auto-rows` base en el CSS Grid del contenedor principal.
+- [x] Mapear dinámicamente o puramente clases `row-span-{h}` y `col-span-{w}`.
+
+### 2. Implementación de Resize Interactivo
+- [x] Diseñar UI del `ResizeHandle` (botón/esquina con cursor `se-resize`).
+- [x] Añadir lógica de drag (`onPointerDown/Move/Up`) para inferir el Delta `W` y `H`.
+- [x] Disparar callback mutando el estado `draft.layout`.
+
+### 3. Sincronización Doble en Panel (`PropertiesPanel.tsx`)
+- [x] Sumar selector explícito de "Alto en Grilla (Filas)" para modificar `h` manualmente.
+
+### 4. CSS y Estilos (`widgets/renderers`)
+- [x] Asegurar que las tarjetas y gráficos respeten `h-full` para llenar los span enteros de forma prolija.
+
+### 5. Verificación
+- [x] Redimensionar widgets tanto por drag and drop como por select, guardar draft, refrescar con estado final intacto.

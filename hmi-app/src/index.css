@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@theme {
+  --color-industrial-bg: #05070a;
+  --color-industrial-surface: #0e1117;
+  --color-industrial-hover: #161b22;
+  --color-industrial-border: rgba(255, 255, 255, 0.08);
+
+  --color-industrial-text: #f1f5f9;
+  --color-industrial-muted: #94a3b8;
+
+  --color-accent-cyan: #22d3ee;
+  --color-accent-purple: #a855f7;
+  --color-accent-pink: #ec4899;
+  --color-accent-blue: #3b82f6;
+  --color-accent-blue-glow: #60a5fa;
+  --color-accent-green: #10b981;
+  --color-accent-amber: #f59e0b;
+  --color-accent-ruby: #ef4444;
+
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "Roboto Mono", monospace;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-industrial-bg);
+    color: var(--color-industrial-text);
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-industrial-border);
+    border-radius: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .glass-panel-danger {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.02) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .rotor-glow {
+    filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.4));
+  }
+
+  .neon-cyan-glow {
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
+  }
+
+  .neon-violet-glow {
+    filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+  }
+
+  .charcoal-gradient {
+    background: radial-gradient(circle at top left, var(--color-industrial-hover), var(--color-industrial-bg));
+  }
+
+  .glass-panel>* {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Gradiente para botones con glow (como el botón de "Subir CSV") */
+  .button-glow-bg {
+    position: relative;
+    background: #151824;
+    /* Color base del botón */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .button-glow-bg::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 110%;
+    height: 120%;
+    background: radial-gradient(circle at center, rgba(139, 92, 246, 0.5), rgba(0, 229, 255, 0.3), transparent 70%);
+    z-index: -1;
+    filter: blur(15px);
+    opacity: 0.8;
+  }
+
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(90deg, #A78BFA, var(--color-accent-cyan));
+  }
+
+  /* Utilidad para el borde izquierdo activo de las cards (Beneficio Neto) */
+  .border-l-active {
+    border-left: 3px solid var(--color-accent-blue);
+    position: relative;
+  }
+
+  /* Subrayado con degradado para nav links activos en la Topbar */
+  .nav-link-gradient-underline {
+    position: relative;
+  }
+
+  .nav-link-gradient-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #A78BFA, #22d3ee);
+    border-radius: 2px;
+  }
+}

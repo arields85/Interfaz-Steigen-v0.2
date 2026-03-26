@@ -1,0 +1,9 @@
+// Barrel export del dominio interno.
+// Importar desde aquí en lugar de from archivos específicos
+// para mantener una única interfaz del módulo de dominio.
+
+export * from './equipment.types';
+export * from './telemetry.types';
+export * from './alert.types';
+export * from './assistant.types';
+export * from './admin.types';
