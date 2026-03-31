@@ -82,23 +82,24 @@ Todos los tokens están declarados en `src/index.css` bajo `@theme {}` y son la 
 
 | Token CSS | Valor hex | Semántica de uso | ⚠️ Restricción |
 |-----------|-----------|------------------|----------------|
-| `--color-accent-cyan` | `#22d3ee` | Acento primario. Estado normal/running. Métricas en operación nominal. | Principal acento de marca. No usar para warning ni error. |
+| `--color-accent-purple` | `#a855f7` | **Acento estructural primario**. Etiquetas (badges), tipos, recuadros y marca. | Nuevo acento base. No usar para dar semántica de alerta. |
+| `--color-accent-blue` | `#3b82f6` | **Acento interactivo primario**. Botones, toggles, selecciones y hovers. | Único color para acciones y estados (On/Off). |
+| `--color-accent-blue-glow` | `#60a5fa` | Variante luminosa del azul. Solo para glows de elementos interactivos. | Solo en CSS shadow/filter. |
+| `--color-accent-cyan` | `#22d3ee` | Acento para gráficos y visualización de datos numéricos brutos. | 🚫 **PROHIBIDO** para botones, switches y recuadros. |
 | `--color-accent-green` | `#10b981` | Estado running, online, produciendo, OK. | Solo para semántica operativa positiva. |
 | `--color-accent-amber` | `#f59e0b` | Estado warning, advertencia, umbral próximo, degradado. | Solo para semántica de precaución. |
 | `--color-accent-ruby` | `#ef4444` | Estado critical, alarma activa, offline confirmado, error fatal. | Solo para emergencias y errores. No usar para decoración. |
-| `--color-accent-purple` | `#a855f7` | Acento secundario. Producción, volúmenes, tendencias secundarias. | No mezclar con verde/amber/rojo. |
 | `--color-accent-pink` | `#ec4899` | Acento terciario. Uso decorativo muy controlado. | Máximo un elemento por vista. |
-| `--color-accent-blue` | `#3b82f6` | Elementos interactivos, acciones, indicadores de foco. | Para UI interactiva, no para estado de equipo. |
-| `--color-accent-blue-glow` | `#60a5fa` | Variante luminosa del azul. Solo para glows de elementos interactivos. | Solo en CSS shadow/filter, nunca como fill de texto. |
 
 ### 2.4 Regla semántica de color — resumen operativo
 
 ```
-🟢 Cyan (#22d3ee) / Verde (#10b981)  →  Normal · Online · Produciendo · OK
+🟣 Purple (#a855f7)                  →  Acento de Marca · Etiquetas base · Estructura
+🔵 Azul (#3b82f6)                    →  Interactive UI · Botones · Toggles · Foco · Hover
+🟢 Verde (#10b981)                   →  Normal · Online · Produciendo · OK
 🟡 Amber (#f59e0b)                   →  Warning · Umbral próximo · Degradado
 🔴 Ruby (#ef4444)                    →  Crítico · Alarma · Offline · Error
-🔵 Azul (#3b82f6)                    →  Acción UI · Interactivo · Foco
-🟣 Purple (#a855f7)                  →  Producción · Tendencias · Contexto
+💠 Cyan (#22d3ee)                    →  Visualización (Charts) · Líneas gráficas exclusivas
 ```
 
 ---
@@ -506,7 +507,7 @@ Cada estado debe expresarse con **al menos dos** de los siguientes recursos visu
 
 ### Focus (accesibilidad)
 
-- Todo elemento interactivo debe tener `focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan focus-visible:ring-offset-1 focus-visible:ring-offset-industrial-surface`.
+- Todo elemento interactivo debe tener `focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-1 focus-visible:ring-offset-industrial-surface`.
 - Los inputs de búsqueda usan `focus:ring-0 focus:outline-none` (el estilo de foco lo provee el contenedor).
 
 ---
@@ -617,7 +618,35 @@ Mismo estilo inactivo que ítems de nav
   padding: p-5 | radius: rounded-3xl | clase: glass-panel
 ```
 
-**Ícono de card:** `size={24} strokeWidth={1.5}` con color de acento correspondiente `opacity-80`.
+**Ícono de card:** `size={24} strokeWidth={2}` con color de acento correspondiente. Flotan a la esquina superior derecha (`justify-between`).
+
+### 15.1.1 Convención Visual de Jerarquía y Color (KPIs)
+
+1. **Título del Widget:** 
+   - Mantiene color neutro fijo (`text-slate-400` / `#94a3b8`).
+   - Actúa como etiqueta inmutable sin competir con el valor principal. **No** usa colores semánticos.
+2. **Subtexto Aclaratorio:** 
+   - Asume el rol expresivo cromático secundario.
+   - *Modo Estático (Default):* Usa el color editorial Purple (`accent-purple` / `#a855f7`).
+   - *Modo Color Dinámico (Thresholds ON):* Adopta el color semántico de su estado actual:
+     - **Normal:** Verde (`accent-green` / `#10b981`)
+     - **Alerta (Warning):** Ámbar (`accent-amber` / `#f59e0b`)
+     - **Crítico (Critical):** Ruby (`accent-ruby` / `#ef4444`)
+3. **Ícono del Widget:** 
+   - Adopta **exactamente** el mismo color semántico que el subtexto.
+
+### 15.1.2 Gradientes Dinámicos para Gráficos y Barras de Progreso
+
+Para medidores circulares o barras horizontales con **Color Dinámico Activado**:
+- **Normal:** Transición suave de **Cyan** (`#22d3ee` - color teal/cian vibrante) a **Verde** (`#10b981`).
+- **Alerta (Warning):** Transición de **Ámbar** (`#f59e0b`) a **Ruby** (`#ef4444`).
+- **Crítico (Critical):** Rojo sólido **Ruby** (`#ef4444`).
+
+Para indicadores con **Color Dinámico Desactivado**:
+- Gradiente premium por defecto desde **Azul** (`#3b82f6`) hacia **Púrpura** (`#a855f7`).
+
+**Uso del efecto Glow (`drop-shadow`):**
+Acompaña a la barra css o anillo SVG con un difuminado (`drop-shadow(0 0 15px rgba(Color, 0.5))`). Se utiliza exclusivamente para resaltar el trazo de progreso activo y destacar el nivel de urgencia o "salud" del indicador, aportando profundidad luminosa al widget.
 
 ### 15.2 Card de área de estado
 

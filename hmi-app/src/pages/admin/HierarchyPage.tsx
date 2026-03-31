@@ -106,7 +106,7 @@ function NodeDetailPanel({
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={() => setShowAddChildModal(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/20 text-accent-cyan rounded text-xs font-bold transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-colors admin-accent-ghost"
                     >
                         <Plus size={14} /> Hijo
                     </button>
@@ -140,18 +140,18 @@ function NodeDetailPanel({
                                         onChange={e => setEditNameValue(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                                         onBlur={handleSaveName}
-                                        className="text-2xl font-black text-white bg-black/40 border border-accent-cyan/50 rounded px-2 py-1 w-full focus:outline-none"
+                                        className="text-2xl font-black text-white bg-black/40 border border-admin-accent/50 rounded px-2 py-1 w-full focus:outline-none"
                                     />
-                                    <button onClick={handleSaveName} className="p-2 text-accent-cyan hover:bg-white/10 rounded">
+                                    <button onClick={handleSaveName} className="p-2 text-admin-accent hover:bg-white/10 rounded">
                                         <Check size={20} />
                                     </button>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditingName(true)}>
-                                    <h1 className="text-2xl font-black text-white tracking-tight group-hover:text-accent-cyan transition-colors">
+                                    <h1 className="text-2xl font-black text-white tracking-tight group-hover:text-admin-accent transition-colors">
                                         {node.name}
                                     </h1>
-                                    <Edit2 size={14} className="text-white/20 group-hover:text-accent-cyan transition-colors" />
+                                    <Edit2 size={14} className="text-white/20 group-hover:text-admin-accent transition-colors" />
                                 </div>
                             )}
                         </div>
@@ -168,8 +168,8 @@ function NodeDetailPanel({
                 <div className="grid grid-cols-1 gap-4 max-w-2xl">
 
                     {/* Dashboard vinculado (EDITABLE) */}
-                    <div className="glass-panel border-accent-cyan/10 p-4 flex items-start gap-3 relative">
-                        <LayoutDashboard size={16} className={`${node.linkedDashboardId ? 'text-accent-cyan' : 'text-industrial-muted'} shrink-0 mt-0.5`} />
+                    <div className="glass-panel border-admin-accent/10 p-4 flex items-start gap-3 relative">
+                        <LayoutDashboard size={16} className={`${node.linkedDashboardId ? 'text-admin-accent' : 'text-industrial-muted'} shrink-0 mt-0.5`} />
                         <div className="flex-1 w-full relative">
                             <p className="text-[10px] font-black uppercase tracking-widest text-industrial-muted mb-2">
                                 Dashboard vinculado
@@ -178,7 +178,7 @@ function NodeDetailPanel({
                             <select 
                                 value={node.linkedDashboardId || 'none'}
                                 onChange={handleDashboardChange}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-accent-cyan/40 appearance-none cursor-pointer mb-3"
+                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-admin-accent/40 appearance-none cursor-pointer mb-3"
                             >
                                 <option value="none">-- Sin dashboard asignado --</option>
                                 {dashboards.map(d => (
@@ -191,7 +191,7 @@ function NodeDetailPanel({
                             {node.linkedDashboardId && (
                                 <button
                                     onClick={() => navigate(`/admin/builder/${node.linkedDashboardId}`)}
-                                    className="flex w-fit items-center gap-2 px-3 py-1.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/20 text-accent-cyan rounded text-xs font-bold transition-colors"
+                                    className="flex w-fit items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-colors admin-accent-ghost"
                                 >
                                     <ExternalLink size={12} /> Abrir Editor Visual
                                 </button>
@@ -244,7 +244,7 @@ function NodeDetailPanel({
                                 type="text"
                                 value={newChildName}
                                 onChange={e => setNewChildName(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/40"
+                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
                             />
                         </div>
 
@@ -253,7 +253,7 @@ function NodeDetailPanel({
                             <select
                                 value={newChildType}
                                 onChange={e => setNewChildType(e.target.value as NodeType)}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/40"
+                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
                             >
                                 {Object.entries(NODE_TYPE_LABELS).map(([val, label]) => (
                                     <option key={val} value={val}>{label}</option>
@@ -272,7 +272,7 @@ function NodeDetailPanel({
                                     }
                                 }}
                                 disabled={!newChildName.trim()}
-                                className="px-4 py-2 bg-accent-cyan text-black rounded text-xs font-bold shadow-[0_0_10px_rgba(0,194,255,0.3)] disabled:opacity-50"
+                                className="px-4 py-2 bg-admin-accent text-white rounded text-xs font-bold disabled:opacity-50"
                             >Crear</button>
                         </div>
                     </div>
@@ -291,7 +291,7 @@ function NodeDetailPanel({
                         <select
                             value={moveTargetId}
                             onChange={e => setMoveTargetId(e.target.value)}
-                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/40"
+                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
                         >
                             <option value="">-- Mover a la Raíz (Sin padre) --</option>
                             {allNodes
@@ -310,7 +310,7 @@ function NodeDetailPanel({
                                     onMove(node.id, moveTargetId || null);
                                     setShowMoveModal(false);
                                 }}
-                                className="px-4 py-2 bg-accent-cyan text-black rounded text-xs font-bold shadow-[0_0_10px_rgba(0,194,255,0.3)]"
+                                className="px-4 py-2 bg-admin-accent text-white rounded text-xs font-bold"
                             >Confirmar Mover</button>
                         </div>
                     </div>
@@ -426,7 +426,7 @@ export default function HierarchyPage() {
                 <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-40">
-                            <Loader2 className="animate-spin text-accent-cyan" size={24} />
+                            <Loader2 className="animate-spin text-admin-accent" size={24} />
                         </div>
                     ) : (
                         <HierarchyTree

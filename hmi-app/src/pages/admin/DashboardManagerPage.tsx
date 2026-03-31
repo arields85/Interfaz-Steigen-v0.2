@@ -115,7 +115,7 @@ export default function DashboardManagerPage() {
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                        <LayoutDashboard className="text-accent-cyan" />
+                        <LayoutDashboard className="text-admin-accent" />
                         Gestor de Dashboards
                     </h1>
                     <p className="text-industrial-muted text-sm font-bold mt-2 uppercase tracking-widest">
@@ -124,7 +124,7 @@ export default function DashboardManagerPage() {
                 </div>
                 <button 
                     onClick={handleCreateNew}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20 hover:bg-accent-cyan/20 rounded-md font-bold text-sm transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-md font-bold text-sm transition-colors admin-accent-ghost"
                 >
                     <Plus size={16} />
                     Nuevo Dashboard
@@ -134,7 +134,7 @@ export default function DashboardManagerPage() {
             {/* LOADING */}
             {isLoading ? (
                 <div className="flex justify-center items-center h-64 border border-white/5 rounded-xl bg-white/[0.02]">
-                    <Loader2 className="animate-spin text-accent-cyan" size={32} />
+                    <Loader2 className="animate-spin text-admin-accent" size={32} />
                 </div>
             ) : (
             <>
@@ -253,7 +253,7 @@ export default function DashboardManagerPage() {
                             value={templateName}
                             onChange={e => setTemplateName(e.target.value)}
                             placeholder="Nombre del template"
-                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-accent-cyan/40"
+                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-admin-accent/40"
                             autoFocus
                         />
                         <div className="flex justify-end gap-2">
@@ -311,7 +311,7 @@ export default function DashboardManagerPage() {
                                 <div className="flex gap-2 mt-auto">
                                     <button
                                         onClick={() => handleCreateFromTemplate(tpl)}
-                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20 hover:bg-accent-cyan/20 rounded text-xs font-bold transition-colors"
+                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-bold transition-colors admin-accent-ghost"
                                     >
                                         <PackagePlus size={14} />
                                         Crear Dashboard

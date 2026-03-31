@@ -1,13 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, AlertCircle, Edit2, Check, ChevronDown } from 'lucide-react';
 import { dashboardStorage } from '../../services/DashboardStorageService';
 import { mockEquipmentList } from '../../mocks/equipment.mock';
 import type { Dashboard, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import BuilderCanvas from '../../components/admin/BuilderCanvas';
 import CatalogSidebar from '../../components/admin/CatalogSidebar';
-import PropertiesPanel from '../../components/admin/PropertiesPanel';
+import PropertyDock from '../../components/admin/PropertyDock';
 import { generateWidgetId } from '../../utils/idGenerator';
 
 // =============================================================================
@@ -28,6 +28,24 @@ export default function DashboardBuilderPage() {
     
     // 2. Estado de selección
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | undefined>();
+
+    // 3. Estado de edición de nombre
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editNameValue, setEditNameValue] = useState('');
+
+    // 3b. Dropdown de tipo/categoría
+    const [isTypeOpen, setIsTypeOpen] = useState(false);
+    const typeRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (typeRef.current && !typeRef.current.contains(e.target as Node)) {
+                setIsTypeOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // 4. Mapeo de equipos simulado (para resolver bindings de la F3)
     const equipmentMap = useMemo(() => {
@@ -89,7 +107,8 @@ export default function DashboardBuilderPage() {
     // Checkear si draft difiere de originalConfig de manera utilitaria y burda
     const isDirty = JSON.stringify(draft.widgets) !== JSON.stringify(originalConfig.widgets) || 
                     JSON.stringify(draft.layout) !== JSON.stringify(originalConfig.layout) || 
-                    draft.name !== originalConfig.name;
+                    draft.name !== originalConfig.name ||
+                    draft.dashboardType !== originalConfig.dashboardType;
 
     const handleSaveDraft = async () => {
         if (!draft) return;
@@ -139,13 +158,14 @@ export default function DashboardBuilderPage() {
         if (!draft) return;
         
         const newId = generateWidgetId(type);
-        const defaultWidth = type === 'trend-chart' ? 2 : 1;
+        const defaultWidth = type === 'trend-chart' || type === 'kpi' ? 2 : 1;
+        const defaultHeight = type === 'kpi' ? 2 : 1;
         const newWidget: WidgetConfig = {
             id: newId,
             type,
             title: `Nuevo ${type.replace('-', ' ')}`,
             position: { x: 0, y: 0 },
-            size: { w: defaultWidth, h: 1 },
+            size: { w: defaultWidth, h: defaultHeight },
             binding: { mode: 'simulated_value', simulatedValue: type === 'trend-chart' ? 50 : 0 }
         };
         const newLayout: WidgetLayout = {
@@ -153,7 +173,7 @@ export default function DashboardBuilderPage() {
             x: 0,
             y: 0,
             w: defaultWidth,
-            h: 1
+            h: defaultHeight
         };
 
         setDraft(prev => {
@@ -164,6 +184,38 @@ export default function DashboardBuilderPage() {
                 layout: [...prev.layout, newLayout]
             };
         });
+        setSelectedWidgetId(newId);
+    };
+
+    const handleDuplicateWidget = () => {
+        if (!draft || !selectedWidgetId) return;
+        
+        const selectedWidget = draft.widgets.find(w => w.id === selectedWidgetId);
+        const selectedLayout = draft.layout.find(l => l.widgetId === selectedWidgetId);
+        if (!selectedWidget || !selectedLayout) return;
+
+        const newId = generateWidgetId(selectedWidget.type);
+        const duplicatedWidget: WidgetConfig = {
+            ...JSON.parse(JSON.stringify(selectedWidget)),
+            id: newId,
+            title: selectedWidget.title ? `${selectedWidget.title} (Copia)` : undefined
+        };
+        
+        const newLayout: WidgetLayout = {
+            ...JSON.parse(JSON.stringify(selectedLayout)),
+            widgetId: newId,
+            y: selectedLayout.y + selectedLayout.h
+        };
+
+        setDraft(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                widgets: [...prev.widgets, duplicatedWidget],
+                layout: [...prev.layout, newLayout]
+            };
+        });
+        
         setSelectedWidgetId(newId);
     };
 
@@ -239,10 +291,94 @@ export default function DashboardBuilderPage() {
                         <ArrowLeft size={14} /> Volver
                     </button>
                     <div className="h-4 w-px bg-white/10" />
-                    <h2 className="text-sm font-black tracking-normal text-white">
-                        {draft.name}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded text-[9px] bg-white/5 text-industrial-muted font-bold tracking-widest uppercase">
+
+                    {/* Nombre editable */}
+                    {isEditingName ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                autoFocus
+                                value={editNameValue}
+                                onChange={e => setEditNameValue(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        if (editNameValue.trim()) {
+                                            setDraft(prev => prev ? { ...prev, name: editNameValue.trim() } : prev);
+                                        }
+                                        setIsEditingName(false);
+                                    }
+                                    if (e.key === 'Escape') setIsEditingName(false);
+                                }}
+                                onBlur={() => {
+                                    if (editNameValue.trim()) {
+                                        setDraft(prev => prev ? { ...prev, name: editNameValue.trim() } : prev);
+                                    }
+                                    setIsEditingName(false);
+                                }}
+                                className="text-sm font-black text-white bg-black/40 border border-admin-accent/50 rounded px-2 py-1 focus:outline-none w-64"
+                            />
+                            <button 
+                                onClick={() => {
+                                    if (editNameValue.trim()) {
+                                        setDraft(prev => prev ? { ...prev, name: editNameValue.trim() } : prev);
+                                    }
+                                    setIsEditingName(false);
+                                }}
+                                className="p-1 text-admin-accent hover:bg-white/10 rounded"
+                            >
+                                <Check size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div 
+                            className="flex items-center gap-2 group cursor-pointer"
+                            onClick={() => {
+                                setEditNameValue(draft.name);
+                                setIsEditingName(true);
+                            }}
+                        >
+                            <h2 className="text-sm font-black tracking-normal text-white group-hover:text-admin-accent transition-colors">
+                                {draft.name}
+                            </h2>
+                            <Edit2 size={12} className="text-white/20 group-hover:text-admin-accent transition-colors" />
+                        </div>
+                    )}
+
+                    {/* Categoría / Tipo — custom dropdown */}
+                    <div className="relative" ref={typeRef}>
+                        <button
+                            onClick={() => setIsTypeOpen(o => !o)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/5 text-[10px] text-slate-300 font-bold uppercase tracking-widest border border-white/10 hover:bg-white/10 hover:border-white/20 transition-colors"
+                        >
+                            {draft.dashboardType}
+                            <ChevronDown size={10} className={`transition-transform ${isTypeOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isTypeOpen && (
+                            <div className="absolute top-full left-0 mt-1 min-w-[120px] rounded-md bg-[#0f1219] border border-white/10 shadow-xl z-50 py-1 overflow-hidden">
+                                {(['global', 'area', 'line', 'equipment', 'free'] as const).map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => {
+                                            setDraft(prev => prev ? { ...prev, dashboardType: type } : prev);
+                                            setIsTypeOpen(false);
+                                        }}
+                                        className={`w-full text-left px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                                            draft.dashboardType === type
+                                                ? 'text-admin-accent bg-white/5'
+                                                : 'text-slate-400 hover:text-admin-accent hover:bg-white/5'
+                                        }`}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold tracking-widest uppercase ${
+                        draft.status === 'published'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}>
                         {draft.status}
                     </span>
                     {draft.templateId && (
@@ -263,7 +399,7 @@ export default function DashboardBuilderPage() {
                         disabled={!isDirty || isSaving}
                         className={`flex items-center gap-2 px-4 py-1.5 rounded-md font-bold text-xs transition-all border ${
                             isDirty 
-                                ? 'bg-white/5 text-white hover:bg-white/10 border-white/20' 
+                                ? 'bg-white/5 text-industrial-muted hover:text-white hover:bg-white/10 border-white/10 hover:border-white/20' 
                                 : 'bg-transparent text-industrial-muted border-white/5 cursor-not-allowed opacity-50'
                         }`}
                     >
@@ -275,8 +411,8 @@ export default function DashboardBuilderPage() {
                         disabled={isSaving || (draft.status === 'published' && !isDirty)}
                         className={`flex items-center gap-2 px-4 py-1.5 rounded-md font-bold text-xs transition-all ${
                             draft.status !== 'published' || isDirty
-                                ? 'bg-accent-cyan text-black hover:bg-accent-cyan/90 shadow-[0_0_15px_rgba(0,194,255,0.3)]' 
-                                : 'bg-accent-cyan/20 text-accent-cyan cursor-not-allowed opacity-50'
+                                ? 'admin-accent-ghost' 
+                                : 'bg-transparent text-admin-accent/50 border border-admin-accent/10 cursor-not-allowed opacity-50'
                         }`}
                     >
                         {isSaving ? <Loader2 size={14} className="animate-spin" /> : null} 
@@ -290,7 +426,7 @@ export default function DashboardBuilderPage() {
                 {/* WIDGET CATALOGUE (LEFT SIDEBAR) */}
                 <CatalogSidebar onAddWidget={handleAddWidget} />
 
-                {/* CANVAS CENTRAL */}
+                {/* CANVAS CENTRAL — ahora ocupa TODO el ancho disponible */}
                 <main className="flex-1 bg-[url('/grid.svg')] bg-center overflow-hidden">
                     <BuilderCanvas 
                         layout={draft.layout} 
@@ -303,17 +439,20 @@ export default function DashboardBuilderPage() {
                     />
                 </main>
 
-                {/* PROPERTIES PANEL (RIGHT SIDEBAR) */}
-                <PropertiesPanel 
-                    selectedWidget={selectedWidget}
-                    selectedLayout={draft.layout.find(l => l.widgetId === selectedWidgetId)}
-                    onUpdateWidget={handleUpdateWidget}
-                    onUpdateLayout={handleUpdateLayout}
-                    equipmentMap={equipmentMap}
-                    onDelete={handleDeleteWidget}
-                />
-
             </div>
+
+            {/* PROPERTY DOCK (FLOATING BOTTOM) */}
+            <PropertyDock 
+                selectedWidget={selectedWidget}
+                selectedLayout={draft.layout.find(l => l.widgetId === selectedWidgetId)}
+                onUpdateWidget={handleUpdateWidget}
+                onUpdateLayout={handleUpdateLayout}
+                equipmentMap={equipmentMap}
+                onDelete={handleDeleteWidget}
+                onDuplicate={handleDuplicateWidget}
+                onDeselect={() => setSelectedWidgetId(undefined)}
+            />
+
         </div>
     );
 }

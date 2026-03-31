@@ -4,6 +4,7 @@ import MetricWidget from './renderers/MetricWidget';
 import StatusWidget from './renderers/StatusWidget';
 import ConnectionWidget from './renderers/ConnectionWidget';
 import TrendChartWidget from './renderers/TrendChartWidget';
+import KpiWidget from './renderers/KpiWidget';
 
 // =============================================================================
 // WidgetRenderer — Dispatcher central
@@ -36,9 +37,18 @@ export default function WidgetRenderer({
 }: WidgetRendererProps) {
     switch (widget.type) {
         case 'metric-card':
-        case 'kpi':
             return (
                 <MetricWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    isLoadingData={isLoadingData}
+                    className={className}
+                />
+            );
+
+        case 'kpi':
+            return (
+                <KpiWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
                     isLoadingData={isLoadingData}

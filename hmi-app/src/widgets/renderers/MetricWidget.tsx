@@ -4,7 +4,7 @@ import MetricCard from '../../components/ui/MetricCard';
 import ConnectionBadge from '../../components/ui/ConnectionBadge';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { toCardStatus } from '../resolvers/thresholdEvaluator';
-import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, type LucideIcon } from 'lucide-react';
+import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, type LucideIcon } from 'lucide-react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
     'Gauge': Gauge,
@@ -13,7 +13,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
     'Zap': Zap,
     'Droplet': Droplet,
     'Wind': Wind,
-    'Settings': Settings
+    'Settings': Settings,
+    'Fan': Fan,
+    'FoldVertical': FoldVertical
 };
 // =============================================================================
 // MetricWidget
@@ -73,7 +75,7 @@ export default function MetricWidget({
         resolved.connectionState !== 'online';
 
     return (
-        <div className={`flex flex-col gap-1.5 h-full ${className ?? ''}`}>
+        <div className={`flex flex-col gap-1.5 w-full h-full min-h-0 ${className ?? ''}`}>
             <MetricCard
                 label={widget.title ?? '—'}
                 value={resolved.value}
@@ -82,6 +84,7 @@ export default function MetricWidget({
                 icon={Icon}
                 subtext={subtext}
                 isError={resolved.source === 'error' && resolved.status === 'no-data'}
+                className="flex-1 min-h-0"
             />
             {showConnectionBadge && resolved.connectionState && (
                 <div className="px-1">

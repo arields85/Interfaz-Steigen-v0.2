@@ -85,7 +85,7 @@ export default function TrendChartWidget({
     // Loading state
     if (isLoadingData) {
         return (
-            <div className={`glass-panel p-4 min-h-[220px] flex items-center justify-center ${className ?? ''}`}>
+            <div className={`glass-panel p-4 w-full h-full flex items-center justify-center ${className ?? ''}`}>
                 <div className="animate-pulse text-industrial-muted text-xs font-bold uppercase tracking-widest">
                     Cargando datos...
                 </div>
@@ -94,7 +94,7 @@ export default function TrendChartWidget({
     }
 
     return (
-        <div className={`glass-panel p-0 overflow-hidden min-h-[220px] flex flex-col ${className ?? ''}`}>
+        <div className={`glass-panel p-0 overflow-hidden w-full h-full flex flex-col ${className ?? ''}`}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export default function TrendChartWidget({
 
             {/* Chart */}
             <div className="flex-1 min-h-0 px-2 pb-2">
-                <ResponsiveContainer width="100%" height="100%" minHeight={170}>
+                <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={trendData} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
                         {/* Grid oscuro */}
                         <CartesianGrid

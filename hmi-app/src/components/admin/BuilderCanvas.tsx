@@ -84,7 +84,7 @@ function ResizeHandle({
             className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md"
             title="Arrastrar para cambiar tamaño"
         >
-            <div className="w-2.5 h-2.5 bg-accent-cyan/80 rounded-sm" style={{ clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)' }} />
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: 'var(--color-admin-selection-to)', clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)' }} />
         </div>
     );
 }
@@ -175,15 +175,28 @@ export default function BuilderCanvas({
                             onDragEnd={handleDragEnd}
                         >
                             {/* Borde de selección para el modo editor */}
-                            <div className={`absolute -inset-2 rounded-xl border-2 transition-all z-10 pointer-events-none ${
-                                isSelected 
-                                    ? 'border-accent-cyan/80 bg-accent-cyan/[0.02]' 
-                                    : 'border-transparent group-hover:border-white/10'
-                            } ${
-                                hoveredIndex === index && draggedIndex !== index 
-                                    ? '!border-accent-cyan/50 !bg-accent-cyan/10 scale-[1.02]' 
-                                    : ''
-                            }`} />
+                            <div 
+                                className={`absolute -inset-2 rounded-xl transition-all z-10 pointer-events-none ${
+                                    isSelected 
+                                        ? '' 
+                                        : 'border-2 border-transparent group-hover:border-white/10'
+                                } ${
+                                    hoveredIndex === index && draggedIndex !== index 
+                                        ? 'border-2 scale-[1.02]' 
+                                        : ''
+                                }`} 
+                                style={isSelected ? {
+                                    padding: '2px',
+                                    background: `linear-gradient(to right, var(--color-admin-selection-from), var(--color-admin-selection-to))`,
+                                    boxShadow: `0 0 20px color-mix(in srgb, var(--color-admin-selection-to) 15%, transparent)`,
+                                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                                    WebkitMaskComposite: 'xor',
+                                    maskComposite: 'exclude'
+                                } : (hoveredIndex === index && draggedIndex !== index) ? {
+                                    borderColor: `color-mix(in srgb, var(--color-admin-selection-from) 50%, transparent)`,
+                                    backgroundColor: `color-mix(in srgb, var(--color-admin-selection-from) 10%, transparent)`,
+                                } : {}}
+                            />
                             
                             {/* Manejador de Redimensionamiento (esquina inf-der) */}
                             {isSelected && (
@@ -196,11 +209,12 @@ export default function BuilderCanvas({
                             )}
                             
                             {/* Renderizado real del widget delegando al dispatcher de la Fase 3 */}
-                            <div className="relative h-full z-0 pointer-events-none">
+                            <div className="relative w-full h-full z-0 pointer-events-none">
                                 <WidgetRenderer 
                                     widget={widget} 
                                     equipmentMap={equipmentMap} 
                                     isLoadingData={false} 
+                                    className="w-full h-full"
                                 />
                             </div>
                         </div>

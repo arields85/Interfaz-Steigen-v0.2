@@ -189,3 +189,39 @@
 
 ### 5. Verificación
 - [x] Redimensionar widgets tanto por drag and drop como por select, guardar draft, refrescar con estado final intacto.
+
+## Fase 15: Widget de Aguja (Gauge)
+
+### 1. Componentización
+- [x] Crear `widgets/renderers/GaugeWidget.tsx` (estructura SVG/Recharts).
+
+### 2. Lógica Dinámica
+- [x] Implementar mapeo de `thresholds` a colores del arco.
+- [x] Renderizar valor actual y unidad en el centro.
+
+### 3. Registro e Integración
+- [x] Registrar en el dispatcher de `WidgetRenderer.tsx`.
+- [x] Asignar tamaño `w:2, h:2` por defecto en la creación.
+
+## Fase 16: Buscador de Variables
+
+### 1. UI de Búsqueda
+- [ ] Añadir `input` de búsqueda en el `BindingEditor.tsx`.
+
+### 2. Lógica de Filtrado
+- [ ] Filtrar lista de equipos y variables en base al input.
+- [ ] Mostrar feedback visual si no hay resultados.
+
+## Fase 17: Rediseño de Widget KPI (Rango Visual)
+
+### 1. Componente Base
+- [x] Renombrar o adaptar para separar la lógica del `MetricCard` clásico.
+- [x] Soportar las props de `min`, `max` y `kpiMode` (`circular` | `bar`).
+
+### 2. Renderer Visual
+- [x] Crear variante **Circular** con progreso de anillo SVG interactivo.
+- [x] Crear variante **Barra Horizontal** simulando UI premiun con limits.
+
+### 3. Builder Integration
+- [x] Ampliar `PropertiesPanel` para permitir configurar min, max y modo.
+- [x] Probar persistencia del nuevo modelo.

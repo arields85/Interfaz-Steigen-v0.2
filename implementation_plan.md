@@ -531,3 +531,47 @@ Permitir a los administradores ajustar bidimensionalmente (Ancho y Alto) el tama
 3. Arrastrar la manija de la esquina inferior derecha del widget y redimensionar interactivamente a 3 de ancho y 2 de alto.
 4. Soltar y ver cómo la grilla se ajusta mediante CSS Grid.
 5. El estado del Dashboard cambia a "Draft". Guardar y recargar con `F5` certificando que todo persiste.
+
+---
+
+## Fase 15 — Widget de Aguja (Gauge) Industrial
+
+### Objetivo
+Implementar el widget tipo de aguja (`gauge`) para visualizar variables analógicas en un formato circular semicircular, permitiendo una lectura rápida de proximidad a límites (Thresholds). Este widget es fundamental para la estética "industrial premium" del sistema.
+
+### 1. Componente GaugeRenderer (`widgets/renderers/GaugeWidget.tsx`) [NUEVO]
+- Utilizar **Recharts** (PieChart con ángulos específicos) o una implementación personalizada con SVG para el arco.
+- El arco debe cambiar de color (cyan -> orange -> red) según el valor actual comparado con los `thresholds`.
+- Mostrar el valor central y la unidad.
+- Soporte para `min/max` (por defecto 0-100 o extraído de metadata futura).
+
+### 2. Integración en el Sistema
+- Registrar `'gauge'` en `WidgetRenderer.tsx`.
+- Asegurar que el `PropertiesPanel` permita configurar los thresholds que afectarán el color del arco.
+- En el Builder, asignar tamaño por defecto `w: 2, h: 2` (cuadrado grande) para legibilidad.
+
+---
+
+## Fase 16 — Buscador y Filtrado en Binding Editor
+
+### Objetivo
+Optimizar la experiencia del administrador al asignar variables. En lugar de navegar dropdowns anidados ciegamente, se implementará un buscador/filtro rápido que permita encontrar equipos y métricas por nombre.
+
+### 1. UI de Búsqueda (`components/admin/BindingEditor.tsx`) [MODIFICAR]
+- Añadir un `input` de búsqueda con ícono de lupa en la sección de "Variable Real".
+- Filtrar la lista de `Equipment` (assets) en tiempo real mientras el usuario escribe.
+- Mostrar resultados destacados.
+
+### 2. UX de Selección
+- Si solo hay un equipo que coincide, pre-seleccionarlo.
+- Facilitar el borrado del filtro para volver a la lista completa.
+
+---
+
+### Fase 17: Rediseño de KPI Visual (Indicator)
+*   **Objetivo:** Transformar el KPI numérico en un indicador visual de rango con progreso radial y barra horizontal.
+*   **Alcance:**
+    *   Soportar opciones de visualización "circular" y "barra".
+    *   Habilitar la configuración de rangos explícitos (min, max).
+    *   Replicar los diseños premium de Dashboards (UI Dark Industrial tipo gauge radial y línea segmentada).
+    *   Integración end-to-end con Panel de Propiedades y Storage.

@@ -23,7 +23,6 @@ export default function PropertiesPanel({
     selectedLayout,
     equipmentMap,
     onUpdateWidget,
-    onUpdateLayout,
     onDelete
 }: PropertiesPanelProps) {
     if (!selectedWidget || !selectedLayout) {
@@ -48,15 +47,9 @@ export default function PropertiesPanel({
         onUpdateWidget({ ...selectedWidget, title: e.target.value });
     };
 
-    const handleWidthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        onUpdateLayout({ ...selectedLayout, w: parseInt(e.target.value, 10) });
-    };
+    const handleDisplayOptionChange = (key: string, value: string | number | boolean) => {
+        if (!selectedWidget) return;
 
-    const handleHeightChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        onUpdateLayout({ ...selectedLayout, h: parseInt(e.target.value, 10) });
-    };
-
-    const handleDisplayOptionChange = (key: string, value: string) => {
         const displayOptions: Record<string, unknown> = { ...(selectedWidget.displayOptions || {}) };
         if (!value) {
             displayOptions[key] = undefined;
@@ -78,29 +71,17 @@ export default function PropertiesPanel({
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-industrial-muted flex items-center gap-2">
                     <Settings2 size={12} /> Propiedades
                 </h3>
-                <button 
+                <button
                     onClick={onDelete}
                     className="p-1.5 text-red-500/50 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                     title="Eliminar widget"
                 >
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                 </button>
             </div>
 
             <div className="px-4 flex-1 space-y-6 pb-6">
-                {/* IDENTIDAD */}
-                <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Título del Widget</label>
-                    <input 
-                        type="text" 
-                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
-                        value={selectedWidget.title || ''}
-                        onChange={handleTitleChange}
-                        placeholder="ej. Velocidad Principal"
-                    />
-                </div>
-
-                {/* TIPO */}
+                {/* 1. TIPO */}
                 <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Tipo de Componente</label>
                     <div className="text-xs font-medium text-slate-300 bg-white/5 px-2 py-1.5 rounded inline-block border border-white/5">
@@ -108,35 +89,31 @@ export default function PropertiesPanel({
                     </div>
                 </div>
 
-                {/* LAYOUT / SIZE */}
+                {/* 2. IDENTIDAD */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Ancho en Grilla (Columnas)</label>
-                    <select 
-                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 appearance-none mb-4"
-                        value={selectedLayout.w}
-                        onChange={handleWidthChange}
-                    >
-                        <option value={1}>1 Columna (1/4)</option>
-                        <option value={2}>2 Columnas (Mitad)</option>
-                        <option value={3}>3 Columnas (3/4)</option>
-                        <option value={4}>4 Columnas (Completo)</option>
-                    </select>
-
-                    <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Alto en Grilla (Filas)</label>
-                    <select 
-                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 appearance-none"
-                        value={selectedLayout.h || 1}
-                        onChange={handleHeightChange}
-                    >
-                        <option value={1}>1 Fila (Estándar)</option>
-                        <option value={2}>2 Filas (Doble)</option>
-                        <option value={3}>3 Filas</option>
-                        <option value={4}>4 Filas</option>
-                        <option value={5}>5 Filas</option>
-                        <option value={6}>6 Filas (Máximo)</option>
-                    </select>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Título del Widget</label>
+                    <input
+                        type="text"
+                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
+                        value={selectedWidget.title || ''}
+                        onChange={handleTitleChange}
+                        placeholder="ej. Velocidad Principal"
+                    />
                 </div>
 
+                {/* 3. SUBTEXTO */}
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Subtexto Aclaratorio</label>
+                    <input
+                        type="text"
+                        className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
+                        value={(selectedWidget.displayOptions?.subtext as string) || ''}
+                        onChange={e => handleDisplayOptionChange('subtext', e.target.value)}
+                        placeholder="ej. Target 12.0"
+                    />
+                </div>
+
+                {/* 4. VISUALIZACIÓN & FORMATO */}
                 <div className="border-t border-white/5 pt-6 space-y-6">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-industrial-muted flex items-center gap-2">
                         Visualización & Formato
@@ -145,7 +122,7 @@ export default function PropertiesPanel({
                     {/* ÍCONO */}
                     <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Ícono Principal</label>
-                        <select 
+                        <select
                             className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 appearance-none"
                             value={(selectedWidget.displayOptions?.icon as string) || 'Gauge'}
                             onChange={e => handleDisplayOptionChange('icon', e.target.value)}
@@ -157,41 +134,89 @@ export default function PropertiesPanel({
                             <option value="Droplet">Líquido (Droplet)</option>
                             <option value="Wind">Flujo/Viento (Wind)</option>
                             <option value="Settings">Mecánico (Settings)</option>
+                            <option value="Fan">Rotor (Rotor)</option>
+                            <option value="FoldVertical">Compresión (Compression)</option>
                         </select>
                     </div>
 
                     {/* UNIDAD */}
                     <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Unidad de Medida</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
                             value={selectedWidget.binding?.unit || ''}
                             onChange={handleUnitChange}
                             placeholder="ej. °C, RPM, %"
                         />
                     </div>
-
-                    {/* SUBTEXTO */}
-                    <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Subtexto Aclaratorio</label>
-                        <input 
-                            type="text" 
-                            className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
-                            value={(selectedWidget.displayOptions?.subtext as string) || ''}
-                            onChange={e => handleDisplayOptionChange('subtext', e.target.value)}
-                            placeholder="ej. Sistema principal"
-                        />
-                    </div>
                 </div>
 
-                <div className="border-t border-white/5 pt-6" />
+                {selectedWidget.type === 'kpi' && (
+                    <div className="border-t border-white/5 pt-6 space-y-6">
+                        {/* 5. ESTILO VISUAL */}
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Estilo Visual</label>
+                            <select
+                                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 appearance-none"
+                                value={(selectedWidget.displayOptions?.kpiMode as string) || 'circular'}
+                                onChange={e => handleDisplayOptionChange('kpiMode', e.target.value)}
+                            >
+                                <option value="circular">Progreso Radial</option>
+                                <option value="bar">Barra Horizontal</option>
+                            </select>
+                        </div>
 
-                {/* BINDING Y THRESHOLDS */}
-                <BindingEditor 
-                    widget={selectedWidget} 
-                    equipmentMap={equipmentMap} 
-                    onUpdate={onUpdateWidget} 
+                        {/* MIN / MAX */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Valor Mínimo</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
+                                    value={selectedWidget.displayOptions?.min !== undefined ? Number(selectedWidget.displayOptions.min) : 0}
+                                    onChange={e => handleDisplayOptionChange('min', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-2">Valor Máximo</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-cyan/50 transition-colors"
+                                    value={selectedWidget.displayOptions?.max !== undefined ? Number(selectedWidget.displayOptions.max) : 100}
+                                    onChange={e => handleDisplayOptionChange('max', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* 6. COLOR DINÁMICO */}
+                        <div className="pt-2">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={!!selectedWidget.displayOptions?.dynamicColor}
+                                        onChange={e => handleDisplayOptionChange('dynamicColor', e.target.checked)}
+                                    />
+                                    <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent-cyan"></div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-white group-hover:text-accent-cyan transition-colors">Color Dinámico</span>
+                                    <span className="text-[10px] text-industrial-muted">Cambia el color al superar umbrales (Warning/Critical)</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {/* 7 y 8 resueltos internamente en BindingEditor */}
+                <BindingEditor
+                    widget={selectedWidget}
+                    equipmentMap={equipmentMap}
+                    onUpdate={onUpdateWidget}
                 />
 
             </div>

@@ -98,9 +98,10 @@ export default function BindingEditor({ widget, equipmentMap, onUpdate }: Bindin
                         <div className="p-3 bg-white/[0.02] border border-white/5 rounded-lg space-y-2">
                             <label className="text-[10px] text-industrial-muted font-bold block">Valor actual simulado</label>
                             <input 
-                                type="text" 
+                                type="number"
+                                step="any" 
                                 className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-accent-cyan font-mono focus:outline-none focus:border-accent-cyan/50"
-                                value={binding.simulatedValue?.toString() ?? ''}
+                                value={(binding.simulatedValue as string | number) ?? ''}
                                 onChange={handleSimulatedValueChange}
                                 placeholder="Ej. 1500"
                             />
@@ -144,7 +145,7 @@ export default function BindingEditor({ widget, equipmentMap, onUpdate }: Bindin
             </div>
 
             {/* THRESHOLDS (Solo útil para kpis o métricas, pero expuesto para demo) */}
-            {(widget.type === 'metric-card' || widget.type === 'kpi' || widget.type === 'gauge') && (
+            {(widget.type === 'metric-card' || widget.type === 'kpi') && (
                 <div className="border-t border-white/5 pt-6">
                     <label className="text-[10px] font-black uppercase tracking-widest text-industrial-muted block mb-3 flex items-center justify-between">
                         <span className="flex items-center gap-2"><Zap size={12} /> Umbrales (Thresholds)</span>

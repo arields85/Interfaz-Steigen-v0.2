@@ -34,8 +34,8 @@ export default function StatusWidget({
     const status: EquipmentStatus = equipment?.status ?? 'unknown';
 
     return (
-        <span className={className}>
+        <div className={`w-full h-full flex items-center justify-center glass-panel ${className ?? ''}`}>
             <StatusBadge status={status} compact={compact} />
-        </span>
+        </div>
     );
 }

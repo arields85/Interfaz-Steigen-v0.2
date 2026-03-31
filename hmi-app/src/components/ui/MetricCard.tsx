@@ -26,18 +26,18 @@ interface MetricCardProps {
 const STATUS_STYLES = {
     normal: {
         card: 'glass-panel hover:border-accent-cyan',
-        icon: 'text-accent-cyan',
-        value: 'text-white',
+        color: 'var(--color-widget-icon)',
+        valueColor: undefined as string | undefined, // white by default
     },
     warning: {
         card: 'bg-[#15100a] border border-accent-amber/30 rounded-3xl backdrop-blur-md hover:border-accent-amber/60',
-        icon: 'text-accent-amber',
-        value: 'text-accent-amber',
+        color: 'var(--color-status-warning)',
+        valueColor: 'var(--color-status-warning)',
     },
     critical: {
         card: 'bg-[#1a0b0f] border border-accent-ruby/30 rounded-3xl backdrop-blur-md hover:border-accent-ruby/60',
-        icon: 'text-accent-ruby',
-        value: 'text-accent-ruby',
+        color: 'var(--color-status-critical)',
+        valueColor: 'var(--color-status-critical)',
     },
 };
 
@@ -68,7 +68,7 @@ export default function MetricCard({
         return (
             <div className={`p-5 rounded-3xl bg-industrial-surface border border-accent-ruby/20 flex flex-col justify-center items-center gap-2 ${className}`}>
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{label}</span>
-                <span className="text-xs text-accent-ruby font-medium">Error de lectura</span>
+                <span className="text-xs font-medium" style={{ color: 'var(--color-status-critical)' }}>Error de lectura</span>
             </div>
         );
     }
@@ -77,7 +77,7 @@ export default function MetricCard({
     const isNoData = value === null || value === undefined;
 
     return (
-        <div className={`p-5 flex flex-col justify-between transition-colors duration-300 ${styles.card} ${className}`}>
+        <div className={`p-5 flex flex-col justify-between w-full h-full transition-colors duration-300 ${styles.card} ${className}`}>
             {/* Header */}
             <div className="flex justify-between items-start">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
@@ -86,14 +86,18 @@ export default function MetricCard({
                 {Icon && (
                     <Icon
                         size={24}
-                        strokeWidth={1.5}
-                        className={`opacity-80 ${styles.icon}`}
+                        strokeWidth={2}
+                        className="shrink-0"
+                        style={{ color: styles.color }}
                     />
                 )}
             </div>
 
             {/* Valor principal */}
-            <div className={`mt-3 text-4xl font-black tracking-tighter flex items-end gap-1.5 ${isNoData ? 'text-slate-600' : styles.value}`}>
+            <div 
+                className={`mt-3 text-4xl font-black tracking-tighter flex items-end gap-1.5 ${isNoData ? 'text-slate-600' : ''}`}
+                style={!isNoData && styles.valueColor ? { color: styles.valueColor } : undefined}
+            >
                 {displayValue}
                 {unit && !isNoData && (
                     <span className="text-lg text-slate-400 font-bold mb-0.5">{unit}</span>

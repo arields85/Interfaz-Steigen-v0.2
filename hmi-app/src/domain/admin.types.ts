@@ -73,7 +73,6 @@ export type WidgetType =
     | 'metric-card'
     | 'status'
     | 'badge'
-    | 'gauge'
     | 'sparkline'
     | 'trend-chart'
     | 'table'

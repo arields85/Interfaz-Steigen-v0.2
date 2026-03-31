@@ -97,7 +97,7 @@ function TreeNode({
             <button
                 className={`w-full flex items-center gap-1.5 py-1.5 pr-3 rounded-md text-sm text-left transition-all group ${
                     isSelected
-                        ? 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20'
+                        ? 'bg-admin-accent/10 text-admin-accent border border-admin-accent/20'
                         : 'text-industrial-muted hover:bg-white/[0.04] hover:text-industrial-text'
                 }`}
                 style={{ paddingLeft: `${indentPx + 8}px` }}
@@ -129,7 +129,7 @@ function TreeNode({
                 {node.linkedDashboardId && (
                     <LayoutDashboard
                         size={11}
-                        className="shrink-0 text-accent-cyan/60"
+                        className="shrink-0 text-admin-accent/60"
                     />
                 )}
             </button>
