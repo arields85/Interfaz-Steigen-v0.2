@@ -97,14 +97,40 @@ export default function BindingEditor({ widget, equipmentMap, onUpdate }: Bindin
                     {binding.mode === 'simulated_value' && (
                         <div className="p-3 bg-white/[0.02] border border-white/5 rounded-lg space-y-2">
                             <label className="text-[10px] text-industrial-muted font-bold block">Valor actual simulado</label>
-                            <input 
-                                type="number"
-                                step="any" 
-                                className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-accent-cyan font-mono focus:outline-none focus:border-accent-cyan/50"
-                                value={(binding.simulatedValue as string | number) ?? ''}
-                                onChange={handleSimulatedValueChange}
-                                placeholder="Ej. 1500"
-                            />
+                            {widget.type === 'connection-status' ? (
+                                <select
+                                    className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent-cyan/50 appearance-none"
+                                    value={(() => {
+                                        const simulated = binding.simulatedValue;
+                                        if (simulated === true || simulated === 1 || simulated === '1' || simulated === 'true' || simulated === 'conectado') {
+                                            return 'connected';
+                                        }
+                                        return 'disconnected';
+                                    })()}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        onUpdate({
+                                            ...widget,
+                                            binding: {
+                                                ...binding,
+                                                simulatedValue: value === 'connected' ? 1 : 0,
+                                            },
+                                        });
+                                    }}
+                                >
+                                    <option value="connected">Conectado</option>
+                                    <option value="disconnected">Desconectado</option>
+                                </select>
+                            ) : (
+                                <input 
+                                    type="number"
+                                    step="any" 
+                                    className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-sm text-accent-cyan font-mono focus:outline-none focus:border-accent-cyan/50"
+                                    value={(binding.simulatedValue as string | number) ?? ''}
+                                    onChange={handleSimulatedValueChange}
+                                    placeholder="Ej. 1500"
+                                />
+                            )}
                         </div>
                     )}
 
@@ -124,7 +150,7 @@ export default function BindingEditor({ widget, equipmentMap, onUpdate }: Bindin
                                 </select>
                             </div>
 
-                            {selectedAsset && (
+                            {selectedAsset && widget.type !== 'connection-status' && (
                                 <div>
                                     <label className="text-[10px] text-industrial-muted font-bold block mb-1">Variable Mapeada</label>
                                     <select 

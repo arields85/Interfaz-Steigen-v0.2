@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import WidgetHeader from './WidgetHeader';
 
 // =============================================================================
 // MetricCard
@@ -14,7 +15,14 @@ interface MetricCardProps {
     /** Estado semántico que modifica borde y textura de la card */
     status?: 'normal' | 'warning' | 'critical';
     icon?: LucideIcon;
-    /** Texto de contexto secundario (ej. "Límite: 45.0 °C") */
+    /** Override semántico para color del ícono del header. */
+    iconColor?: string;
+    /**
+     * Subtítulo en el HEADER (debajo del título, mismo color que el ícono).
+     * Concepto diferente a `subtext` — subtitle = cabecera, subtext = footer.
+     */
+    subtitle?: string;
+    /** Texto de contexto secundario en el FOOTER (ej. "Límite: 45.0 °C") */
     subtext?: string;
     /** Si true, muestra skeleton de carga */
     isLoading?: boolean;
@@ -25,17 +33,17 @@ interface MetricCardProps {
 
 const STATUS_STYLES = {
     normal: {
-        card: 'glass-panel hover:border-accent-cyan',
+        card: 'glass-panel',
         color: 'var(--color-widget-icon)',
         valueColor: undefined as string | undefined, // white by default
     },
     warning: {
-        card: 'bg-[#15100a] border border-accent-amber/30 rounded-3xl backdrop-blur-md hover:border-accent-amber/60',
+        card: 'widget-state-warning',
         color: 'var(--color-status-warning)',
         valueColor: 'var(--color-status-warning)',
     },
     critical: {
-        card: 'bg-[#1a0b0f] border border-accent-ruby/30 rounded-3xl backdrop-blur-md hover:border-accent-ruby/60',
+        card: 'widget-state-critical',
         color: 'var(--color-status-critical)',
         valueColor: 'var(--color-status-critical)',
     },
@@ -47,6 +55,8 @@ export default function MetricCard({
     unit,
     status = 'normal',
     icon: Icon,
+    iconColor,
+    subtitle,
     subtext,
     isLoading = false,
     isError = false,
@@ -77,21 +87,14 @@ export default function MetricCard({
     const isNoData = value === null || value === undefined;
 
     return (
-        <div className={`p-5 flex flex-col justify-between w-full h-full transition-colors duration-300 ${styles.card} ${className}`}>
-            {/* Header */}
-            <div className="flex justify-between items-start">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    {label}
-                </span>
-                {Icon && (
-                    <Icon
-                        size={24}
-                        strokeWidth={2}
-                        className="shrink-0"
-                        style={{ color: styles.color }}
-                    />
-                )}
-            </div>
+        <div className={`p-5 flex flex-col justify-between w-full h-full transition-colors duration-300 group ${styles.card} ${className}`}>
+            {/* Header — usa WidgetHeader estándar del sistema */}
+            <WidgetHeader
+                title={label}
+                icon={Icon}
+                iconColor={iconColor ?? styles.color}
+                subtitle={subtitle}
+            />
 
             {/* Valor principal */}
             <div 

@@ -158,6 +158,22 @@ hmi-app/src/
 - **Hooks custom** para lógica compleja en componentes. No lógica async directa en componentes.
 - Los servicios de almacenamiento admin usan `localStorage` como capa mock; no asumir persistencia real.
 
+### Política anti-parches (obligatoria)
+
+- **CERO parches ad-hoc**: no aplicar fixes globales para resolver un problema local si existe un bloque/primitive responsable de ese layout o comportamiento.
+- **Resolver en la capa correcta**:
+  - layout general → contenedor/layout
+  - composición del widget → bloque interno del widget
+  - estilo semántico → token del sistema
+- Antes de tocar código visual: identificar **causa raíz** y dejar el ajuste en el nodo responsable (no en un wrapper genérico por conveniencia).
+- Si por compatibilidad temporal se requiere workaround, debe quedar **documentado con TODO + motivo + plan de remoción**.
+
+### Política de hardcode (obligatoria)
+
+- No hardcodear valores visuales/semánticos cuando exista token, primitive o contrato de dominio.
+- Colores y fuentes: siempre vía `@theme` (`hmi-app/src/index.css`).
+- Labels de estado y copy configurable: siempre vía `displayOptions` tipadas (no strings mágicos dispersos).
+
 ---
 
 ## 7. Sistema de Diseño
@@ -183,6 +199,54 @@ Esta regla es arquitectural: el panel de administración incluirá un ícono de 
 | Gradientes de widget    | `--color-widget-*`         | `gradient-from`, `gradient-to`, `icon`           | Degradados base de métricas sin umbral   |
 | Colorización dinámica   | `--color-dynamic-*`        | `normal-from/to`, `warning-from/to`, `critical-from/to` | Degradados según umbral de métrica  |
 | Estado operativo        | `--color-status-*`         | `normal`, `warning`, `critical`                  | Indicadores de estado de equipos        |
+
+### Convención para widgets nuevos
+
+**Widgets con color dinámico**
+- Todo widget nuevo que represente estado, severidad o umbrales debe usar exclusivamente los tokens semánticos definidos en `hmi-app/src/index.css`.
+- Para colorizado dinámico usar:
+  - `--color-dynamic-normal-from`
+  - `--color-dynamic-normal-to`
+  - `--color-dynamic-warning-from`
+  - `--color-dynamic-warning-to`
+  - `--color-dynamic-critical-from`
+  - `--color-dynamic-critical-to`
+- Para íconos, acentos y subtexto usar:
+  - `--color-widget-icon`
+  - `--color-status-normal`
+  - `--color-status-warning`
+  - `--color-status-critical`
+  - `--color-widget-gradient-from`
+  - `--color-widget-gradient-to`
+- Para UI estructural del modo admin usar:
+  - `--color-admin-accent`
+  - `--color-admin-selection-from`
+  - `--color-admin-selection-to`
+
+**Prohibido**
+- Hardcodear colores hex en renderers, componentes o SVGs de widgets.
+- Inventar una lógica cromática paralela por fuera de los tokens semánticos.
+- Usar colores visualmente correctos pero semánticamente inconsistentes con el sistema.
+
+**Criterio**
+- Si el widget no usa estado dinámico, usar el degradado base de widget.
+- Si el widget responde a umbrales o severidad, usar los tokens `--color-dynamic-*`.
+- Si el widget muestra estado puntual, usar `--color-status-*`.
+
+### Convención estructural para widgets nuevos
+
+- Todo widget nuevo debe apoyarse en primitives compartidos del sistema y NO reinventar estructura base.
+- Shell visual base: `glass-panel`.
+- Header canónico: `hmi-app/src/components/ui/WidgetHeader.tsx`.
+- Acciones hover: `hmi-app/src/components/ui/WidgetHoverActions.tsx`.
+- Foco/selección:
+  - grid → `hmi-app/src/components/ui/GridSelectionFrame.tsx`
+  - header → `hmi-app/src/components/ui/HeaderSelectionFrame.tsx`
+- Registro obligatorio del renderer en `hmi-app/src/widgets/WidgetRenderer.tsx`.
+- Si el widget agrega configuración nueva, tipar `displayOptions` en `hmi-app/src/domain/admin.types.ts`.
+- `subtitle` = contexto de header. `subtext` = texto inferior/footer. Nunca mezclar.
+- Template base para widgets nuevos: `.agent/skills/interfaz-widget/assets/NewWidgetTemplate.tsx`.
+- Guía detallada: `hmi-app/src/widgets/WIDGET_AUTHORING.md`.
 
 ### Fuentes
 
@@ -247,3 +311,4 @@ Consultá los documentos en `Directrices/` antes de tomar una decisión arquitec
 | [`Directrices/Arquitectura Técnica de Implementación HMI v1.3.md`](Directrices/Arquitectura%20Técnica%20de%20Implementación%20HMI%20v1.3.md) | Arquitectura técnica detallada: flujos de datos, capas, patrones y convenciones de implementación |
 | [`Directrices/Especificación funcional_Modo Administrador.md`](Directrices/Especificación%20funcional_Modo%20Administrador.md) | Especificación funcional completa del modo administrador: dashboard builder, widgets y almacenamiento |
 | [`Directrices/UI_Style_Guide_Design_System_Base_v1.md`](Directrices/UI_Style_Guide_Design_System_Base_v1.md) | Guía de estilo y sistema de diseño: tokens visuales, componentes, patrones de UI y sistema de colores |
+| [`hmi-app/src/widgets/WIDGET_AUTHORING.md`](hmi-app/src/widgets/WIDGET_AUTHORING.md) | Convención operativa para crear widgets nuevos reutilizando header, focus, hover actions y template base |

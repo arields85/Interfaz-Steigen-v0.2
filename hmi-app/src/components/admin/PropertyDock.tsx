@@ -1,9 +1,22 @@
 import { useState } from 'react';
-import { Settings2, Trash2, X, Database, Zap, Eye, Sliders, Tag, Copy, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical } from 'lucide-react';
-import type { WidgetConfig, WidgetBinding, WidgetLayout } from '../../domain/admin.types';
-import type { EquipmentSummary } from '../../domain/equipment.types';
+import { Settings2, Trash2, X, Database, Zap, Eye, Sliders, Tag, Copy, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import type { WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, ConnectionIndicatorDisplayOptions, StatusDisplayOptions } from '../../domain/admin.types';
+import type { ConnectionState, EquipmentSummary } from '../../domain/equipment.types';
 import AdminSelect from './AdminSelect';
 import AdminNumberInput from './AdminNumberInput';
+import {
+    DEFAULT_STATUS_LABELS,
+    EQUIPMENT_STATUS_VALUES,
+    normalizeSimulatedEquipmentStatus,
+} from '../../utils/statusWidget';
+import {
+    CONNECTION_INDICATOR_TEXT_OPTION_KEY,
+    CONNECTION_STATE_VALUES,
+    DEFAULT_CONNECTION_INDICATOR_LABELS,
+    DEFAULT_CONNECTION_STATUS_LABELS,
+    normalizeSimulatedConnectionState,
+    normalizeSimulatedConnectionStatus,
+} from '../../utils/connectionWidget';
 
 // =============================================================================
 // PropertyDock
@@ -17,6 +30,8 @@ import AdminNumberInput from './AdminNumberInput';
 interface PropertyDockProps {
     selectedWidget?: WidgetConfig;
     selectedLayout?: WidgetLayout;
+    isOpen: boolean;
+    onToggleOpen: () => void;
     equipmentMap: Map<string, EquipmentSummary>;
     onUpdateWidget: (w: WidgetConfig) => void;
     onUpdateLayout: (l: WidgetLayout) => void;
@@ -30,9 +45,48 @@ const INPUT_CLS = 'w-full bg-black/40 border border-white/10 rounded px-2 py-1 t
 const LABEL_CLS = 'text-[9px] font-bold uppercase whitespace-nowrap text-industrial-muted w-14';
 const SECTION_HEADER_CLS = 'text-[10px] font-black uppercase tracking-widest text-industrial-muted flex items-center gap-1.5 mb-2';
 
+const STATUS_TEXT_FIELDS: Array<{ key: keyof StatusDisplayOptions; label: string; placeholder: string }> = [
+    { key: 'runningText', label: 'Running', placeholder: DEFAULT_STATUS_LABELS.running },
+    { key: 'idleText', label: 'Idle', placeholder: DEFAULT_STATUS_LABELS.idle },
+    { key: 'warningText', label: 'Warning', placeholder: DEFAULT_STATUS_LABELS.warning },
+    { key: 'criticalText', label: 'Critical', placeholder: DEFAULT_STATUS_LABELS.critical },
+    { key: 'offlineText', label: 'Offline', placeholder: DEFAULT_STATUS_LABELS.offline },
+    { key: 'maintenanceText', label: 'Maint.', placeholder: DEFAULT_STATUS_LABELS.maintenance },
+    { key: 'unknownText', label: 'Unknown', placeholder: DEFAULT_STATUS_LABELS.unknown },
+];
+
+const CONNECTION_STATUS_TEXT_FIELDS: Array<{
+    key: keyof ConnectionStatusDisplayOptions;
+    label: string;
+    placeholder: string;
+}> = [
+    { key: 'connectedText', label: 'Conectado', placeholder: DEFAULT_CONNECTION_STATUS_LABELS.connected },
+    { key: 'disconnectedText', label: 'Descon.', placeholder: DEFAULT_CONNECTION_STATUS_LABELS.disconnected },
+];
+
+const CONNECTION_FIELD_LABELS: Record<ConnectionState, string> = {
+    online: 'Online',
+    degraded: 'Degradado',
+    stale: 'Stale',
+    offline: 'Offline',
+    unknown: 'Unknown',
+};
+
+const CONNECTION_INDICATOR_TEXT_FIELDS: Array<{
+    key: Exclude<keyof ConnectionIndicatorDisplayOptions, 'showLastUpdate'>;
+    label: string;
+    placeholder: string;
+}> = CONNECTION_STATE_VALUES.map(state => ({
+    key: CONNECTION_INDICATOR_TEXT_OPTION_KEY[state],
+    label: CONNECTION_FIELD_LABELS[state],
+    placeholder: DEFAULT_CONNECTION_INDICATOR_LABELS[state],
+}));
+
 export default function PropertyDock({
     selectedWidget,
     selectedLayout,
+    isOpen,
+    onToggleOpen,
     equipmentMap,
     onUpdateWidget,
     onDelete,
@@ -47,16 +101,29 @@ export default function PropertyDock({
 
     const isVisible = !!selectedWidget && !!selectedLayout;
 
-    // --- Handlers ---
-    const handleDisplayOptionChange = (key: string, value: string | number | boolean) => {
+    // -------------------------------------------------------------------------
+    // handleDisplayOptionChange
+    // Escritura controlada de displayOptions para el widget seleccionado.
+    // El cast a Record<string,unknown> está justificado aquí: este dock es
+    // el único punto de escritura de displayOptions en toda la app; los campos
+    // escritos están controlados por la UI y son siempre válidos para el tipo.
+    // El tipado estricto vive en los renderers — este dock es la capa de edición.
+    // -------------------------------------------------------------------------
+    const handleDisplayOptionChange = (key: string, value: string | number | boolean | null) => {
         if (!selectedWidget) return;
-        const displayOptions: Record<string, unknown> = { ...(selectedWidget.displayOptions || {}) };
-        if (!value && value !== 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const current = (selectedWidget.displayOptions ?? {}) as Record<string, unknown>;
+        const displayOptions = { ...current };
+        if (value === null) {
+            displayOptions[key] = null;
+        } else if (value === '') {
             displayOptions[key] = undefined;
         } else {
             displayOptions[key] = value;
         }
-        onUpdateWidget({ ...selectedWidget, displayOptions });
+        // Cast explícito: el tipo correcto de displayOptions se garantiza por la UI
+        // que solo muestra campos válidos para el tipo de widget seleccionado.
+        onUpdateWidget({ ...selectedWidget, displayOptions } as WidgetConfig);
     };
 
     const handleUnitChange = (val: string) => {
@@ -112,13 +179,34 @@ export default function PropertyDock({
     const isKpi = selectedWidget?.type === 'kpi';
     const showThresholds = isKpi || selectedWidget?.type === 'metric-card';
 
+    if (!isVisible) {
+        return null;
+    }
+
     return (
-        <div
-            className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'
-                }`}
-        >
+        <>
+            {!isOpen && (
+                <div className="fixed bottom-3 right-4 z-50">
+                    <button
+                        type="button"
+                        onClick={onToggleOpen}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-industrial-surface/95 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-industrial-muted shadow-lg backdrop-blur-sm transition-colors hover:text-white hover:border-admin-accent/40"
+                        title="Expandir panel de propiedades"
+                        aria-label="Expandir panel de propiedades"
+                    >
+                        <Settings2 size={12} />
+                        Propiedades
+                        <ChevronUp size={12} />
+                    </button>
+                </div>
+            )}
+
             {/* Dock container */}
-            <div className="bg-[#0a0f1a]/95 backdrop-blur-xl border-t border-white/10 rounded-t-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.6)]">
+            <div
+                className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}
+                aria-hidden={!isOpen}
+            >
+            <div className="bg-industrial-surface/95 backdrop-blur-xl border-t border-white/10 rounded-t-2xl shadow-2xl">
                 {/* Top bar: Title + Close */}
                 <div className="flex items-center justify-between px-5 pt-3 pb-2 border-b border-white/5">
                     <div className="flex items-center gap-3">
@@ -133,6 +221,15 @@ export default function PropertyDock({
                         )}
                     </div>
                     <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={onToggleOpen}
+                            className="p-1.5 text-industrial-muted hover:text-white hover:bg-white/5 rounded transition-colors"
+                            title="Colapsar panel"
+                            aria-label="Colapsar panel"
+                        >
+                            <ChevronDown size={14} />
+                        </button>
                         <button
                             onClick={onDuplicate}
                             className="p-1.5 text-industrial-muted hover:text-white hover:bg-white/5 rounded transition-colors"
@@ -173,39 +270,147 @@ export default function PropertyDock({
                                     placeholder="ej. Velocidad"
                                 />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className={LABEL_CLS}>Subtexto</span>
-                                <input
-                                    type="text"
-                                    className={INPUT_CLS}
-                                    value={(selectedWidget.displayOptions?.subtext as string) || ''}
-                                    onChange={e => handleDisplayOptionChange('subtext', e.target.value)}
-                                    placeholder="ej. Target 12.0"
-                                />
-                            </div>
+                            {/* Subtítulo: header del widget (debajo del título). KPI y MetricCard. */}
+                            {(selectedWidget.type === 'kpi' || selectedWidget.type === 'metric-card') && (
+                                <div className="flex items-center gap-2">
+                                    <span className={LABEL_CLS}>Subtítulo</span>
+                                    <input
+                                        type="text"
+                                        className={INPUT_CLS}
+                                        value={(selectedWidget.displayOptions as KpiDisplayOptions | MetricCardDisplayOptions | undefined)?.subtitle || ''}
+                                        onChange={e => handleDisplayOptionChange('subtitle', e.target.value)}
+                                        placeholder="ej. Estado: OK"
+                                    />
+                                </div>
+                            )}
+                            {/* Subtexto: footer del widget (parte inferior). KPI y MetricCard. */}
+                            {(selectedWidget.type === 'kpi' || selectedWidget.type === 'metric-card') && (
+                                <div className="flex items-center gap-2">
+                                    <span className={LABEL_CLS}>Subtexto</span>
+                                    <input
+                                        type="text"
+                                        className={INPUT_CLS}
+                                        value={(selectedWidget.displayOptions as KpiDisplayOptions | MetricCardDisplayOptions | undefined)?.subtext || ''}
+                                        onChange={e => handleDisplayOptionChange('subtext', e.target.value)}
+                                        placeholder="ej. Límite: 45°C"
+                                    />
+                                </div>
+                            )}
+
+                            {selectedWidget.type === 'connection-status' && (
+                                <>
+                                    {CONNECTION_STATUS_TEXT_FIELDS.map(({ key, label, placeholder }) => (
+                                        <div key={key} className="flex items-center gap-2">
+                                            <span className={LABEL_CLS}>{label}</span>
+                                            <input
+                                                type="text"
+                                                className={INPUT_CLS}
+                                                value={(selectedWidget.displayOptions as ConnectionStatusDisplayOptions | undefined)?.[key] || ''}
+                                                onChange={e => handleDisplayOptionChange(key, e.target.value)}
+                                                placeholder={placeholder}
+                                            />
+                                        </div>
+                                    ))}
+                                </>
+                            )}
+
+                            {selectedWidget.type === 'connection-indicator' && (
+                                <>
+                                    {CONNECTION_INDICATOR_TEXT_FIELDS.map(({ key, label, placeholder }) => (
+                                        <div key={key} className="flex items-center gap-2">
+                                            <span className={LABEL_CLS}>{label}</span>
+                                            <input
+                                                type="text"
+                                                className={INPUT_CLS}
+                                                value={(selectedWidget.displayOptions as ConnectionIndicatorDisplayOptions | undefined)?.[key] || ''}
+                                                onChange={e => handleDisplayOptionChange(key, e.target.value)}
+                                                placeholder={placeholder}
+                                            />
+                                        </div>
+                                    ))}
+                                    <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={(selectedWidget.displayOptions as ConnectionIndicatorDisplayOptions | undefined)?.showLastUpdate !== false}
+                                                onChange={e => handleDisplayOptionChange('showLastUpdate', e.target.checked)}
+                                            />
+                                            <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                            Mostrar Tiempo
+                                        </span>
+                                    </label>
+                                </>
+                            )}
+
+                            {selectedWidget.type === 'status' && (
+                                <>
+                                    {STATUS_TEXT_FIELDS.map(({ key, label, placeholder }) => (
+                                        <div key={key} className="flex items-center gap-2">
+                                            <span className={LABEL_CLS}>{label}</span>
+                                            <input
+                                                type="text"
+                                                className={INPUT_CLS}
+                                                value={(selectedWidget.displayOptions as StatusDisplayOptions | undefined)?.[key] || ''}
+                                                onChange={e => handleDisplayOptionChange(key, e.target.value)}
+                                                placeholder={placeholder}
+                                            />
+                                        </div>
+                                    ))}
+                                </>
+                            )}
                         </DockSection>
 
                         {/* ─── VISUAL ─── */}
-                        <DockSection icon={<Eye size={11} />} title="Visual">
-                            <div className="flex items-center gap-2">
-                                <span className={LABEL_CLS}>Ícono</span>
-                                <AdminSelect
-                                    value={(selectedWidget.displayOptions?.icon as string) || 'Gauge'}
-                                    onChange={val => handleDisplayOptionChange('icon', val)}
-                                    options={[
-                                        { value: 'Gauge', label: 'Medidor', icon: <Gauge size={12} /> },
-                                        { value: 'Activity', label: 'Actividad', icon: <Activity size={12} /> },
-                                        { value: 'Thermometer', label: 'Termómetro', icon: <Thermometer size={12} /> },
-                                        { value: 'Zap', label: 'Energía', icon: <Zap size={12} /> },
-                                        { value: 'Droplet', label: 'Líquido', icon: <Droplet size={12} /> },
-                                        { value: 'Wind', label: 'Flujo/Viento', icon: <Wind size={12} /> },
-                                        { value: 'Settings', label: 'Mecánico', icon: <Settings size={12} /> },
-                                        { value: 'Fan', label: 'Rotor', icon: <Fan size={12} /> },
-                                        { value: 'FoldVertical', label: 'Compresión', icon: <FoldVertical size={12} /> },
-                                    ]}
-                                />
-                            </div>
-                            {(() => {
+                        {selectedWidget.type !== 'connection-status' && selectedWidget.type !== 'connection-indicator' && selectedWidget.type !== 'status' && (
+                            <DockSection icon={<Eye size={11} />} title="Visual">
+                                <div className="flex items-center gap-2">
+                                    <span className={LABEL_CLS}>Ícono</span>
+                                    <AdminSelect
+                                        value={(() => {
+                                            const currentIcon = selectedWidget.type === 'alert-history'
+                                                ? (selectedWidget.displayOptions as AlertHistoryDisplayOptions | undefined)?.icon
+                                                : (selectedWidget.displayOptions as KpiDisplayOptions | MetricCardDisplayOptions | undefined)?.icon;
+                                            if (currentIcon === undefined) return '__pending__';
+                                            if (currentIcon === null) return '__none__';
+                                            return currentIcon;
+                                        })()}
+                                        onChange={val => {
+                                            if (val === '__none__') {
+                                                handleDisplayOptionChange('icon', null);
+                                                return;
+                                            }
+                                            if (val === '__pending__') {
+                                                handleDisplayOptionChange('icon', '');
+                                                return;
+                                            }
+                                            handleDisplayOptionChange('icon', val);
+                                        }}
+                                        options={[
+                                            { value: '__pending__', label: '(Ícono pendiente)', icon: <HelpCircle size={12} /> },
+                                            { value: '__none__', label: 'Sin ícono' },
+                                            // History solo aparece como primera opción en alert-history
+                                            ...(selectedWidget.type === 'alert-history'
+                                                ? [{ value: 'History', label: 'Historial', icon: <History size={12} /> }]
+                                                : []
+                                            ),
+                                            { value: 'Gauge', label: 'Medidor', icon: <Gauge size={12} /> },
+                                            { value: 'Activity', label: 'Actividad', icon: <Activity size={12} /> },
+                                            { value: 'Thermometer', label: 'Termómetro', icon: <Thermometer size={12} /> },
+                                            { value: 'Zap', label: 'Energía', icon: <Zap size={12} /> },
+                                            { value: 'Droplet', label: 'Líquido', icon: <Droplet size={12} /> },
+                                            { value: 'Wind', label: 'Flujo/Viento', icon: <Wind size={12} /> },
+                                            { value: 'Settings', label: 'Mecánico', icon: <Settings size={12} /> },
+                                            { value: 'Fan', label: 'Rotor', icon: <Fan size={12} /> },
+                                            { value: 'FoldVertical', label: 'Compresión', icon: <FoldVertical size={12} /> },
+                                            { value: 'TrendingUp', label: 'Tendencia', icon: <TrendingUp size={12} /> },
+                                        ]}
+                                    />
+                                </div>
+                                {/* Unidad: no aplica para alert-history */}
+                                {selectedWidget.type !== 'alert-history' && (() => {
                                 const PRESET_UNITS = ['°C', '°F', 'RPM', '%', 'bar', 'psi', 'kW', 'A', 'V', 'Hz', 'mm', 'kg', 'L/min', 'm³/h', 'N', 'kN'];
                                 const currentUnit = selectedWidget.binding?.unit || '';
                                 const isPreset = PRESET_UNITS.includes(currentUnit);
@@ -249,11 +454,11 @@ export default function PropertyDock({
                                     </>
                                 );
                             })()}
-                            {isKpi && (
-                                <div className="flex items-center gap-2">
+                                {isKpi && (
+                                    <div className="flex items-center gap-2">
                                     <span className={LABEL_CLS}>Estilo</span>
                                     <AdminSelect
-                                        value={(selectedWidget.displayOptions?.kpiMode as string) || 'circular'}
+                                        value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.kpiMode || 'circular'}
                                         onChange={val => handleDisplayOptionChange('kpiMode', val)}
                                         options={[
                                             { value: 'circular', label: 'Radial' },
@@ -261,8 +466,9 @@ export default function PropertyDock({
                                         ]}
                                     />
                                 </div>
-                            )}
-                        </DockSection>
+                                )}
+                            </DockSection>
+                        )}
 
                         {/* ─── RANGO (solo KPI) ─── */}
                         {isKpi && (
@@ -271,14 +477,14 @@ export default function PropertyDock({
                                     <div className="flex items-center gap-2">
                                         <span className={LABEL_CLS}>MIN</span>
                                         <AdminNumberInput
-                                            value={selectedWidget.displayOptions?.min !== undefined ? Number(selectedWidget.displayOptions.min) : 0}
+                                            value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.min ?? 0}
                                             onChange={val => handleDisplayOptionChange('min', val)}
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={LABEL_CLS}>MAX</span>
                                         <AdminNumberInput
-                                            value={selectedWidget.displayOptions?.max !== undefined ? Number(selectedWidget.displayOptions.max) : 100}
+                                            value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.max ?? 100}
                                             onChange={val => handleDisplayOptionChange('max', val)}
                                         />
                                     </div>
@@ -289,7 +495,7 @@ export default function PropertyDock({
                                         <input
                                             type="checkbox"
                                             className="sr-only peer"
-                                            checked={!!selectedWidget.displayOptions?.dynamicColor}
+                                            checked={!!(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.dynamicColor}
                                             onChange={e => handleDisplayOptionChange('dynamicColor', e.target.checked)}
                                         />
                                         <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
@@ -369,68 +575,128 @@ export default function PropertyDock({
                             </DockSection>
                         )}
 
-                        {/* ─── DATOS ─── */}
-                        <DockSection icon={<Database size={11} />} title="Datos" noBorder>
-                            <div className="flex items-center gap-2">
-                                <span className={LABEL_CLS}>Origen</span>
-                                <AdminSelect
-                                    value={binding.mode}
-                                    onChange={val => handleModeChange(val as WidgetBinding['mode'])}
-                                    options={[
-                                        { value: 'simulated_value', label: 'Simulado' },
-                                        { value: 'real_variable', label: 'Variable Real' },
-                                    ]}
-                                />
-                            </div>
-
-                            {binding.mode === 'simulated_value' && (
+                        {/* ─── DATOS — no aplica para alert-history (usa evaluación de widgets hermanos) ─── */}
+                        {selectedWidget.type !== 'alert-history' && (
+                            <DockSection icon={<Database size={11} />} title="Datos" noBorder>
                                 <div className="flex items-center gap-2">
-                                    <span className={LABEL_CLS}>Valor</span>
-                                    <AdminNumberInput
-                                        value={(binding.simulatedValue as string | number) ?? ''}
-                                        onChange={handleSimulatedValueChange}
-                                        placeholder="Ej. 1500"
+                                    <span className={LABEL_CLS}>Origen</span>
+                                    <AdminSelect
+                                        value={binding.mode}
+                                        onChange={val => handleModeChange(val as WidgetBinding['mode'])}
+                                        options={[
+                                            { value: 'simulated_value', label: 'Simulado' },
+                                            { value: 'real_variable', label: 'Variable Real' },
+                                        ]}
                                     />
-
                                 </div>
-                            )}
 
-                            {binding.mode === 'real_variable' && (
-                                <>
+                                {binding.mode === 'simulated_value' && (
                                     <div className="flex items-center gap-2">
-                                        <span className={LABEL_CLS}>Equipo</span>
-                                        <AdminSelect
-                                            value={binding.assetId || ''}
-                                            onChange={val => handleAssetChange(val)}
-                                            placeholder="Seleccione..."
-                                            options={Array.from(equipmentMap.values()).map(eq => ({
-                                                value: eq.id,
-                                                label: eq.name,
-                                            }))}
-                                        />
-                                    </div>
-                                    {selectedAsset && (
-                                        <div className="flex items-center gap-2">
-                                            <span className={LABEL_CLS}>Variable</span>
+                                        <span className={LABEL_CLS}>Valor</span>
+                                        {selectedWidget.type === 'connection-status' ? (
                                             <AdminSelect
-                                                value={binding.variableKey || ''}
-                                                onChange={val => handleVariableChange(val)}
+                                                value={(() => {
+                                                    return normalizeSimulatedConnectionStatus(binding.simulatedValue)
+                                                        ? 'connected'
+                                                        : 'disconnected';
+                                                })()}
+                                                onChange={val => {
+                                                    onUpdateWidget({
+                                                        ...selectedWidget,
+                                                        binding: {
+                                                            ...binding,
+                                                            simulatedValue: val === 'connected' ? 1 : 0,
+                                                        }
+                                                    });
+                                                }}
+                                                options={[
+                                                    { value: 'connected', label: 'Conectado' },
+                                                    { value: 'disconnected', label: 'Desconectado' },
+                                                ]}
+                                            />
+                                        ) : selectedWidget.type === 'connection-indicator' ? (
+                                            <AdminSelect
+                                                value={normalizeSimulatedConnectionState(binding.simulatedValue)}
+                                                onChange={val => {
+                                                    onUpdateWidget({
+                                                        ...selectedWidget,
+                                                        binding: {
+                                                            ...binding,
+                                                            simulatedValue: val,
+                                                        }
+                                                    });
+                                                }}
+                                                options={CONNECTION_STATE_VALUES.map(state => ({
+                                                    value: state,
+                                                    label: DEFAULT_CONNECTION_INDICATOR_LABELS[state],
+                                                }))}
+                                            />
+                                        ) : selectedWidget.type === 'status' ? (
+                                            <AdminSelect
+                                                value={normalizeSimulatedEquipmentStatus(binding.simulatedValue)}
+                                                onChange={val => {
+                                                    onUpdateWidget({
+                                                        ...selectedWidget,
+                                                        binding: {
+                                                            ...binding,
+                                                            simulatedValue: val,
+                                                        }
+                                                    });
+                                                }}
+                                                options={EQUIPMENT_STATUS_VALUES.map(status => ({
+                                                    value: status,
+                                                    label: DEFAULT_STATUS_LABELS[status],
+                                                }))}
+                                            />
+                                        ) : (
+                                            <AdminNumberInput
+                                                value={(binding.simulatedValue as string | number) ?? ''}
+                                                onChange={handleSimulatedValueChange}
+                                                placeholder="Ej. 1500"
+                                            />
+                                        )}
+
+                                    </div>
+                                )}
+
+                                {binding.mode === 'real_variable' && (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <span className={LABEL_CLS}>Equipo</span>
+                                            <AdminSelect
+                                                value={binding.assetId || ''}
+                                                onChange={val => handleAssetChange(val)}
                                                 placeholder="Seleccione..."
-                                                options={selectedAsset.primaryMetrics.map(m => ({
-                                                    value: m.label,
-                                                    label: m.label,
+                                                options={Array.from(equipmentMap.values()).map(eq => ({
+                                                    value: eq.id,
+                                                    label: eq.name,
                                                 }))}
                                             />
                                         </div>
-                                    )}
-                                </>
-                            )}
-                        </DockSection>
+                                        {selectedAsset && selectedWidget.type !== 'connection-status' && selectedWidget.type !== 'connection-indicator' && selectedWidget.type !== 'status' && (
+                                            <div className="flex items-center gap-2">
+                                                <span className={LABEL_CLS}>Variable</span>
+                                                <AdminSelect
+                                                    value={binding.variableKey || ''}
+                                                    onChange={val => handleVariableChange(val)}
+                                                    placeholder="Seleccione..."
+                                                    options={selectedAsset.primaryMetrics.map(m => ({
+                                                        value: m.label,
+                                                        label: m.label,
+                                                    }))}
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </DockSection>
+                        )}
 
                     </div>
                 )}
             </div>
-        </div>
+            </div>
+        </>
     );
 }
 

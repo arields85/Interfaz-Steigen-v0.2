@@ -1,7 +1,8 @@
 import type { Dashboard, Template, WidgetConfig, WidgetLayout } from '../domain/admin.types';
 import { mockDashboards } from '../mocks/admin.mock';
 
-const STORAGE_KEY = 'steigen_hmi_dashboards_v1';
+// v2: bumped para re-seed automático al agregar headerConfig en mocks
+const STORAGE_KEY = 'steigen_hmi_dashboards_v2';
 
 // =============================================================================
 // DashboardStorageService
@@ -124,6 +125,9 @@ class DashboardStorageService {
         const presets = template.widgetPresets || [];
         const layoutPreset = template.layoutPreset || [];
 
+        // Cast explícito: los presets son Partial<WidgetConfig> y el type+displayOptions
+        // se preservan del template. La coherencia entre type y displayOptions es
+        // responsabilidad del template original — aquí solo se reconstruye.
         const widgets: WidgetConfig[] = presets.map((preset, idx) => ({
             id: `w-tpl-${idSuffix}-${idx}`,
             type: preset.type || 'kpi',
@@ -134,7 +138,7 @@ class DashboardStorageService {
             thresholds: preset.thresholds,
             styleVariant: preset.styleVariant,
             displayOptions: preset.displayOptions,
-        }));
+        }) as WidgetConfig);
 
         const layout: WidgetLayout[] = layoutPreset.map((l, idx) => ({
             widgetId: widgets[idx]?.id || `w-tpl-${idSuffix}-${idx}`,

@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, Clock, AlertCircle, HelpCircle } from 'lucide-react';
+import { Wifi, WifiOff, Clock, AlertCircle, Unplug } from 'lucide-react';
 import type { ConnectionState } from '../../domain/equipment.types';
 
 // =============================================================================
@@ -37,12 +37,12 @@ const CONNECTION_CONFIG: Record<ConnectionState, {
     offline: {
         label: 'Sin señal',
         icon: WifiOff,
-        colorClass: 'text-[#4a5568]',
+        colorClass: 'text-industrial-muted',
     },
     unknown: {
-        label: 'Estado desconocido',
-        icon: HelpCircle,
-        colorClass: 'text-[#64748b]',
+        label: 'Sin datos de conexión',
+        icon: Unplug,
+        colorClass: 'text-industrial-muted',
     },
 };
 

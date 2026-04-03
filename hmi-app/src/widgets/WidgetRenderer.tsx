@@ -3,8 +3,10 @@ import type { EquipmentSummary } from '../domain/equipment.types';
 import MetricWidget from './renderers/MetricWidget';
 import StatusWidget from './renderers/StatusWidget';
 import ConnectionWidget from './renderers/ConnectionWidget';
+import ConnectionStatusWidget from './renderers/ConnectionStatusWidget';
 import TrendChartWidget from './renderers/TrendChartWidget';
 import KpiWidget from './renderers/KpiWidget';
+import AlertHistoryWidget from './renderers/AlertHistoryWidget';
 
 // =============================================================================
 // WidgetRenderer — Dispatcher central
@@ -13,11 +15,16 @@ import KpiWidget from './renderers/KpiWidget';
 // Esta es la única interfaz pública que consumen las páginas y el builder.
 // Las páginas no importan renderers individuales.
 //
-// Tipos soportados en Fase 3:
-//   'metric-card', 'kpi' → MetricWidget
-//   'status'             → StatusWidget
+// Tipos soportados:
+//   'metric-card', 'kpi'   → MetricWidget / KpiWidget
+//   'status'               → StatusWidget
 //   'connection-indicator' → ConnectionWidget
-//   'trend-chart'        → TrendChartWidget
+//   'connection-status'    → ConnectionStatusWidget
+//   'trend-chart'          → TrendChartWidget
+//   'alert-history'        → AlertHistoryWidget
+//
+// Para 'alert-history' se necesita la prop opcional `siblingWidgets`
+// con los demás widgets del mismo dashboard para detectar cambios de estado.
 //
 // Arquitectura Técnica v1.3 §16 (niveles de componentes)
 // =============================================================================
@@ -27,6 +34,12 @@ interface WidgetRendererProps {
     equipmentMap: Map<string, EquipmentSummary>;
     isLoadingData?: boolean;
     className?: string;
+    /**
+     * Todos los widgets del mismo dashboard.
+     * Requerido para que AlertHistoryWidget pueda evaluar a sus hermanos.
+     * Ignorado por todos los demás renderers.
+     */
+    siblingWidgets?: WidgetConfig[];
 }
 
 export default function WidgetRenderer({
@@ -34,6 +47,7 @@ export default function WidgetRenderer({
     equipmentMap,
     isLoadingData = false,
     className,
+    siblingWidgets,
 }: WidgetRendererProps) {
     switch (widget.type) {
         case 'metric-card':
@@ -74,12 +88,31 @@ export default function WidgetRenderer({
                 />
             );
 
+        case 'connection-status':
+            return (
+                <ConnectionStatusWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    className={className}
+                />
+            );
+
         case 'trend-chart':
             return (
                 <TrendChartWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
                     isLoadingData={isLoadingData}
+                    className={className}
+                />
+            );
+
+        case 'alert-history':
+            return (
+                <AlertHistoryWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    siblingWidgets={siblingWidgets}
                     className={className}
                 />
             );

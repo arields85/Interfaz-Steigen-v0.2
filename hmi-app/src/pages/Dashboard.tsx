@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Activity, Server, Loader2, Link2Off } from 'lucide-react';
+import { Loader2, Link2Off } from 'lucide-react';
 import { dashboardStorage } from '../services/DashboardStorageService';
 import type { Dashboard } from '../domain/admin.types';
 import DashboardViewer from '../components/viewer/DashboardViewer';
+import DashboardHeader from '../components/viewer/DashboardHeader';
 import { mockEquipmentList } from '../mocks/equipment.mock';
 import type { EquipmentSummary } from '../domain/equipment.types';
 
@@ -10,6 +11,10 @@ import type { EquipmentSummary } from '../domain/equipment.types';
 // Dashboard Público (Visor)
 // Punto de entrada de la aplicación (/ruta raíz).
 // Carga dinámicamente los dashboards con `status === 'published'`.
+//
+// El header es ahora un componente dedicado (DashboardHeader) que consume
+// `dashboard.headerConfig` para título, subtítulo y widget slots.
+// Los widgets asignados al header se excluyen del grid via `headerWidgetIds`.
 //
 // Especificación Funcional Modo Admin §11
 // =============================================================================
@@ -19,7 +24,7 @@ export default function Dashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
 
-    // Mapeo de equipos simulado (para resolver bindings de la F3)
+    // Mapeo de equipos simulado (para resolver bindings)
     const equipmentMap = useMemo(() => {
         const list = mockEquipmentList;
         const map = new Map<string, EquipmentSummary>();
@@ -57,6 +62,42 @@ export default function Dashboard() {
         loadPublished();
     }, []);
 
+    // Si la cantidad de tabs publicados cambia y el índice actual queda fuera
+    // de rango, se normaliza al primer dashboard disponible.
+    useEffect(() => {
+        if (publishedDashboards.length === 0) {
+            if (activeTab !== 0) setActiveTab(0);
+            return;
+        }
+
+        if (activeTab >= publishedDashboards.length) {
+            setActiveTab(0);
+        }
+    }, [activeTab, publishedDashboards.length]);
+
+    const activeDashboard = publishedDashboards[activeTab] ?? publishedDashboards[0];
+
+    // Calcular los IDs de widgets asignados al header (para excluirlos del grid)
+    // Hook ubicado en la zona superior del componente para mantener el orden
+    // consistente entre renders (Rules of Hooks).
+    const headerWidgetIds = useMemo(() => {
+        const slots = activeDashboard?.headerConfig?.widgetSlots ?? [];
+        return new Set(slots.map(s => s.widgetId));
+    }, [activeDashboard]);
+
+    const renderNoPublishedState = () => (
+        <div className="h-full flex flex-col items-center justify-center text-industrial-muted space-y-4">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-2">
+                <Link2Off size={32} className="text-industrial-muted/50" />
+            </div>
+            <h2 className="text-2xl font-black text-white tracking-tight">Sin Vistas Publicadas</h2>
+            <p className="text-sm font-medium text-center max-w-sm">
+                No hay ningún dashboard operativo configurado como público.
+                Contacte a un administrador para publicar una vista desde el Gestor de Dashboards.
+            </p>
+        </div>
+    );
+
     if (isLoading) {
         return (
             <div className="h-full flex items-center justify-center text-industrial-muted gap-3">
@@ -67,75 +108,32 @@ export default function Dashboard() {
     }
 
     if (publishedDashboards.length === 0) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center text-industrial-muted space-y-4">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-2">
-                    <Link2Off size={32} className="text-industrial-muted/50" />
-                </div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Sin Vistas Publicadas</h2>
-                <p className="text-sm font-medium text-center max-w-sm">
-                    No hay ningún dashboard operativo configurado como público. 
-                    Contacte a un administrador para publicar una vista desde el Gestor de Dashboards.
-                </p>
-            </div>
-        );
+        return renderNoPublishedState();
     }
 
-    const activeDashboard = publishedDashboards[activeTab];
+    if (!activeDashboard) {
+        return renderNoPublishedState();
+    }
 
     return (
         <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto mt-4 px-2 overflow-hidden">
 
-            {/* HEADER DASHBOARD DÍNAMICO */}
-            <div className="flex justify-between items-end mb-2 shrink-0">
-                <div>
-                    <h1 className="text-5xl font-black tracking-tight text-industrial-text mb-2">
-                        {activeDashboard.name}
-                    </h1>
-                    <p className="text-industrial-muted text-[11px] font-bold uppercase tracking-widest mt-1">
-                        {activeDashboard.description || 'Vista Operativa Global'}
-                    </p>
-                </div>
-                
-                <div className="flex gap-3 items-end">
-                    {/* Tabs (si hay múltiples) */}
-                    {publishedDashboards.length > 1 && (
-                        <div className="flex bg-white/5 p-1 rounded-lg gap-1 border border-white/5 mr-4">
-                            {publishedDashboards.map((dash, idx) => (
-                                <button
-                                    key={dash.id}
-                                    onClick={() => setActiveTab(idx)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                                        activeTab === idx 
-                                            ? 'bg-industrial-panel text-white shadow-sm' 
-                                            : 'text-industrial-muted hover:text-white'
-                                    }`}
-                                >
-                                    {dash.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+            {/* HEADER CONFIGURADO DESDE dashboard.headerConfig */}
+            <DashboardHeader
+                dashboard={activeDashboard}
+                equipmentMap={equipmentMap}
+                publishedDashboards={publishedDashboards}
+                activeTabIndex={activeTab}
+                onTabChange={setActiveTab}
+            />
 
-                    <button className="glass-panel hover:bg-industrial-hover px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 text-industrial-muted hover:text-industrial-text">
-                        <Server size={16} /> Edge Gateway
-                    </button>
-                    <button className="bg-white/5 hover:bg-white/10 px-5 py-2 rounded-lg flex items-center justify-center border border-white/10 gap-2 transition-transform hover:scale-105 active:scale-95 text-sm font-semibold text-white">
-                        <Activity size={16} />
-                        <span className="flex items-center gap-2">
-                            Centro de Control
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent-green shadow-[0_0_8px_rgba(0,255,102,0.8)] animate-pulse" />
-                        </span>
-                    </button>
-                </div>
-            </div>
-
-            {/* RENDERIZADOR DEL DASHBOARD DINÁMICO */}
+            {/* GRID DEL DASHBOARD — widgets del header excluidos */}
             <div className="flex-1 bg-[url('/grid.svg')] bg-center rounded-xl border border-white/5 overflow-hidden">
                 <DashboardViewer 
                     widgets={activeDashboard.widgets}
                     layout={activeDashboard.layout}
                     equipmentMap={equipmentMap}
+                    headerWidgetIds={headerWidgetIds}
                 />
             </div>
         </div>

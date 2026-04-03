@@ -76,7 +76,7 @@ export default function EquipmentDetail() {
                 </div>
 
                 {/* Temperatura Matriz */}
-                <div className="p-5 flex flex-col justify-between transition-colors duration-300 relative overflow-hidden bg-[#15100a] border border-accent-amber/30 rounded-3xl backdrop-blur-md">
+                <div className="p-5 flex flex-col justify-between transition-colors duration-300 relative overflow-hidden widget-state-warning">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent-amber"></div>
                     <div className="flex justify-between items-start pl-1">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Temp. Matriz</span>

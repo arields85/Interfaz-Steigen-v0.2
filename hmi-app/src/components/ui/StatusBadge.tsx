@@ -1,4 +1,5 @@
 import type { EquipmentStatus } from '../../domain/equipment.types';
+import { DEFAULT_STATUS_LABELS } from '../../utils/statusWidget';
 
 // =============================================================================
 // StatusBadge
@@ -8,63 +9,57 @@ import type { EquipmentStatus } from '../../domain/equipment.types';
 
 interface StatusBadgeProps {
     status: EquipmentStatus;
+    label?: string;
     /** Si true, muestra solo el dot sin el label de texto */
     compact?: boolean;
     className?: string;
 }
 
 const STATUS_CONFIG: Record<EquipmentStatus, {
-    label: string;
     dotClass: string;
     textClass: string;
     animate: boolean;
 }> = {
     running: {
-        label: 'En Producción',
         dotClass: 'bg-accent-green',
         textClass: 'text-accent-green',
         animate: true,
     },
     idle: {
-        label: 'Stand-by',
         dotClass: 'bg-industrial-muted',
         textClass: 'text-industrial-muted',
         animate: false,
     },
     warning: {
-        label: 'Advertencia',
         dotClass: 'bg-accent-amber',
         textClass: 'text-accent-amber',
         animate: true,
     },
     critical: {
-        label: 'Crítico',
         dotClass: 'bg-accent-ruby',
         textClass: 'text-accent-ruby',
         animate: true,
     },
     offline: {
-        label: 'Offline',
-        dotClass: 'bg-[#4a5568]',
-        textClass: 'text-[#4a5568]',
+        dotClass: 'bg-industrial-muted',
+        textClass: 'text-industrial-muted',
         animate: false,
     },
     maintenance: {
-        label: 'Mantenimiento',
         dotClass: 'bg-accent-purple',
         textClass: 'text-accent-purple',
         animate: false,
     },
     unknown: {
-        label: 'Desconocido',
-        dotClass: 'bg-[#64748b]',
-        textClass: 'text-[#64748b]',
+        dotClass: 'bg-industrial-muted',
+        textClass: 'text-industrial-muted',
         animate: false,
     },
 };
 
-export default function StatusBadge({ status, compact = false, className = '' }: StatusBadgeProps) {
+export default function StatusBadge({ status, label, compact = false, className = '' }: StatusBadgeProps) {
     const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.unknown;
+    const resolvedLabel = label?.trim() || DEFAULT_STATUS_LABELS[status];
 
     return (
         <span className={`inline-flex items-center gap-1.5 ${className}`}>
@@ -73,7 +68,7 @@ export default function StatusBadge({ status, compact = false, className = '' }:
             />
             {!compact && (
                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${config.textClass}`}>
-                    {config.label}
+                    {resolvedLabel}
                 </span>
             )}
         </span>

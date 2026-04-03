@@ -1,10 +1,10 @@
-import type { WidgetConfig } from '../../domain/admin.types';
+import type { MetricCardWidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import MetricCard from '../../components/ui/MetricCard';
 import ConnectionBadge from '../../components/ui/ConnectionBadge';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { toCardStatus } from '../resolvers/thresholdEvaluator';
-import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, type LucideIcon } from 'lucide-react';
+import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
     'Gauge': Gauge,
@@ -32,7 +32,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 // =============================================================================
 
 interface MetricWidgetProps {
-    widget: WidgetConfig;
+    widget: MetricCardWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
     isLoadingData?: boolean;
     className?: string;
@@ -51,24 +51,44 @@ export default function MetricWidget({
     const resolved = resolveBinding(widget, equipmentMap);
     const cardStatus = toCardStatus(resolved.status);
 
-    // --- Construcción del subtext ---
-    // Añade contexto de frescura si el dato está stale sin ser totalmente inválido.
-    // "stale" se comunica por subtext + ConnectionBadge, no coloreando el valor.
+    // --- Construcción del subtext (footer) ---
+    // Lee exclusivamente `displayOptions.subtext` — texto aclaratorio inferior.
+    // El concepto `subtitle` (header) no aplica a MetricCard porque su header
+    // solo lleva título + ícono (sin subtítulo de cabecera en este widget base).
+    // La info de frescura también se comunica por subtext + ConnectionBadge.
     let subtext: string | undefined;
 
     if (resolved.status === 'stale') {
         subtext = 'Dato posiblemente desactualizado';
     }
 
-    if (typeof widget.displayOptions?.subtext === 'string') {
+    const configSubtext = widget.displayOptions?.subtext;
+    if (configSubtext) {
         // La config puede definir un subtext adicional (ej. "Límite: 45°C")
-        const configSubtext = widget.displayOptions.subtext;
         subtext = subtext ? `${subtext} · ${configSubtext}` : configSubtext;
     }
 
-    // --- Inferir ícono desde displayOptions si está configurado ---
-    const iconName = typeof widget.displayOptions?.icon === 'string' ? widget.displayOptions.icon : 'Gauge';
-    const Icon = ICON_MAP[iconName] || Gauge;
+    // --- Resolver ícono sin mezclar semántica de dato vs configuración ---
+    // undefined  -> placeholder de configuración pendiente (HelpCircle gris)
+    // null       -> sin ícono explícito
+    // string     -> ícono configurado
+    const iconSetting = widget.displayOptions?.icon;
+    const isPendingIconSelection = iconSetting === undefined;
+    const isNoIconSelection = iconSetting === null;
+    const configuredIcon = typeof iconSetting === 'string' ? ICON_MAP[iconSetting] : undefined;
+    const isInvalidConfiguredIcon = typeof iconSetting === 'string' && configuredIcon === undefined;
+
+    const Icon = isPendingIconSelection
+        ? HelpCircle
+        : isNoIconSelection
+          ? undefined
+          : configuredIcon ?? HelpCircle;
+    const iconColor = isPendingIconSelection || isInvalidConfiguredIcon
+        ? 'var(--color-industrial-muted)'
+        : undefined;
+
+    // --- Subtitle del header (cabecera, no footer) ---
+    const subtitle = widget.displayOptions?.subtitle;
 
     const showConnectionBadge =
         resolved.connectionState !== undefined &&
@@ -82,6 +102,8 @@ export default function MetricWidget({
                 unit={resolved.unit}
                 status={cardStatus}
                 icon={Icon}
+                iconColor={iconColor}
+                subtitle={subtitle}
                 subtext={subtext}
                 isError={resolved.source === 'error' && resolved.status === 'no-data'}
                 className="flex-1 min-h-0"

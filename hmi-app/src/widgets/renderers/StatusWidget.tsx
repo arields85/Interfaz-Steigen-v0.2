@@ -1,6 +1,7 @@
-import type { WidgetConfig } from '../../domain/admin.types';
+import type { StatusDisplayOptions, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary, EquipmentStatus } from '../../domain/equipment.types';
 import StatusBadge from '../../components/ui/StatusBadge';
+import { normalizeSimulatedEquipmentStatus, resolveStatusLabel } from '../../utils/statusWidget';
 
 // =============================================================================
 // StatusWidget
@@ -27,15 +28,22 @@ export default function StatusWidget({
     compact = false,
     className,
 }: StatusWidgetProps) {
-    const assetId = widget.binding?.assetId;
-    const equipment = assetId ? equipmentMap.get(assetId) : undefined;
+    const options = widget.displayOptions as StatusDisplayOptions | undefined;
+    const binding = widget.binding;
 
-    // Resolución directa: EquipmentStatus del equipo o 'unknown' si no se encuentra
-    const status: EquipmentStatus = equipment?.status ?? 'unknown';
+    const status: EquipmentStatus = binding?.mode === 'simulated_value'
+        ? normalizeSimulatedEquipmentStatus(binding.simulatedValue)
+        : (() => {
+            const assetId = binding?.assetId;
+            const equipment = assetId ? equipmentMap.get(assetId) : undefined;
+            return equipment?.status ?? 'unknown';
+        })();
+
+    const label = resolveStatusLabel(status, options);
 
     return (
-        <div className={`w-full h-full flex items-center justify-center glass-panel ${className ?? ''}`}>
-            <StatusBadge status={status} compact={compact} />
+        <div className={`w-full h-full flex items-center justify-center glass-panel group ${className ?? ''}`}>
+            <StatusBadge status={status} label={label} compact={compact} />
         </div>
     );
 }

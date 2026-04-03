@@ -8,6 +8,7 @@ import {
 import { dashboardStorage } from '../../services/DashboardStorageService';
 import { templateStorage } from '../../services/TemplateStorageService';
 import type { Dashboard, Template } from '../../domain/admin.types';
+import { getDashboardHeaderSubtitle, getDashboardHeaderTitle } from '../../utils/dashboardHeader';
 
 // =============================================================================
 // DashboardManagerPage
@@ -143,15 +144,19 @@ export default function DashboardManagerPage() {
             <div className="glass-panel border-white/5 overflow-hidden">
                 <div className="grid grid-cols-[auto_2fr_1fr_1fr_auto] gap-4 p-4 border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-industrial-muted">
                     <div className="w-8"></div>
-                    <div>Nombre / Descripción</div>
+                    <div>Título / Subtítulo</div>
                     <div>Tipo</div>
                     <div>Estado</div>
                     <div className="text-right pr-4">Acciones</div>
                 </div>
 
                 <div className="divide-y divide-white/5">
-                    {dashboards.map(dash => (
-                        <div key={dash.id} className="grid grid-cols-[auto_2fr_1fr_1fr_auto] gap-4 p-4 items-center group hover:bg-white/[0.02] transition-colors">
+                    {dashboards.map(dash => {
+                        const headerTitle = getDashboardHeaderTitle(dash);
+                        const headerSubtitle = getDashboardHeaderSubtitle(dash);
+
+                        return (
+                            <div key={dash.id} className="grid grid-cols-[auto_2fr_1fr_1fr_auto] gap-4 p-4 items-center group hover:bg-white/[0.02] transition-colors">
                             
                             <div className="flex justify-center w-8 text-white/20 cursor-move">
                                 <GripVertical size={16} />
@@ -159,16 +164,18 @@ export default function DashboardManagerPage() {
 
                             <div>
                                 <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                                    {dash.name}
+                                    {headerTitle}
                                     {dash.templateId && (
                                         <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20 uppercase tracking-wider">
                                             Template
                                         </span>
                                     )}
                                 </h3>
-                                <p className="text-xs text-industrial-muted truncate mt-1">
-                                    {dash.description || 'Sin descripción'}
-                                </p>
+                                {headerSubtitle && (
+                                    <p className="text-xs text-industrial-muted truncate mt-1">
+                                        {headerSubtitle}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -221,8 +228,9 @@ export default function DashboardManagerPage() {
                                 </button>
                             </div>
 
-                        </div>
-                    ))}
+                            </div>
+                        );
+                    })}
                     
                     {dashboards.length === 0 && (
                         <div className="p-8 text-center text-industrial-muted italic text-sm">

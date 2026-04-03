@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Copy, Trash2, ArrowUp } from 'lucide-react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import GridSelectionFrame from '../ui/GridSelectionFrame';
+import WidgetHoverActions from '../ui/WidgetHoverActions';
+import {
+    HEADER_WIDGET_DRAG_MIME,
+    HEADER_WIDGET_SLOT_COUNT,
+    type HeaderWidgetDragPayload,
+    serializeHeaderWidgetDragPayload,
+    isHeaderCompatibleWidget,
+} from '../../utils/headerWidgets';
 
 interface BuilderCanvasProps {
     widgets: WidgetConfig[];
@@ -11,6 +21,26 @@ interface BuilderCanvasProps {
     selectedWidgetId?: string;
     onReorder?: (startIndex: number, endIndex: number) => void;
     onResize?: (widgetId: string, w: number, h: number) => void;
+    onDelete?: (widgetId: string) => void;
+    onDuplicate?: (widgetId: string) => void;
+    onWidgetDragChange?: (payload: HeaderWidgetDragPayload | null) => void;
+    /**
+     * IDs de widgets asignados al header del dashboard.
+     * Estos widgets se excluyen del grid para evitar duplicación con el header.
+     * Espeja la misma prop de DashboardViewer.
+     */
+    headerWidgetIds?: Set<string>;
+    /**
+     * Número de slots del header actualmente ocupados (0-3).
+     * Cuando es menor que HEADER_WIDGET_SLOT_COUNT y el widget es compatible,
+     * se muestra el ícono de "subir al header".
+     */
+    headerOccupiedSlotCount?: number;
+    /**
+     * Callback para mover un widget del grid al header.
+     * Invocado al hacer click en el ícono ArrowUp del widget.
+     */
+    onPromoteToHeader?: (widgetId: string) => void;
 }
 
 // =============================================================================
@@ -96,8 +126,16 @@ export default function BuilderCanvas({
     onWidgetSelect,
     selectedWidgetId,
     onReorder,
-    onResize
+    onResize,
+    onDelete,
+    onDuplicate,
+    onWidgetDragChange,
+    headerWidgetIds,
+    headerOccupiedSlotCount = 0,
+    onPromoteToHeader,
 }: BuilderCanvasProps) {
+    // Debe mantenerse sincronizado con `.glass-panel { border-radius: 1.5rem }` en hmi-app/src/index.css
+    const widgetCornerRadius = '1.5rem';
     
     const widgetMap = new Map(widgets.map(w => [w.id, w]));
 
@@ -105,13 +143,41 @@ export default function BuilderCanvas({
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+    // Si cambia el conjunto de widgets visibles del grid (por ejemplo, uno se mueve
+    // al header y luego vuelve), cualquier índice efímero de drag previo deja de
+    // ser válido. Si no se limpia, el índice zombie sigue aplicando `opacity-40`
+    // al item que reaparece en esa posición.
+    useEffect(() => {
+        setDraggedIndex(null);
+        setHoveredIndex(null);
+    }, [headerWidgetIds, layout.length]);
+
     // Handlers de Drag & Drop HTML5
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
+        const layoutItem = layout[index];
+        const draggedWidget = layoutItem ? widgetMap.get(layoutItem.widgetId) : undefined;
+
         // Set drag ghost image data
         e.dataTransfer.effectAllowed = 'move';
         // Hack for Firefox support
         e.dataTransfer.setData('text/plain', index.toString());
+
+        if (draggedWidget) {
+            const payload: HeaderWidgetDragPayload = {
+                widgetId: draggedWidget.id,
+                widgetType: draggedWidget.type,
+                source: 'builder-grid',
+            };
+
+            e.dataTransfer.setData(
+                HEADER_WIDGET_DRAG_MIME,
+                serializeHeaderWidgetDragPayload(payload),
+            );
+            onWidgetDragChange?.(payload);
+        } else {
+            onWidgetDragChange?.(null);
+        }
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -136,6 +202,7 @@ export default function BuilderCanvas({
     const handleDragEnd = () => {
         setDraggedIndex(null);
         setHoveredIndex(null);
+        onWidgetDragChange?.(null);
     };
 
     // Grilla con CSS Grid. Auto-rows-[140px] define el alto base de H=1.
@@ -144,6 +211,9 @@ export default function BuilderCanvas({
             <div className="grid grid-cols-4 gap-6 auto-rows-[140px]">
                 
                 {layout.map((item, index) => {
+                    // Excluir del grid los widgets asignados al header (igual que DashboardViewer)
+                    if (headerWidgetIds?.has(item.widgetId)) return null;
+
                     const widget = widgetMap.get(item.widgetId);
                     
                     // Si el widget referenciado en el layout no existe en config, se ignora
@@ -163,7 +233,7 @@ export default function BuilderCanvas({
                     return (
                         <div 
                             key={widget.id}
-                            className={`${colSpan} ${rowSpan} relative group cursor-grab active:cursor-grabbing transition-opacity duration-200 ${
+                            className={`${colSpan} ${rowSpan} relative group cursor-grab active:cursor-grabbing rounded-xl transition-opacity duration-200 ${
                                 draggedIndex === index ? 'opacity-40' : 'opacity-100'
                             }`}
                             onClick={() => onWidgetSelect?.(widget.id)}
@@ -174,28 +244,36 @@ export default function BuilderCanvas({
                             onDrop={(e) => handleDrop(e, index)}
                             onDragEnd={handleDragEnd}
                         >
-                            {/* Borde de selección para el modo editor */}
-                            <div 
-                                className={`absolute -inset-2 rounded-xl transition-all z-10 pointer-events-none ${
-                                    isSelected 
-                                        ? '' 
-                                        : 'border-2 border-transparent group-hover:border-white/10'
-                                } ${
-                                    hoveredIndex === index && draggedIndex !== index 
-                                        ? 'border-2 scale-[1.02]' 
-                                        : ''
-                                }`} 
-                                style={isSelected ? {
-                                    padding: '2px',
-                                    background: `linear-gradient(to right, var(--color-admin-selection-from), var(--color-admin-selection-to))`,
-                                    boxShadow: `0 0 20px color-mix(in srgb, var(--color-admin-selection-to) 15%, transparent)`,
-                                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                                    WebkitMaskComposite: 'xor',
-                                    maskComposite: 'exclude'
-                                } : (hoveredIndex === index && draggedIndex !== index) ? {
-                                    borderColor: `color-mix(in srgb, var(--color-admin-selection-from) 50%, transparent)`,
-                                    backgroundColor: `color-mix(in srgb, var(--color-admin-selection-from) 10%, transparent)`,
-                                } : {}}
+                            <GridSelectionFrame
+                                isSelected={isSelected}
+                                isHighlighted={hoveredIndex === index && draggedIndex !== index}
+                                radius={widgetCornerRadius}
+                            />
+
+                            <WidgetHoverActions
+                                actions={[
+                                    // La flecha de "subir al header" aparece solo si:
+                                    // 1) El widget es compatible con header
+                                    // 2) Hay al menos un slot libre en el header
+                                    ...(isHeaderCompatibleWidget(widget) && headerOccupiedSlotCount < HEADER_WIDGET_SLOT_COUNT
+                                        ? [{
+                                            label: 'Subir al header',
+                                            icon: ArrowUp,
+                                            onClick: () => onPromoteToHeader?.(widget.id),
+                                          }]
+                                        : []
+                                    ),
+                                    {
+                                        label: 'Duplicar widget',
+                                        icon: Copy,
+                                        onClick: () => onDuplicate?.(widget.id),
+                                    },
+                                    {
+                                        label: 'Eliminar widget',
+                                        icon: Trash2,
+                                        onClick: () => onDelete?.(widget.id),
+                                    },
+                                ]}
                             />
                             
                             {/* Manejador de Redimensionamiento (esquina inf-der) */}
@@ -214,6 +292,7 @@ export default function BuilderCanvas({
                                     widget={widget} 
                                     equipmentMap={equipmentMap} 
                                     isLoadingData={false} 
+                                    siblingWidgets={widgets}
                                     className="w-full h-full"
                                 />
                             </div>
@@ -222,7 +301,7 @@ export default function BuilderCanvas({
                 })}
 
                 {/* Dropzone visual sutil si el canvas está vacío */}
-                {layout.length === 0 && (
+                {layout.filter(item => !headerWidgetIds?.has(item.widgetId)).length === 0 && (
                     <div className="col-span-4 h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-sm font-bold text-industrial-muted uppercase tracking-widest">
                         El Dashboard está vacío
                     </div>

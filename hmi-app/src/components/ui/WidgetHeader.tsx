@@ -1,0 +1,118 @@
+import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+
+// =============================================================================
+// WidgetHeader
+//
+// Header estándar del sistema de widgets con ícono.
+// Implementa la referencia visual canónica derivada de KpiWidget y MetricCard:
+//   - Título a la izquierda (10px, black, uppercase, tracking-widest, muted)
+//   - Subtítulo opcional debajo del título (mismo tamaño, color semántico del ícono)
+//   - Ícono a la derecha: size=24, strokeWidth=2, shrink-0, color semántico
+//   - Trailing content opcional a la derecha del ícono (ej: indicador lumínico)
+//
+// Conceptos:
+//   - `subtitle` (header): texto secundario en el encabezado, junto al título.
+//     Toma el color del ícono. Úsalo para contexto de cabecera (ej. unidad, estado).
+//   - El `subtext` (footer) es responsabilidad del widget contenedor, no del header.
+//
+// Uso:
+//   <WidgetHeader
+//     title="Temperatura"
+//     icon={Thermometer}
+//     iconColor="var(--color-status-warning)"
+//   />
+//
+//   <WidgetHeader
+//     title="Histórico de Alertas"
+//     icon={HistoryIcon}
+//     iconColor="var(--color-status-normal)"
+//     trailing={<StatusDot color="var(--color-status-normal)" />}
+//   />
+//
+// UI Style Guide §15.3 — Arquitectura Técnica v1.3 §9.3
+// =============================================================================
+
+export interface WidgetHeaderProps {
+    /** Texto principal del header (se renderiza en uppercase) */
+    title: string;
+    /** Ícono Lucide a mostrar en la esquina superior derecha */
+    icon?: LucideIcon;
+    /**
+     * Color CSS del ícono y del subtítulo de header.
+     * Usar variables semánticas del sistema:
+     *   - `var(--color-widget-icon)`          → estado neutro/base
+     *   - `var(--color-status-normal)`         → estado operativo normal
+     *   - `var(--color-status-warning)`        → advertencia
+     *   - `var(--color-status-critical)`       → crítico
+     * No pasar valores hex hardcodeados.
+     */
+    iconColor?: string;
+    /**
+     * Subtítulo en el header: texto secundario debajo del título.
+     * Toma el mismo color que el ícono. Se usa para contexto de cabecera
+     * (ej. estado dinámico, unidad de medida).
+     * Conceptualmente diferente al `subtext` footer del widget.
+     */
+    subtitle?: string;
+    /**
+     * Contenido adicional que se renderiza a la derecha del ícono.
+     * Típicamente un indicador lumínico (StatusPulse) o un badge.
+     */
+    trailing?: ReactNode;
+    /** Clases adicionales para el contenedor del header */
+    className?: string;
+    /**
+     * Alineación vertical semántica del bloque de header.
+     * - `standard` (default): offset óptico canónico del sistema.
+     * - `none`: sin ajuste extra (solo para casos excepcionales).
+     */
+    alignment?: 'standard' | 'none';
+}
+
+export default function WidgetHeader({
+    title,
+    icon: Icon,
+    iconColor = 'var(--color-widget-icon)',
+    subtitle,
+    trailing,
+    className = '',
+    alignment = 'standard',
+}: WidgetHeaderProps) {
+    const hasSubtitle = Boolean(subtitle);
+    const alignmentClassName = alignment === 'standard' ? '-translate-y-1' : '';
+
+    return (
+        <div className={`grid grid-rows-[auto_auto] gap-y-0 ${alignmentClassName} ${className}`}>
+            {/* Fila 1: título + bloque derecho. El subtítulo no participa de esta alineación. */}
+            <div className="row-start-1 flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors">
+                    {title}
+                </span>
+
+                {(Icon || trailing) && (
+                    <div className="flex items-center gap-2 shrink-0 leading-none">
+                        {Icon && (
+                            <Icon
+                                size={24}
+                                strokeWidth={2}
+                                className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+                                style={{ color: iconColor }}
+                            />
+                        )}
+                        {trailing}
+                    </div>
+                )}
+            </div>
+
+            {/* Fila 2 reservada SIEMPRE. Se acerca solo el subtítulo sin mover el título. */}
+            <span
+                className={`row-start-2 min-w-0 -mt-0.5 truncate text-[10px] font-bold uppercase tracking-widest transition-opacity ${hasSubtitle ? '' : 'invisible'}`}
+                style={{ color: iconColor }}
+                aria-hidden={!hasSubtitle}
+            >
+                {subtitle ?? '\u00A0'}
+            </span>
+        </div>
+    );
+}

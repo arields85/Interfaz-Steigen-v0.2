@@ -1,0 +1,345 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import type { AlertHistoryWidgetConfig, WidgetConfig } from '../../domain/admin.types';
+import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { AlertHistoryEntry } from '../../domain/alertHistory.types';
+import { alertHistoryStorage } from '../../services/AlertHistoryStorageService';
+import { evaluateDashboardWidgets } from '../resolvers/alertHistoryEvaluator';
+import WidgetHeader from '../../components/ui/WidgetHeader';
+
+// =============================================================================
+// AlertHistoryWidget
+// Renderer para widgets de tipo 'alert-history'.
+//
+// Responsabilidades:
+// - Disparar la evaluación periódica de widgets hermanos del mismo dashboard.
+// - Leer el histórico de eventos desde AlertHistoryStorageService.
+// - Renderizar la lista de eventos con estilo premium/industrial.
+//
+// Props especiales (via widget.displayOptions):
+//   dashboardId  {string}  - ID del dashboard que se monitorea (requerido)
+//   maxVisible   {number}  - Máximo de eventos a mostrar (default: 5)
+//   pollInterval {number}  - Intervalo de polling en ms (default: 10000)
+//
+// La UI se inspira en el widget "Critical Events" de la referencia de diseño:
+//   - Header con título y punto de estado pulsante
+//   - Lista de eventos con badge de severidad y timestamp relativo
+//   - Botón "Ver historial completo" (decorativo — sin navegación real aún)
+//
+// Arquitectura Técnica v1.3 §16 (renderers layer)
+// =============================================================================
+
+interface AlertHistoryWidgetProps {
+    widget: AlertHistoryWidgetConfig;
+    equipmentMap: Map<string, EquipmentSummary>;
+    /** Lista de todos los widgets del mismo dashboard (para evaluar hermanos). */
+    siblingWidgets?: WidgetConfig[];
+    className?: string;
+}
+
+// Intervalo de polling default: 10 segundos
+const DEFAULT_POLL_INTERVAL = 10_000;
+const DEFAULT_MAX_VISIBLE = 5;
+
+// Mapa de íconos disponibles para el header (mismo catálogo que los demás widgets + History)
+const ICON_MAP: Record<string, LucideIcon> = {
+    History,
+    Gauge,
+    Activity,
+    Thermometer,
+    Zap,
+    Droplet,
+    Wind,
+    Settings,
+    Fan,
+    FoldVertical,
+};
+
+export default function AlertHistoryWidget({
+    widget,
+    equipmentMap,
+    siblingWidgets = [],
+    className,
+}: AlertHistoryWidgetProps) {
+    const dashboardId = widget.displayOptions?.dashboardId ?? 'unknown';
+    const maxVisible = widget.displayOptions?.maxVisible ?? DEFAULT_MAX_VISIBLE;
+    const pollInterval = widget.displayOptions?.pollInterval ?? DEFAULT_POLL_INTERVAL;
+
+    // El ícono del header es NEUTRAL (no dinámico). El único elemento dinámico
+    // es el punto lumínico pulsante. El ícono toma el color del título (muted).
+    const iconSetting = widget.displayOptions?.icon;
+    const isPendingIconSelection = iconSetting === undefined;
+    const isNoIconSelection = iconSetting === null;
+    const configuredIcon = typeof iconSetting === 'string' ? ICON_MAP[iconSetting] : undefined;
+    const isInvalidConfiguredIcon = typeof iconSetting === 'string' && configuredIcon === undefined;
+
+    const HeaderIcon = isPendingIconSelection
+        ? HelpCircle
+        : isNoIconSelection
+          ? undefined
+          : configuredIcon ?? HelpCircle;
+
+    // -------------------------------------------------------------------------
+    // Estado separado: historial visible vs severidad activa del panel
+    // -------------------------------------------------------------------------
+    // `entries`         → eventos históricos pasados (para la lista).
+    // `activeSeverity`  → severidad activa AHORA (para el fondo del panel).
+    //
+    // Son independientes por diseño:
+    //   - El historial puede tener entries críticos del pasado mientras el
+    //     estado actual es normal → el fondo debe ser normal.
+    //   - La severidad activa se obtiene de los widgetSnapshots del storage,
+    //     que reflejan el último MetricStatus evaluado de cada widget hermano.
+    //
+    // Prioridad de fondo: warning > critical > normal.
+    //   Si hay warning activo (con o sin critical) → fondo warning.
+    //   Si solo hay critical activo → fondo critical (danger).
+    //   Sin alertas activas → fondo estándar.
+    // -------------------------------------------------------------------------
+
+    const [entries, setEntries] = useState<AlertHistoryEntry[]>([]);
+    const [activeSeverity, setActiveSeverity] = useState<'normal' | 'warning' | 'critical'>('normal');
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Leer entries del storage y severidad activa desde snapshots
+    const refreshState = useCallback(() => {
+        const stored = alertHistoryStorage.getEntries(dashboardId);
+        setEntries(stored.slice(0, maxVisible));
+        // La severidad activa se computa desde los snapshots (estado presente),
+        // NO desde los entries del historial (estado pasado).
+        setActiveSeverity(alertHistoryStorage.getActiveAlertSeverity(dashboardId));
+    }, [dashboardId, maxVisible]);
+
+    // Evaluar widgets hermanos y detectar cambios de estado
+    const runEvaluation = useCallback(() => {
+        if (dashboardId === 'unknown' || siblingWidgets.length === 0) {
+            refreshState();
+            return;
+        }
+
+        evaluateDashboardWidgets(dashboardId, siblingWidgets, equipmentMap);
+        refreshState();
+    }, [dashboardId, siblingWidgets, equipmentMap, refreshState]);
+
+    // Evaluación inicial al montar + polling
+    useEffect(() => {
+        runEvaluation();
+
+        intervalRef.current = setInterval(runEvaluation, pollInterval);
+
+        return () => {
+            if (intervalRef.current !== null) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [runEvaluation, pollInterval]);
+
+    // -------------------------------------------------------------------------
+    // Clases del panel: fondo basado en activeSeverity (estado activo presente)
+    // Regla: warning > critical > normal (warning tiene mayor prioridad visual)
+    // -------------------------------------------------------------------------
+    const panelStateClass =
+        activeSeverity === 'warning'
+            ? ' glass-panel-warning'
+            : activeSeverity === 'critical'
+              ? ' glass-panel-danger'
+              : '';
+
+    const statusDotColor =
+        activeSeverity === 'warning'
+            ? 'var(--color-status-warning)'
+            : activeSeverity === 'critical'
+              ? 'var(--color-status-critical)'
+              : 'var(--color-status-normal)';
+
+    return (
+        <div
+            className={`p-5 glass-panel group${panelStateClass} flex flex-col w-full h-full ${className ?? ''}`}
+        >
+            {/* ── Header — usa WidgetHeader estándar del sistema ── */}
+            {/* El ícono retoma color dinámico, pero con 50% de transparencia para
+                no competir visualmente con el punto lumínico pulsante. */}
+            <WidgetHeader
+                title={widget.title ?? 'Histórico de Alertas'}
+                icon={HeaderIcon}
+                iconColor={isPendingIconSelection || isInvalidConfiguredIcon
+                    ? 'var(--color-industrial-muted)'
+                    : `color-mix(in srgb, ${statusDotColor} 50%, transparent)`}
+                trailing={
+                    <div className="relative flex items-center justify-center w-3 h-3">
+                        <span
+                            className="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping"
+                            style={{ backgroundColor: statusDotColor, animationDuration: '2s' }}
+                        />
+                        <span
+                            className="relative inline-flex rounded-full h-2 w-2"
+                            style={{ backgroundColor: statusDotColor }}
+                        />
+                    </div>
+                }
+                className="mb-2 shrink-0"
+            />
+
+            {/* ── Lista de eventos ── */}
+            <div className="flex-1 overflow-y-auto hmi-scrollbar flex flex-col gap-1.5 pb-2 min-h-0">
+                {entries.length === 0 ? (
+                    <EmptyState />
+                ) : (
+                    entries.map((entry) => (
+                        <AlertEntryRow key={entry.id} entry={entry} />
+                    ))
+                )}
+            </div>
+
+            {/* ── Footer: Ver historial completo ── */}
+            <div className="shrink-0 border-t border-[var(--color-industrial-border)] -mx-5 px-5 py-2">
+                <button
+                    type="button"
+                    className="w-full text-center text-[11px] font-semibold text-industrial-muted hover:text-industrial-text transition-colors duration-200 cursor-default"
+                    aria-label="Ver historial completo (funcionalidad pendiente)"
+                    tabIndex={-1}
+                >
+                    Ver historial completo
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// =============================================================================
+// AlertEntryRow — fila individual de un evento del histórico
+// =============================================================================
+function AlertEntryRow({ entry }: { entry: AlertHistoryEntry }) {
+    const isCritical = entry.toStatus === 'critical';
+
+    const accentColor = isCritical
+        ? 'var(--color-status-critical)'
+        : 'var(--color-status-warning)';
+
+    const bgStyle: React.CSSProperties = isCritical
+        ? {
+              background:
+                  'linear-gradient(90deg, color-mix(in srgb, var(--color-dynamic-critical-from) 12%, transparent), transparent)',
+              borderLeft: `2px solid ${accentColor}`,
+          }
+        : {
+              background:
+                  'linear-gradient(90deg, color-mix(in srgb, var(--color-dynamic-warning-from) 10%, transparent), transparent)',
+              borderLeft: `2px solid ${accentColor}`,
+          };
+
+    return (
+        <div
+            className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5"
+            style={bgStyle}
+        >
+            {/* Badge de severidad + timestamp */}
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                    {isCritical ? (
+                        <AlertCircle
+                            size={10}
+                            strokeWidth={2.5}
+                            style={{ color: accentColor, flexShrink: 0 }}
+                        />
+                    ) : (
+                        <AlertTriangle
+                            size={10}
+                            strokeWidth={2.5}
+                            style={{ color: accentColor, flexShrink: 0 }}
+                        />
+                    )}
+                    <span
+                        className="text-[9px] font-black uppercase tracking-widest"
+                        style={{ color: accentColor }}
+                    >
+                        {isCritical ? 'Crítica' : 'Advertencia'}
+                    </span>
+                    <span
+                        className="text-[9px] font-medium"
+                        style={{ color: 'var(--color-industrial-muted)' }}
+                    >
+                        · <RelativeTime iso={entry.detectedAt} />
+                    </span>
+                </div>
+            </div>
+
+            {/* Título del widget que disparó la alerta */}
+            <span className="text-[12px] font-bold leading-tight text-industrial-text truncate">
+                {entry.widgetTitle.toUpperCase()}
+            </span>
+
+            {/* Valor en el momento del evento */}
+            {entry.value !== undefined && entry.value !== null && (
+                <div className="flex items-center gap-1 mt-0.5">
+                    <Clock
+                        size={8}
+                        style={{ color: 'var(--color-industrial-muted)', flexShrink: 0 }}
+                    />
+                    <span
+                        className="text-[9px] font-mono"
+                        style={{ color: 'var(--color-industrial-muted)' }}
+                    >
+                        Valor: {typeof entry.value === 'number' && entry.value % 1 !== 0
+                            ? entry.value.toFixed(2)
+                            : entry.value}
+                        {entry.unit ? ` ${entry.unit}` : ''}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// =============================================================================
+// EmptyState — cuando no hay eventos históricos registrados
+// =============================================================================
+function EmptyState() {
+    return (
+        <div className="flex flex-col items-center justify-center flex-1 gap-2 py-6">
+            <AlertTriangle
+                size={20}
+                strokeWidth={1.5}
+                style={{ color: 'var(--color-industrial-muted)', opacity: 0.4 }}
+            />
+            <span
+                className="text-[10px] font-semibold uppercase tracking-wider text-center"
+                style={{ color: 'var(--color-industrial-muted)', opacity: 0.6 }}
+            >
+                Sin eventos registrados
+            </span>
+        </div>
+    );
+}
+
+// =============================================================================
+// RelativeTime — timestamp relativo tipo "hace 5 min"
+// =============================================================================
+function RelativeTime({ iso }: { iso: string }) {
+    const [label, setLabel] = useState(() => formatRelative(iso));
+
+    useEffect(() => {
+        setLabel(formatRelative(iso));
+        const timer = setInterval(() => setLabel(formatRelative(iso)), 30_000);
+        return () => clearInterval(timer);
+    }, [iso]);
+
+    return <>{label}</>;
+}
+
+function formatRelative(iso: string): string {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+
+    if (diffSec < 60) return 'hace un momento';
+    if (diffSec < 3600) {
+        const mins = Math.floor(diffSec / 60);
+        return `hace ${mins} min`;
+    }
+    if (diffSec < 86400) {
+        const hours = Math.floor(diffSec / 3600);
+        return `hace ${hours}h`;
+    }
+    const days = Math.floor(diffSec / 86400);
+    return `hace ${days}d`;
+}

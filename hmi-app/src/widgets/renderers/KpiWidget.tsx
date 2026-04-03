@@ -1,7 +1,9 @@
-import type { WidgetConfig, ThresholdRule } from '../../domain/admin.types';
+import type { KpiWidgetConfig, ThresholdRule } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import { resolveBinding } from '../resolvers/bindingResolver';
-import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, type LucideIcon } from 'lucide-react';
+import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import WidgetHeader from '../../components/ui/WidgetHeader';
+import WidgetCenteredContentLayout from '../../components/ui/WidgetCenteredContentLayout';
 
 const ICON_MAP: Record<string, LucideIcon> = {
     'Gauge': Gauge,
@@ -16,7 +18,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 interface KpiWidgetProps {
-    widget: WidgetConfig;
+    widget: KpiWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
     isLoadingData?: boolean;
     className?: string;
@@ -40,60 +42,71 @@ export default function KpiWidget({ widget, equipmentMap, isLoadingData, classNa
             ? parseFloat(resolved.value) || 0 
             : 0;
 
-    const mode = (widget.displayOptions?.kpiMode as string) || 'circular';
-    const min = parseFloat(String(widget.displayOptions?.min ?? '0')) || 0;
-    const max = parseFloat(String(widget.displayOptions?.max ?? '100')) || 100;
-    
+    const opts = widget.displayOptions;
+    const mode = opts?.kpiMode ?? 'circular';
+    const min = opts?.min ?? 0;
+    const max = opts?.max ?? 100;
+
     // Si la unidad no está en binding, tomar la predeterminada del widget (compatibilidad)
     const unit = resolved.unit ?? widget.binding?.unit ?? '';
-    const iconName = typeof widget.displayOptions?.icon === 'string' ? widget.displayOptions.icon : undefined;
-    const Icon = iconName ? ICON_MAP[iconName] : undefined;
-    const subtext = widget.displayOptions?.subtext as string | undefined;
+    const iconSetting = opts?.icon;
+    const isPendingIconSelection = iconSetting === undefined;
+    const isNoIconSelection = iconSetting === null;
+    const configuredIcon = typeof iconSetting === 'string' ? ICON_MAP[iconSetting] : undefined;
+    const isInvalidConfiguredIcon = typeof iconSetting === 'string' && configuredIcon === undefined;
 
-    // Color de ícono y subtexto: variable CSS según estado
-    const isDynamic = !!widget.displayOptions?.dynamicColor;
+    const Icon = isPendingIconSelection
+        ? HelpCircle
+        : isNoIconSelection
+          ? undefined
+          : configuredIcon ?? HelpCircle;
+
+    // subtitle: texto en el HEADER (debajo del título). Solo desde displayOptions.subtitle.
+    // subtext:  texto en el FOOTER (parte inferior). Solo desde displayOptions.subtext.
+    // Son conceptos distintos. No existe fallback entre ellos.
+    const subtitle = opts?.subtitle;
+    const footerSubtext = opts?.subtext;
+
+    // Color de ícono y subtítulo de header: variable CSS según estado
+    const isDynamic = !!opts?.dynamicColor;
     const dynamicMode = isDynamic ? getDynamicColors(numericValue, widget.thresholds) : null;
-    const iconColor = dynamicMode ? dynamicMode.textColor : 'var(--color-widget-icon)';
+    const iconColor = isPendingIconSelection || isInvalidConfiguredIcon
+        ? 'var(--color-industrial-muted)'
+        : dynamicMode
+          ? dynamicMode.textColor
+          : 'var(--color-widget-icon)';
 
     return (
-        <div className={`p-4 glass-panel flex flex-col w-full h-full ${className ?? ''}`}>
-            {/* Header */}
-            <div className="flex items-start justify-between mb-2">
-                <div className="flex flex-col gap-0.5 max-w-[80%]">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#94a3b8] truncate">
-                        {widget.title ?? 'KPI'}
-                    </span>
-                    {/* Subtexto aclaratorio debajo del título */}
-                    {subtext && (
-                        <span 
-                            className="text-[10px] font-bold uppercase tracking-widest truncate"
-                            style={{ color: iconColor }}
-                        >
-                            {subtext}
-                        </span>
-                    )}
-                </div>
-                {Icon && (
-                    <Icon
-                        size={24}
-                        strokeWidth={2}
-                        className="shrink-0"
-                        style={{ color: iconColor }}
+        <div className={`p-5 glass-panel group relative w-full h-full ${className ?? ''}`}>
+            <WidgetCenteredContentLayout
+                headerOffsetClassName="-translate-y-1"
+                contentClassName="translate-y-3"
+                header={(
+                    <WidgetHeader
+                        title={widget.title ?? 'KPI'}
+                        icon={Icon}
+                        iconColor={iconColor}
+                        subtitle={subtitle}
+                        alignment="none"
+                        className="mb-2"
                     />
                 )}
-            </div>
+            >
+                <div className="w-full h-full min-h-0">
+                    {mode === 'circular' ? (
+                        <CircularKpi value={numericValue} min={min} max={max} unit={unit} dynamicColor={!!opts?.dynamicColor} thresholds={widget.thresholds} />
+                    ) : (
+                        <BarKpi value={numericValue} min={min} max={max} unit={unit} dynamicColor={!!opts?.dynamicColor} thresholds={widget.thresholds} />
+                    )}
+                </div>
+            </WidgetCenteredContentLayout>
 
-            {/* Content */}
-            <div className="flex-1 w-full min-h-0 relative">
-                {mode === 'circular' ? (
-                    <CircularKpi value={numericValue} min={min} max={max} unit={unit} dynamicColor={!!widget.displayOptions?.dynamicColor} thresholds={widget.thresholds} />
-                ) : (
-                    <BarKpi value={numericValue} min={min} max={max} unit={unit} dynamicColor={!!widget.displayOptions?.dynamicColor} thresholds={widget.thresholds} />
-                )}
-            </div>
-            
-            {/* Optional subtext for circular mode */}
-            {/* Removido del fondo, ahora está en el Header */}
+            {/* Footer subtext — texto aclaratorio inferior, sin alterar el centrado del KPI */}
+            {footerSubtext && (
+                <div className="absolute left-0 bottom-1 z-20 text-[10px] font-black uppercase tracking-widest leading-none text-industrial-muted">
+                    {footerSubtext}
+                </div>
+            )}
         </div>
     );
 }
@@ -109,7 +122,7 @@ function getDynamicColors(value: number, thresholds?: ThresholdRule[]) {
         return { 
             svgColor: 'url(#kpi-critical-gradient)', 
             cssColor: 'linear-gradient(90deg, var(--color-dynamic-critical-from), var(--color-dynamic-critical-to))', 
-            glow: 'rgba(239,68,68,0.5)',
+            glow: 'color-mix(in srgb, var(--color-accent-ruby) 50%, transparent)',
             textColor: 'var(--color-status-critical)'
         };
     }
@@ -117,14 +130,14 @@ function getDynamicColors(value: number, thresholds?: ThresholdRule[]) {
         return { 
             svgColor: 'url(#kpi-warning-gradient)', 
             cssColor: 'linear-gradient(90deg, var(--color-dynamic-warning-from), var(--color-dynamic-warning-to))', 
-            glow: 'rgba(245,158,11,0.5)',
+            glow: 'color-mix(in srgb, var(--color-accent-amber) 50%, transparent)',
             textColor: 'var(--color-status-warning)'
         };
     }
     return { 
         svgColor: 'url(#kpi-normal-gradient)', 
         cssColor: 'linear-gradient(90deg, var(--color-dynamic-normal-from), var(--color-dynamic-normal-to))', 
-        glow: 'rgba(16,185,129,0.5)',
+        glow: 'color-mix(in srgb, var(--color-accent-green) 50%, transparent)',
         textColor: 'var(--color-status-normal)'
     };
 }
@@ -140,7 +153,7 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
 
     const dynamicMode = dynamicColor ? getDynamicColors(value, thresholds) : null;
     const strokeColor = dynamicMode ? dynamicMode.svgColor : 'url(#kpi-gradient)';
-    const glowShadow = dynamicMode ? `drop-shadow(0 0 15px ${dynamicMode.glow})` : 'drop-shadow(0 0 15px rgba(168,85,247,0.4))';
+    const glowShadow = dynamicMode ? `drop-shadow(0 0 15px ${dynamicMode.glow})` : 'drop-shadow(0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent))';
 
     return (
         <div className="relative flex items-center justify-center w-full h-full min-h-[140px]">
@@ -174,7 +187,7 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
                 </defs>
                 <circle
                     cx="70" cy="70" r={radius}
-                    stroke="rgba(255,255,255,0.03)"
+                    stroke="color-mix(in srgb, white 3%, transparent)"
                     strokeWidth="8"
                     fill="none"
                 />
@@ -192,7 +205,7 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-6xl font-black text-white leading-none tracking-tighter mb-1">{value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && <span className="text-xs font-bold text-[#94a3b8] uppercase tracking-widest">{unit}</span>}
+                {unit && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
             </div>
         </div>
     );
@@ -206,13 +219,13 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
     const dynamicMode = dynamicColor ? getDynamicColors(value, thresholds) : null;
     const backgroundStyle = dynamicMode 
         ? { background: dynamicMode.cssColor, boxShadow: `0 0 15px ${dynamicMode.glow}` }
-        : { background: `linear-gradient(90deg, var(--color-widget-gradient-from), var(--color-widget-gradient-to))`, boxShadow: '0 0 15px rgba(168,85,247,0.4)' };
+        : { background: `linear-gradient(90deg, var(--color-widget-gradient-from), var(--color-widget-gradient-to))`, boxShadow: '0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent)' };
 
     return (
         <div className="flex flex-col w-full h-full justify-center px-2">
             <div className="flex items-end gap-2 mb-3">
                 <span className="text-6xl font-black text-white leading-none tracking-tighter">{value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && <span className="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-1.5">{unit}</span>}
+                {unit && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
             </div>
             
             <div className="h-2 w-full bg-white/5 rounded-full relative">
@@ -225,7 +238,7 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
                 />
             </div>
             
-            <div className="flex justify-between items-center mt-3 text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
+            <div className="flex justify-between items-center mt-3 text-[10px] font-bold uppercase tracking-wider text-industrial-muted">
                 <span>{min} {unit}</span>
                 <span>{max} {unit}</span>
             </div>

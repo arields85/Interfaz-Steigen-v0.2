@@ -4,6 +4,11 @@ import type { Dashboard } from '../domain/admin.types';
 // MOCKS: Admin
 // Dashboards configurados para el Modo Administrador.
 // Proveen datos simulados para el Gestor de Dashboards y el Builder.
+//
+// CONVENCIÓN DE HEADER:
+// Los widgets asignados en `headerConfig.widgetSlots` deben existir en el
+// array `widgets` del mismo dashboard. Son EXCLUSIVOS del header y NO se
+// incluyen en `layout` (no se renderizan en el grid).
 // =============================================================================
 
 export const mockDashboards: Dashboard[] = [
@@ -15,6 +20,12 @@ export const mockDashboards: Dashboard[] = [
         status: 'published',
         isTemplate: false,
         version: 3,
+        // Header configurado: título y subtítulo explícitos + sin widget slots
+        // (dashboard global sin equipo específico asociado)
+        headerConfig: {
+            title: 'Dashboard Principal',
+            subtitle: 'Visión general de planta · Turno activo',
+        },
         layout: [
             { widgetId: 'w-oee', x: 0, y: 0, w: 1, h: 1 },
             { widgetId: 'w-prod', x: 1, y: 0, w: 1, h: 1 },
@@ -55,26 +66,45 @@ export const mockDashboards: Dashboard[] = [
         status: 'draft',
         isTemplate: false,
         version: 1,
-        // Widgets reales mapeando a la Comprimidora del equipo mock principal eq-001
+        // Header configurado: título y subtítulo explícitos + dos widgets de estado en el header.
+        // w-hdr-status y w-hdr-conn son EXCLUSIVOS del header: no están en `layout`.
+        headerConfig: {
+            title: 'Comprimidora FETTE-2090',
+            subtitle: 'Panel de monitoreo detallado para línea de compresión',
+            widgetSlots: [
+                { widgetId: 'w-hdr-status' },
+                { widgetId: 'w-hdr-conn' },
+            ],
+        },
         layout: [
-            { widgetId: 'w-eq-status', x: 0, y: 0, w: 1, h: 1 },
-            { widgetId: 'w-eq-rpm', x: 0, y: 1, w: 1, h: 1 },
-            { widgetId: 'w-eq-kn', x: 1, y: 1, w: 1, h: 1 },
+            // w-hdr-status y w-hdr-conn NO están aquí — son exclusivos del header
+            { widgetId: 'w-eq-rpm', x: 0, y: 0, w: 1, h: 1 },
+            { widgetId: 'w-eq-kn', x: 1, y: 0, w: 1, h: 1 },
         ],
         widgets: [
+            // Widgets del header (no tienen entrada en layout)
             {
-                id: 'w-eq-status',
+                id: 'w-hdr-status',
                 type: 'status',
-                title: 'ESTADO ACTUAL',
+                title: 'ESTADO EQUIPO',
                 position: { x: 0, y: 0 },
                 size: { w: 1, h: 1 },
                 binding: { mode: 'real_variable', assetId: 'eq-001' }
             },
             {
+                id: 'w-hdr-conn',
+                type: 'connection-indicator',
+                title: 'CONEXIÓN',
+                position: { x: 0, y: 0 },
+                size: { w: 1, h: 1 },
+                binding: { mode: 'real_variable', assetId: 'eq-001' }
+            },
+            // Widgets del grid
+            {
                 id: 'w-eq-rpm',
                 type: 'metric-card',
                 title: 'VELOCIDAD',
-                position: { x: 0, y: 1 },
+                position: { x: 0, y: 0 },
                 size: { w: 1, h: 1 },
                 binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Velocidad', unit: 'RPM' },
                 thresholds: [
@@ -86,7 +116,7 @@ export const mockDashboards: Dashboard[] = [
                 id: 'w-eq-kn',
                 type: 'metric-card',
                 title: 'FUERZA MÁXIMA',
-                position: { x: 1, y: 1 },
+                position: { x: 1, y: 0 },
                 size: { w: 1, h: 1 },
                 binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Fuerza', unit: 'kN' },
                 thresholds: [
