@@ -176,6 +176,19 @@ class AlertHistoryStorageService {
     }
 
     /**
+     * Limpia únicamente el array de entries visibles del histórico.
+     * Los widgetSnapshots se conservan intactos — reflejan el estado presente
+     * de los widgets y son necesarios para detectar transiciones futuras.
+     * Útil para que el operador limpie la vista sin perder el estado activo.
+     */
+    clearEntries(dashboardId: string): void {
+        const history = this.getHistory(dashboardId);
+        history.entries = [];
+        history.lastUpdatedAt = new Date().toISOString();
+        this.saveHistory(history);
+    }
+
+    /**
      * Elimina el snapshot de un widget específico (ej. cuando se elimina el widget).
      * Los entries históricos se conservan por trazabilidad.
      */
@@ -183,6 +196,30 @@ class AlertHistoryStorageService {
         const history = this.getHistory(dashboardId);
         delete history.widgetSnapshots[widgetId];
         this.saveHistory(history);
+    }
+
+    /**
+     * Elimina snapshots de widgets que ya no existen en el dashboard.
+     * Previene que snapshots huérfanos mantengan el panel en estado de alerta.
+     *
+     * @param dashboardId      ID del dashboard.
+     * @param activeWidgetIds  IDs de los widgets que actualmente existen en el dashboard.
+     */
+    removeOrphanedSnapshots(dashboardId: string, activeWidgetIds: Set<string>): void {
+        const history = this.getHistory(dashboardId);
+        const snapshotIds = Object.keys(history.widgetSnapshots);
+        let changed = false;
+
+        for (const id of snapshotIds) {
+            if (!activeWidgetIds.has(id)) {
+                delete history.widgetSnapshots[id];
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.saveHistory(history);
+        }
     }
 
     // -------------------------------------------------------------------------

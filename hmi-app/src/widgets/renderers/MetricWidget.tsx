@@ -3,6 +3,7 @@ import type { EquipmentSummary } from '../../domain/equipment.types';
 import MetricCard from '../../components/ui/MetricCard';
 import ConnectionBadge from '../../components/ui/ConnectionBadge';
 import { resolveBinding } from '../resolvers/bindingResolver';
+import { resolveHierarchyBinding, type HierarchyContext } from '../resolvers/hierarchyResolver';
 import { toCardStatus } from '../resolvers/thresholdEvaluator';
 import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
 
@@ -36,6 +37,7 @@ interface MetricWidgetProps {
     equipmentMap: Map<string, EquipmentSummary>;
     isLoadingData?: boolean;
     className?: string;
+    hierarchyContext?: HierarchyContext;
 }
 
 export default function MetricWidget({
@@ -43,12 +45,15 @@ export default function MetricWidget({
     equipmentMap,
     isLoadingData = false,
     className,
+    hierarchyContext,
 }: MetricWidgetProps) {
     if (isLoadingData) {
         return <MetricCard label={widget.title ?? '—'} value={undefined} isLoading className={className} />;
     }
 
-    const resolved = resolveBinding(widget, equipmentMap);
+    const resolved = widget.hierarchyMode && hierarchyContext
+        ? resolveHierarchyBinding(widget, hierarchyContext, equipmentMap)
+        : resolveBinding(widget, equipmentMap);
     const cardStatus = toCardStatus(resolved.status);
 
     // --- Construcción del subtext (footer) ---

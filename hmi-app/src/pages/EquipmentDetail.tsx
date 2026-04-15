@@ -150,7 +150,7 @@ export default function EquipmentDetail() {
                         <span className="size-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></span>
                     </div>
 
-                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-2 hmi-scrollbar">
 
                         {/* Alarma Activa */}
                         <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-lg p-3 relative overflow-hidden group">

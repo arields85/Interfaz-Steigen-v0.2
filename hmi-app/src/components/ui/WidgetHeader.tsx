@@ -39,6 +39,17 @@ export interface WidgetHeaderProps {
     /** Ícono Lucide a mostrar en la esquina superior derecha */
     icon?: LucideIcon;
     /**
+     * Posición del ícono dentro del header.
+     * - `'right'` (default): título a la izquierda, ícono a la derecha — layout canónico original.
+     * - `'left'`: ícono a la izquierda del título+subtítulo. Mantiene exactamente el mismo
+     *   offset óptico (`alignment='standard'` → `-translate-y-1`) para que la línea de título
+     *   quede al mismo nivel vertical que en el layout con ícono a la derecha.
+     *
+     * El slot `trailing` siempre se renderiza al EXTREMO OPUESTO del ícono, para
+     * mantener coherencia visual: info estructural a un lado, contenido accesorio al otro.
+     */
+    iconPosition?: 'left' | 'right';
+    /**
      * Color CSS del ícono y del subtítulo de header.
      * Usar variables semánticas del sistema:
      *   - `var(--color-widget-icon)`          → estado neutro/base
@@ -73,6 +84,7 @@ export interface WidgetHeaderProps {
 export default function WidgetHeader({
     title,
     icon: Icon,
+    iconPosition = 'right',
     iconColor = 'var(--color-widget-icon)',
     subtitle,
     trailing,
@@ -81,27 +93,48 @@ export default function WidgetHeader({
 }: WidgetHeaderProps) {
     const hasSubtitle = Boolean(subtitle);
     const alignmentClassName = alignment === 'standard' ? '-translate-y-1' : '';
+    const iconOnLeft = iconPosition === 'left';
+    const iconNode = Icon ? (
+        <Icon
+            size={24}
+            strokeWidth={2}
+            className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+            style={{ color: iconColor }}
+        />
+    ) : null;
+    const titleNode = (
+        <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors">
+            {title}
+        </span>
+    );
 
     return (
-        <div className={`grid grid-rows-[auto_auto] gap-y-0 ${alignmentClassName} ${className}`}>
+        <div className={`grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto] gap-y-0 ${alignmentClassName} ${className}`}>
             {/* Fila 1: título + bloque derecho. El subtítulo no participa de esta alineación. */}
             <div className="row-start-1 flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors">
-                    {title}
-                </span>
-
-                {(Icon || trailing) && (
-                    <div className="flex items-center gap-2 shrink-0 leading-none">
-                        {Icon && (
-                            <Icon
-                                size={24}
-                                strokeWidth={2}
-                                className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
-                                style={{ color: iconColor }}
-                            />
+                {iconOnLeft ? (
+                    <>
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {iconNode}
+                            {titleNode}
+                        </div>
+                        {trailing && (
+                            <div className="flex items-center gap-2 shrink-0 leading-none">
+                                {trailing}
+                            </div>
                         )}
-                        {trailing}
-                    </div>
+                    </>
+                ) : (
+                    <>
+                        {titleNode}
+
+                        {(iconNode || trailing) && (
+                            <div className="flex items-center gap-2 shrink-0 leading-none">
+                                {iconNode}
+                                {trailing}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 

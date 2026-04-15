@@ -26,6 +26,10 @@ metadata:
 - Exponer configuración en admin solo si tiene sentido para ese tipo de widget.
 - No hardcodear colores ni fuentes; usar tokens de `hmi-app/src/index.css`.
 - Solo Lucide React para íconos.
+- Incluir clase `group` en `glass-panel` para que funcionen las transiciones hover de `WidgetHeader`.
+- `WidgetHeader` soporta `iconPosition: 'left' | 'right'` (default `'right'`).
+- Para widgets con charts: usar primitives `ChartTooltip` + `ChartHoverLayer`, NO Recharts tooltip/hover.
+- Helpers matemáticos compartidos en `hmi-app/src/utils/chartHelpers.ts` — importar, no duplicar.
 
 ## Decision Table
 
@@ -35,6 +39,11 @@ metadata:
 | Acciones hover en grid/header | `WidgetHoverActions` |
 | Foco en grid | `GridSelectionFrame` |
 | Foco en header | `HeaderSelectionFrame` |
+| Tooltip de chart | `ChartTooltip` |
+| Hover layer SVG de chart | `ChartHoverLayer` |
+| Math helpers SVG (smoothPath, etc.) | `utils/chartHelpers.ts` |
+| Controles flotantes sobre header | Overlay `absolute` (Patrón C) |
+| Ícono a la izquierda del título | `WidgetHeader iconPosition="left"` |
 | Dispatcher del renderer | `WidgetRenderer.tsx` |
 | Template base | `assets/NewWidgetTemplate.tsx` |
 

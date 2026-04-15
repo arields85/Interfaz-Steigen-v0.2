@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback, forwardRef } from 'react';
+import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, Trash2, type LucideIcon } from 'lucide-react';
 import type { AlertHistoryWidgetConfig, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { AlertHistoryEntry } from '../../domain/alertHistory.types';
@@ -18,7 +18,6 @@ import WidgetHeader from '../../components/ui/WidgetHeader';
 //
 // Props especiales (via widget.displayOptions):
 //   dashboardId  {string}  - ID del dashboard que se monitorea (requerido)
-//   maxVisible   {number}  - Máximo de eventos a mostrar (default: 5)
 //   pollInterval {number}  - Intervalo de polling en ms (default: 10000)
 //
 // La UI se inspira en el widget "Critical Events" de la referencia de diseño:
@@ -39,7 +38,7 @@ interface AlertHistoryWidgetProps {
 
 // Intervalo de polling default: 10 segundos
 const DEFAULT_POLL_INTERVAL = 10_000;
-const DEFAULT_MAX_VISIBLE = 5;
+
 
 // Mapa de íconos disponibles para el header (mismo catálogo que los demás widgets + History)
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -62,7 +61,6 @@ export default function AlertHistoryWidget({
     className,
 }: AlertHistoryWidgetProps) {
     const dashboardId = widget.displayOptions?.dashboardId ?? 'unknown';
-    const maxVisible = widget.displayOptions?.maxVisible ?? DEFAULT_MAX_VISIBLE;
     const pollInterval = widget.displayOptions?.pollInterval ?? DEFAULT_POLL_INTERVAL;
 
     // El ícono del header es NEUTRAL (no dinámico). El único elemento dinámico
@@ -99,16 +97,19 @@ export default function AlertHistoryWidget({
 
     const [entries, setEntries] = useState<AlertHistoryEntry[]>([]);
     const [activeSeverity, setActiveSeverity] = useState<'normal' | 'warning' | 'critical'>('normal');
+    const [visibleCount, setVisibleCount] = useState(5);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+    const entryRef = useRef<HTMLDivElement>(null);
 
     // Leer entries del storage y severidad activa desde snapshots
     const refreshState = useCallback(() => {
         const stored = alertHistoryStorage.getEntries(dashboardId);
-        setEntries(stored.slice(0, maxVisible));
+        setEntries(stored);
         // La severidad activa se computa desde los snapshots (estado presente),
         // NO desde los entries del historial (estado pasado).
         setActiveSeverity(alertHistoryStorage.getActiveAlertSeverity(dashboardId));
-    }, [dashboardId, maxVisible]);
+    }, [dashboardId]);
 
     // Evaluar widgets hermanos y detectar cambios de estado
     const runEvaluation = useCallback(() => {
@@ -134,6 +135,23 @@ export default function AlertHistoryWidget({
         };
     }, [runEvaluation, pollInterval]);
 
+    // ResizeObserver: calcula cuántas filas caben en el contenedor sin scroll
+    useEffect(() => {
+        const listEl = listRef.current;
+        if (!listEl) return;
+
+        const observer = new ResizeObserver(() => {
+            const containerHeight = listEl.clientHeight;
+            const entryEl = entryRef.current;
+            const entryHeight = entryEl?.offsetHeight ?? 80; // fallback solo en el primer render
+            const gap = 6; // gap-1.5 = 6px — constante estructural del token Tailwind
+            const count = Math.max(1, Math.floor(containerHeight / (entryHeight + gap)));
+            setVisibleCount(count);
+        });
+        observer.observe(listEl);
+        return () => observer.disconnect();
+    }, []);
+
     // -------------------------------------------------------------------------
     // Clases del panel: fondo basado en activeSeverity (estado activo presente)
     // Regla: warning > critical > normal (warning tiene mayor prioridad visual)
@@ -154,7 +172,7 @@ export default function AlertHistoryWidget({
 
     return (
         <div
-            className={`p-5 glass-panel group${panelStateClass} flex flex-col w-full h-full ${className ?? ''}`}
+            className={`p-5 pb-2 glass-panel group${panelStateClass} flex flex-col w-full h-full overflow-hidden ${className ?? ''}`}
         >
             {/* ── Header — usa WidgetHeader estándar del sistema ── */}
             {/* El ícono retoma color dinámico, pero con 50% de transparencia para
@@ -162,9 +180,10 @@ export default function AlertHistoryWidget({
             <WidgetHeader
                 title={widget.title ?? 'Histórico de Alertas'}
                 icon={HeaderIcon}
-                iconColor={isPendingIconSelection || isInvalidConfiguredIcon
+                iconPosition="left"
+                iconColor={isPendingIconSelection || isInvalidConfiguredIcon || activeSeverity === 'normal'
                     ? 'var(--color-industrial-muted)'
-                    : `color-mix(in srgb, ${statusDotColor} 50%, transparent)`}
+                    : statusDotColor}
                 trailing={
                     <div className="relative flex items-center justify-center w-3 h-3">
                         <span
@@ -177,30 +196,47 @@ export default function AlertHistoryWidget({
                         />
                     </div>
                 }
-                className="mb-2 shrink-0"
+                className="shrink-0"
             />
 
             {/* ── Lista de eventos ── */}
-            <div className="flex-1 overflow-y-auto hmi-scrollbar flex flex-col gap-1.5 pb-2 min-h-0">
+            <div ref={listRef} className="flex-1 overflow-hidden flex flex-col gap-1.5 min-h-0 justify-center">
                 {entries.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    entries.map((entry) => (
-                        <AlertEntryRow key={entry.id} entry={entry} />
+                    entries.slice(0, visibleCount).map((entry, i) => (
+                        <AlertEntryRow key={entry.id} entry={entry} ref={i === 0 ? entryRef : undefined} />
                     ))
                 )}
             </div>
 
-            {/* ── Footer: Ver historial completo ── */}
-            <div className="shrink-0 border-t border-[var(--color-industrial-border)] -mx-5 px-5 py-2">
+            {/* ── Footer: Ver historial completo + limpiar entries ── */}
+            <div className="mt-auto border-t border-[var(--color-industrial-border)] -mx-5 px-5 pt-2 flex items-center justify-between">
                 <button
                     type="button"
-                    className="w-full text-center text-[11px] font-semibold text-industrial-muted hover:text-industrial-text transition-colors duration-200 cursor-default"
+                    className="text-[11px] font-semibold text-industrial-muted hover:text-industrial-text transition-colors duration-200 cursor-default"
                     aria-label="Ver historial completo (funcionalidad pendiente)"
                     tabIndex={-1}
                 >
                     Ver historial completo
                 </button>
+                <Trash2
+                    size={14}
+                    title="Limpiar historial visible"
+                    className={
+                        entries.length === 0
+                            ? 'text-industrial-muted/30 cursor-not-allowed pointer-events-none'
+                            : 'text-industrial-muted hover:text-white transition-colors cursor-pointer'
+                    }
+                    onClick={
+                        entries.length > 0
+                            ? () => {
+                                  alertHistoryStorage.clearEntries(dashboardId);
+                                  refreshState();
+                              }
+                            : undefined
+                    }
+                />
             </div>
         </div>
     );
@@ -209,7 +245,8 @@ export default function AlertHistoryWidget({
 // =============================================================================
 // AlertEntryRow — fila individual de un evento del histórico
 // =============================================================================
-function AlertEntryRow({ entry }: { entry: AlertHistoryEntry }) {
+const AlertEntryRow = forwardRef<HTMLDivElement, { entry: AlertHistoryEntry }>(
+function AlertEntryRow({ entry }, ref) {
     const isCritical = entry.toStatus === 'critical';
 
     const accentColor = isCritical
@@ -230,7 +267,8 @@ function AlertEntryRow({ entry }: { entry: AlertHistoryEntry }) {
 
     return (
         <div
-            className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5"
+            ref={ref}
+            className="rounded-xl px-3 py-1.5 flex flex-col gap-0.5"
             style={bgStyle}
         >
             {/* Badge de severidad + timestamp */}
@@ -289,7 +327,7 @@ function AlertEntryRow({ entry }: { entry: AlertHistoryEntry }) {
             )}
         </div>
     );
-}
+});
 
 // =============================================================================
 // EmptyState — cuando no hay eventos históricos registrados
@@ -306,7 +344,7 @@ function EmptyState() {
                 className="text-[10px] font-semibold uppercase tracking-wider text-center"
                 style={{ color: 'var(--color-industrial-muted)', opacity: 0.6 }}
             >
-                Sin eventos registrados
+                Sin alertas recientes
             </span>
         </div>
     );

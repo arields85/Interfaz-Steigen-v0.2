@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import type { Dashboard, WidgetType } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import { getDashboardHeaderSubtitle, getDashboardHeaderTitle } from '../../utils/dashboardHeader';
 import HeaderWidgetCanvas from './HeaderWidgetCanvas';
 
@@ -124,9 +125,7 @@ interface DashboardHeaderViewerProps {
     canDropHeaderWidget?: never;
     onAddHeaderWidget?: never;
     onDropWidgetAtSlot?: never;
-    publishedDashboards: Dashboard[];
-    activeTabIndex: number;
-    onTabChange: (index: number) => void;
+    hierarchyContext?: HierarchyContext;
 }
 
 interface DashboardHeaderPreviewProps {
@@ -150,9 +149,7 @@ interface DashboardHeaderPreviewProps {
     onAddHeaderWidget?: (type: WidgetType, slotIndex: number) => void;
     /** Asigna un widget existente (arrastrado desde el grid) al slot indicado */
     onDropWidgetAtSlot?: (widgetId: string, slotIndex: number) => void;
-    publishedDashboards?: never;
-    activeTabIndex?: never;
-    onTabChange?: never;
+    hierarchyContext?: HierarchyContext;
 }
 
 type DashboardHeaderProps = DashboardHeaderViewerProps | DashboardHeaderPreviewProps;
@@ -176,9 +173,7 @@ export default function DashboardHeader({
     canDropHeaderWidget,
     onAddHeaderWidget,
     onDropWidgetAtSlot,
-    publishedDashboards,
-    activeTabIndex,
-    onTabChange,
+    hierarchyContext,
 }: DashboardHeaderProps) {
     const headerConfig = dashboard.headerConfig;
     const title = getDashboardHeaderTitle(dashboard);
@@ -241,24 +236,6 @@ export default function DashboardHeader({
             </div>
 
             <div className="flex gap-3 items-end">
-                {mode === 'viewer' && publishedDashboards && publishedDashboards.length > 1 && (
-                    <div className="mr-2 flex gap-1 rounded-lg border border-white/5 bg-white/5 p-1">
-                        {publishedDashboards.map((dash, idx) => (
-                            <button
-                                key={dash.id}
-                                onClick={() => onTabChange?.(idx)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                                    activeTabIndex === idx
-                                        ? 'bg-industrial-panel text-white shadow-sm'
-                                        : 'text-industrial-muted hover:text-white'
-                                }`}
-                            >
-                                {getDashboardHeaderTitle(dash)}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
                 {(isPreview || headerWidgets.length > 0) && (
                     <HeaderWidgetCanvas
                         widgets={headerWidgets}
@@ -278,6 +255,7 @@ export default function DashboardHeader({
                         canDropHeaderWidget={canDropHeaderWidget}
                         onAddHeaderWidget={onAddHeaderWidget}
                         onDropWidgetAtSlot={onDropWidgetAtSlot}
+                        hierarchyContext={hierarchyContext}
                     />
                 )}
             </div>

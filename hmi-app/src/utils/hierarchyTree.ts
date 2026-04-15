@@ -72,3 +72,55 @@ export function getAncestors(
 
     return path;
 }
+
+export function findNodeInTree(
+    nodes: HierarchyNodeWithChildren[],
+    nodeId: string
+): HierarchyNodeWithChildren | null {
+    for (const node of nodes) {
+        if (node.id === nodeId) {
+            return node;
+        }
+
+        const nestedMatch = findNodeInTree(node.children, nodeId);
+        if (nestedMatch) {
+            return nestedMatch;
+        }
+    }
+
+    return null;
+}
+
+export function filterTreeByName(
+    nodes: HierarchyNodeWithChildren[],
+    query: string
+): HierarchyNodeWithChildren[] {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+
+    if (!normalizedQuery) {
+        return nodes;
+    }
+
+    return nodes.reduce<HierarchyNodeWithChildren[]>((acc, node) => {
+        const filteredChildren = filterTreeByName(node.children, normalizedQuery);
+        const matchesNode = node.name.toLocaleLowerCase().includes(normalizedQuery);
+
+        if (!matchesNode && filteredChildren.length === 0) {
+            return acc;
+        }
+
+        acc.push({
+            ...node,
+            children: matchesNode ? node.children : filteredChildren,
+        });
+
+        return acc;
+    }, []);
+}
+
+export function treeContainsNodeId(
+    nodes: HierarchyNodeWithChildren[],
+    nodeId: string
+): boolean {
+    return findNodeInTree(nodes, nodeId) !== null;
+}

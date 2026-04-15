@@ -1,15 +1,38 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Loader2, Network, ChevronRight, LayoutDashboard,
-    ExternalLink, Link2, Plus, Edit2, Trash2, FolderSymlink, Check
+    Loader2, Network, ChevronRight, LayoutDashboard, Search,
+    ExternalLink, Link2, Plus, Edit2, Trash2, FolderSymlink, Check, SearchX
 } from 'lucide-react';
 import type { HierarchyNode, NodeType } from '../../domain/admin.types';
 import type { Dashboard } from '../../domain/admin.types';
+import AdminWorkspaceLayout from '../../components/admin/AdminWorkspaceLayout';
+import HierarchyActionsRail from '../../components/admin/HierarchyActionsRail';
 import { hierarchyStorage } from '../../services/HierarchyStorageService';
 import { dashboardStorage } from '../../services/DashboardStorageService';
-import { buildTree, getAncestors, type HierarchyNodeWithChildren } from '../../utils/hierarchyTree';
-import HierarchyTree, { NODE_TYPE_LABELS } from '../../components/admin/HierarchyTree';
+import { nodeTypeStorage, type NodeTypeDefinition } from '../../services/NodeTypeStorageService';
+import {
+    buildTree,
+    filterTreeByName,
+    findNodeInTree,
+    getAncestors,
+    treeContainsNodeId,
+    type HierarchyNodeWithChildren,
+} from '../../utils/hierarchyTree';
+import { applyNodeTypeLabels, buildNodeTypeLabels, resolveTypeLabel } from '../../utils/nodeTypeLabels';
+import HierarchyTree from '../../components/admin/HierarchyTree';
+import {
+    ADMIN_SIDEBAR_INPUT_CLS,
+    ADMIN_SIDEBAR_SECTION_CLS,
+    ADMIN_SIDEBAR_SECTION_HEADER_CLS,
+    ADMIN_SIDEBAR_LABEL_CLS,
+} from '../../components/admin/adminSidebarStyles';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import AdminDialog from '../../components/admin/AdminDialog';
+import AdminActionButton from '../../components/admin/AdminActionButton';
+import AdminSelect from '../../components/admin/AdminSelect';
+import AdminTag from '../../components/admin/AdminTag';
+import NodeTypeConfigDialog from '../../components/admin/NodeTypeConfigDialog';
 
 // =============================================================================
 // HierarchyPage
@@ -19,33 +42,26 @@ import HierarchyTree, { NODE_TYPE_LABELS } from '../../components/admin/Hierarch
 
 function NodeDetailPanel({
     node,
-    allNodes,
     dashboards,
+    allNodes,
+    nodeTypeLabels,
     onUpdate,
-    onDelete,
-    onAddChild,
-    onMove
+    onDashboardLinkChange,
+    onCreateDashboard,
 }: {
     node: HierarchyNodeWithChildren | null;
-    allNodes: HierarchyNode[];
     dashboards: Dashboard[];
+    allNodes: HierarchyNode[];
+    nodeTypeLabels: Record<string, string>;
     onUpdate: (id: string, partial: Partial<Omit<HierarchyNode, 'id' | 'parentId'>>) => void;
-    onDelete: (id: string) => void;
-    onAddChild: (parentId: string, name: string, type: NodeType) => void;
-    onMove: (id: string, newParentId: string | null) => void;
+    onDashboardLinkChange: (nodeId: string, nextDashboardId?: string) => Promise<void>;
+    onCreateDashboard: (nodeId: string) => Promise<void>;
 }) {
     const navigate = useNavigate();
 
     // Estados de UI locales
     const [isEditingName, setIsEditingName] = useState(false);
     const [editNameValue, setEditNameValue] = useState('');
-    
-    const [showAddChildModal, setShowAddChildModal] = useState(false);
-    const [newChildName, setNewChildName] = useState('');
-    const [newChildType, setNewChildType] = useState<NodeType>('equipment');
-
-    const [showMoveModal, setShowMoveModal] = useState(false);
-    const [moveTargetId, setMoveTargetId] = useState<string>('');
 
     // Sincronizar nombre al cambiar de nodo
     useEffect(() => {
@@ -57,18 +73,15 @@ function NodeDetailPanel({
 
     if (!node) {
         return (
-            <div className="flex-1 flex items-center justify-center text-industrial-muted">
-                <div className="text-center">
-                    <Network size={40} className="mx-auto mb-3 opacity-20" />
-                    <p className="text-sm font-bold uppercase tracking-widest opacity-40">
-                        Seleccioná un nodo para ver y editar sus detalles
-                    </p>
-                </div>
+            <div className="flex-1 px-8 py-6">
+                <AdminEmptyState
+                    icon={Network}
+                    message="Seleccioná un nodo para ver y editar sus detalles"
+                />
             </div>
         );
     }
 
-    const breadcrumbs = getAncestors(node.id, allNodes);
     const hasChildren = node.children.length > 0;
 
     const handleSaveName = () => {
@@ -80,54 +93,40 @@ function NodeDetailPanel({
         setIsEditingName(false);
     };
 
-    const handleDashboardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const val = e.target.value;
-        onUpdate(node.id, { linkedDashboardId: val === 'none' ? undefined : val });
+    const handleDashboardChange = (val: string) => {
+        void onDashboardLinkChange(node.id, val === 'none' ? undefined : val);
     };
 
+    const getDashboardDisplayName = (dashboard: Dashboard) => {
+        const headerTitle = dashboard.headerConfig?.title?.trim();
+        return headerTitle || dashboard.name;
+    };
+
+    const dashboardAssignments = new Map<string, string>();
+    for (const otherNode of allNodes) {
+        if (otherNode.id === node.id || !otherNode.linkedDashboardId) continue;
+        if (!dashboardAssignments.has(otherNode.linkedDashboardId)) {
+            dashboardAssignments.set(otherNode.linkedDashboardId, otherNode.name);
+        }
+    }
+
+    const dashboardOptions = [
+        { value: 'none', label: '-- Sin dashboard asignado --' },
+        ...dashboards.map((dashboard) => {
+            const linkedNodeName = dashboardAssignments.get(dashboard.id);
+            const isLinkedToOtherNode = Boolean(linkedNodeName) && dashboard.id !== node.linkedDashboardId;
+
+            return {
+                value: dashboard.id,
+                label: `${getDashboardDisplayName(dashboard)} ${dashboard.status === 'published' ? '(Público)' : '(Borrador)'}${isLinkedToOtherNode ? ` (Vinculado a ${linkedNodeName})` : ''}`,
+                disabled: isLinkedToOtherNode,
+            };
+        }),
+    ];
+
     return (
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-            
-            {/* TOOLBAR SUPERIOR DEL PANEL DETALLE */}
-            <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0 bg-white/[0.01]">
-                {/* BREADCRUMBS */}
-                <nav className="flex items-center gap-1 text-[10px] font-bold text-industrial-muted uppercase tracking-widest flex-wrap">
-                    {breadcrumbs.map((ancestor, idx) => (
-                        <span key={ancestor.id} className="flex items-center gap-1">
-                            {idx > 0 && <ChevronRight size={10} className="opacity-40" />}
-                            <span className={idx === breadcrumbs.length - 1 ? 'text-white/80' : ''}>
-                                {ancestor.name}
-                            </span>
-                        </span>
-                    ))}
-                </nav>
-
-                {/* ACCIONES DEL NODO */}
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={() => setShowAddChildModal(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-colors admin-accent-ghost"
-                    >
-                        <Plus size={14} /> Hijo
-                    </button>
-                    <button 
-                        onClick={() => setShowMoveModal(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded text-xs font-bold transition-colors"
-                    >
-                        <FolderSymlink size={14} /> Mover
-                    </button>
-                    <button 
-                        onClick={() => onDelete(node.id)}
-                        disabled={hasChildren}
-                        title={hasChildren ? "No se puede eliminar un nodo con hijos" : "Eliminar nodo"}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded text-xs font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
+            <div className="flex-1 min-h-0 overflow-y-auto p-8 hmi-scrollbar">
                 {/* HEADER DEL NODO (RENOMBRABLE) */}
                 <div className="flex items-start gap-4 mb-8">
                     <div className="w-full">
@@ -140,7 +139,7 @@ function NodeDetailPanel({
                                         onChange={e => setEditNameValue(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                                         onBlur={handleSaveName}
-                                        className="text-2xl font-black text-white bg-black/40 border border-admin-accent/50 rounded px-2 py-1 w-full focus:outline-none"
+                                        className={`${ADMIN_SIDEBAR_INPUT_CLS} w-full border-admin-accent/50 bg-black/50 py-1 text-2xl font-black tracking-tight`}
                                     />
                                     <button onClick={handleSaveName} className="p-2 text-admin-accent hover:bg-white/10 rounded">
                                         <Check size={20} />
@@ -155,11 +154,9 @@ function NodeDetailPanel({
                                 </div>
                             )}
                         </div>
-                        <p className="text-xs text-industrial-muted font-mono opacity-60 flex items-center gap-2">
+                        <p className="text-xs text-industrial-muted font-mono font-semibold flex items-center gap-2">
                             id: {node.id} 
-                            <span className="px-2 py-0.5 rounded border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-widest text-industrial-muted">
-                                {NODE_TYPE_LABELS[node.type]}
-                            </span>
+                            <AdminTag label={resolveTypeLabel(node.type, nodeTypeLabels)} variant="muted" />
                         </p>
                     </div>
                 </div>
@@ -168,154 +165,71 @@ function NodeDetailPanel({
                 <div className="grid grid-cols-1 gap-4 max-w-2xl">
 
                     {/* Dashboard vinculado (EDITABLE) */}
-                    <div className="glass-panel border-admin-accent/10 p-4 flex items-start gap-3 relative">
-                        <LayoutDashboard size={16} className={`${node.linkedDashboardId ? 'text-admin-accent' : 'text-industrial-muted'} shrink-0 mt-0.5`} />
-                        <div className="flex-1 w-full relative">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-industrial-muted mb-2">
+                    <section className={`${ADMIN_SIDEBAR_SECTION_CLS} flex items-start gap-3 p-4`}>
+                        <LayoutDashboard size={16} className={`${node.linkedDashboardId ? 'text-admin-accent' : 'text-industrial-muted'} mt-0.5 shrink-0`} />
+                        <div className="relative w-full flex-1">
+                            <p className={ADMIN_SIDEBAR_SECTION_HEADER_CLS}>
                                 Dashboard vinculado
                             </p>
                             
-                            <select 
+                            <AdminSelect
                                 value={node.linkedDashboardId || 'none'}
                                 onChange={handleDashboardChange}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-admin-accent/40 appearance-none cursor-pointer mb-3"
-                            >
-                                <option value="none">-- Sin dashboard asignado --</option>
-                                {dashboards.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.name} {d.status === 'published' ? '(Público)' : '(Borrador)'}
-                                    </option>
-                                ))}
-                            </select>
+                                options={dashboardOptions}
+                                className="mb-3"
+                            />
 
-                            {node.linkedDashboardId && (
-                                <button
+                            <div className="flex items-center gap-2">
+                                <AdminActionButton
                                     onClick={() => navigate(`/admin/builder/${node.linkedDashboardId}`)}
-                                    className="flex w-fit items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-colors admin-accent-ghost"
+                                    variant="primary"
+                                    disabled={!node.linkedDashboardId}
                                 >
-                                    <ExternalLink size={12} /> Abrir Editor Visual
-                                </button>
-                            )}
+                                    <ExternalLink size={12} /> Editar
+                                </AdminActionButton>
+
+                                <AdminActionButton
+                                    onClick={() => void onCreateDashboard(node.id)}
+                                    variant="primary"
+                                    disabled={Boolean(node.linkedDashboardId)}
+                                >
+                                    <Plus size={12} /> Crear nuevo dashboard
+                                </AdminActionButton>
+                            </div>
                         </div>
-                    </div>
+                    </section>
 
                     {/* Activo asociado (Solo lectura V1) */}
-                    <div className="glass-panel border-emerald-500/10 p-4 flex items-start gap-3">
-                        <Link2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <section className={`${ADMIN_SIDEBAR_SECTION_CLS} flex items-start gap-3 p-4`}>
+                        <Link2 size={16} className="mt-0.5 shrink-0 text-industrial-muted" />
                         <div className="flex-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/60 mb-2">
+                            <p className={ADMIN_SIDEBAR_SECTION_HEADER_CLS}>
                                 Activo IoT asociado
                             </p>
                             <input 
                                 disabled
                                 value={node.linkedAssetId || 'Ninguno (Solo lectura en V1)'}
-                                className="w-full bg-black/30 border border-white/5 rounded px-3 py-2 text-sm text-industrial-muted font-medium cursor-not-allowed"
+                                className={`${ADMIN_SIDEBAR_INPUT_CLS} cursor-not-allowed border-white/5 px-3 py-2 text-sm font-medium text-industrial-muted`}
                             />
                         </div>
-                    </div>
+                    </section>
 
                     {/* Sub-nodos Info */}
                     {hasChildren && (
-                        <div className="glass-panel border-white/5 p-4 flex items-start gap-3">
-                            <Network size={16} className="text-industrial-muted shrink-0 mt-0.5" />
+                        <section className={`${ADMIN_SIDEBAR_SECTION_CLS} flex items-start gap-3 p-4`}>
+                            <Network size={16} className="mt-0.5 shrink-0 text-industrial-muted" />
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-industrial-muted mb-1">
+                                <p className={`${ADMIN_SIDEBAR_SECTION_HEADER_CLS} mb-1`}>
                                     Jerarquía Descendente
                                 </p>
                                 <p className="text-sm text-white">
                                     Contiene {node.children.length} nodo{node.children.length !== 1 ? 's' : ''} directos.
                                 </p>
                             </div>
-                        </div>
+                        </section>
                     )}
                 </div>
             </div>
-
-            {/* MODAL: Añadir Hijo */}
-            {showAddChildModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="glass-panel border-white/10 p-6 w-full max-w-sm space-y-4">
-                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Nuevo Nodo Hijo</h3>
-                        
-                        <div>
-                            <label className="block text-[10px] font-bold text-industrial-muted uppercase tracking-widest mb-1.5">Nombre</label>
-                            <input
-                                autoFocus
-                                type="text"
-                                value={newChildName}
-                                onChange={e => setNewChildName(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-industrial-muted uppercase tracking-widest mb-1.5">Tipo</label>
-                            <select
-                                value={newChildType}
-                                onChange={e => setNewChildType(e.target.value as NodeType)}
-                                className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
-                            >
-                                {Object.entries(NODE_TYPE_LABELS).map(([val, label]) => (
-                                    <option key={val} value={val}>{label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="flex justify-end gap-2 pt-2">
-                            <button onClick={() => setShowAddChildModal(false)} className="px-4 py-2 text-xs font-bold text-industrial-muted hover:text-white transition-colors">Cancelar</button>
-                            <button 
-                                onClick={() => {
-                                    if(newChildName.trim()){
-                                        onAddChild(node.id, newChildName.trim(), newChildType);
-                                        setShowAddChildModal(false);
-                                        setNewChildName('');
-                                    }
-                                }}
-                                disabled={!newChildName.trim()}
-                                className="px-4 py-2 bg-admin-accent text-white rounded text-xs font-bold disabled:opacity-50"
-                            >Crear</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* MODAL: Mover Nodo */}
-            {showMoveModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="glass-panel border-white/10 p-6 w-full max-w-sm space-y-4">
-                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Reubicar Nodo</h3>
-                        <p className="text-xs text-industrial-muted">
-                            ¿Bajo qué nodo padre querés mover "{node.name}"?
-                        </p>
-                        
-                        <select
-                            value={moveTargetId}
-                            onChange={e => setMoveTargetId(e.target.value)}
-                            className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-admin-accent/40"
-                        >
-                            <option value="">-- Mover a la Raíz (Sin padre) --</option>
-                            {allNodes
-                                .filter(n => n.id !== node.id) // Simplificado: el backend validará los ciclos
-                                .map(n => (
-                                <option key={n.id} value={n.id}>
-                                    {getAncestors(n.id, allNodes).map(a=>a.name).join(' > ')}
-                                </option>
-                            ))}
-                        </select>
-
-                        <div className="flex justify-end gap-2 pt-2">
-                            <button onClick={() => setShowMoveModal(false)} className="px-4 py-2 text-xs font-bold text-industrial-muted hover:text-white transition-colors">Cancelar</button>
-                            <button 
-                                onClick={() => {
-                                    onMove(node.id, moveTargetId || null);
-                                    setShowMoveModal(false);
-                                }}
-                                className="px-4 py-2 bg-admin-accent text-white rounded text-xs font-bold"
-                            >Confirmar Mover</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
         </div>
     );
@@ -323,19 +237,60 @@ function NodeDetailPanel({
 
 // ---- Página principal ----
 export default function HierarchyPage() {
+    const navigate = useNavigate();
     const [allNodes, setAllNodes] = useState<HierarchyNode[]>([]);
     const [dashboards, setDashboards] = useState<Dashboard[]>([]);
+    const [nodeTypes, setNodeTypes] = useState<NodeTypeDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showAddChildModal, setShowAddChildModal] = useState(false);
+    const [newChildName, setNewChildName] = useState('');
+    const [newChildType, setNewChildType] = useState<NodeType>('equipment');
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [moveTargetId, setMoveTargetId] = useState('');
+    const [showAddRootDialog, setShowAddRootDialog] = useState(false);
+    const [addRootName, setAddRootName] = useState('');
+    const [showRenameDialog, setShowRenameDialog] = useState(false);
+    const [renameValue, setRenameValue] = useState('');
+    const [deleteTargetNodeId, setDeleteTargetNodeId] = useState<string | null>(null);
+    const [dialogMessage, setDialogMessage] = useState<string | null>(null);
+    const [showNodeTypeConfigDialog, setShowNodeTypeConfigDialog] = useState(false);
+
+    // Estado expandido/colapsado del árbol — persistido en localStorage
+    const EXPANDED_STORAGE_KEY = 'steigen_hmi_hierarchy_expanded_v1';
+    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => {
+        try {
+            const stored = localStorage.getItem(EXPANDED_STORAGE_KEY);
+            if (stored) return new Set(JSON.parse(stored) as string[]);
+        } catch { /* ignorar datos corruptos */ }
+        return new Set<string>();
+    });
+
+    const handleToggleExpand = useCallback((nodeId: string) => {
+        setExpandedNodeIds(prev => {
+            const next = new Set(prev);
+            if (next.has(nodeId)) {
+                next.delete(nodeId);
+            } else {
+                next.add(nodeId);
+            }
+            localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
+            return next;
+        });
+    }, []);
 
     const load = async () => {
         try {
-            const [nodes, dashs] = await Promise.all([
+            const [nodes, dashs, storedNodeTypes] = await Promise.all([
                 hierarchyStorage.getNodes(),
-                dashboardStorage.getDashboards()
+                dashboardStorage.getDashboards(),
+                nodeTypeStorage.getAll(),
             ]);
             setAllNodes(nodes);
             setDashboards(dashs);
+            setNodeTypes(storedNodeTypes);
+            applyNodeTypeLabels(storedNodeTypes);
         } catch (err) {
             console.error('Error cargando datos de jerarquía:', err);
         } finally {
@@ -348,29 +303,49 @@ export default function HierarchyPage() {
     }, []);
 
     const tree = useMemo(() => buildTree(allNodes), [allNodes]);
+    const filteredTree = useMemo(() => filterTreeByName(tree, searchTerm), [tree, searchTerm]);
+    const nodeTypeLabels = useMemo(() => buildNodeTypeLabels(nodeTypes), [nodeTypes]);
+    const nodeCountByType = useMemo(() => allNodes.reduce<Record<string, number>>((acc, node) => {
+        acc[node.type] = (acc[node.type] ?? 0) + 1;
+        return acc;
+    }, {}), [allNodes]);
+    const nodeTypeOptions = useMemo(() => Object.entries(nodeTypeLabels).map(([value, label]) => ({
+        value,
+        label,
+    })), [nodeTypeLabels]);
     
     // Obtenemos el selectedNode derivado
     const selectedNode = useMemo(() => {
         if (!selectedNodeId) return null;
-        // Búsqueda profunda en el tree renderizado
-        let found: HierarchyNodeWithChildren | null = null;
-        const findRecursive = (nodes: HierarchyNodeWithChildren[]) => {
-            for (const n of nodes) {
-                if (n.id === selectedNodeId) found = n;
-                if (!found && n.children.length > 0) findRecursive(n.children);
-            }
-        };
-        findRecursive(tree);
-        return found;
+        return findNodeInTree(tree, selectedNodeId);
     }, [selectedNodeId, tree]);
+    const selectedNodeBreadcrumbs = useMemo(
+        () => (selectedNode ? getAncestors(selectedNode.id, allNodes) : []),
+        [selectedNode, allNodes]
+    );
+
+    useEffect(() => {
+        if (!selectedNodeId || !searchTerm.trim()) {
+            return;
+        }
+
+        if (!treeContainsNodeId(filteredTree, selectedNodeId)) {
+            setSelectedNodeId(null);
+        }
+    }, [filteredTree, searchTerm, selectedNodeId]);
 
     // Handlers CRUD
-    const handleAddRoot = async () => {
-        const name = prompt("Nombre de la nueva locación/planta raíz:");
-        if (name) {
-            await hierarchyStorage.createNode(name, 'plant', null);
-            await load();
-        }
+    const handleAddRoot = () => {
+        setAddRootName('');
+        setShowAddRootDialog(true);
+    };
+
+    const handleConfirmAddRoot = async () => {
+        if (!addRootName.trim()) return;
+        await hierarchyStorage.createNode(addRootName.trim(), 'plant', null);
+        setShowAddRootDialog(false);
+        setAddRootName('');
+        await load();
     };
 
     const handleUpdateNode = async (id: string, partial: Partial<Omit<HierarchyNode, 'id' | 'parentId'>>) => {
@@ -378,16 +353,60 @@ export default function HierarchyPage() {
         await load();
     };
 
-    const handleDeleteNode = async (id: string) => {
-        if (window.confirm("¿Seguro que deseas eliminar el nodo seleccionado?")) {
-            const success = await hierarchyStorage.deleteNode(id);
-            if (!success) {
-                alert("No se puede eliminar un nodo que contiene sub-nodos. Elimina primero a los hijos o muévelos.");
-            } else {
-                if (selectedNodeId === id) setSelectedNodeId(null);
-                await load();
+    const handleDashboardLinkChange = async (nodeId: string, nextDashboardId?: string) => {
+        const currentNode = allNodes.find((node) => node.id === nodeId);
+        if (!currentNode) return;
+
+        const previousDashboardId = currentNode.linkedDashboardId;
+
+        await hierarchyStorage.updateNode(nodeId, { linkedDashboardId: nextDashboardId });
+
+        if (previousDashboardId && previousDashboardId !== nextDashboardId) {
+            const previousDashboard = await dashboardStorage.getDashboard(previousDashboardId);
+            if (previousDashboard?.ownerNodeId === nodeId) {
+                await dashboardStorage.saveDashboard({
+                    ...previousDashboard,
+                    ownerNodeId: undefined,
+                    // Sin nodo asignado no puede estar publicado
+                    status: 'draft',
+                    publishedSnapshot: undefined,
+                });
             }
         }
+
+        if (nextDashboardId) {
+            const nextDashboard = await dashboardStorage.getDashboard(nextDashboardId);
+            if (nextDashboard && nextDashboard.ownerNodeId !== nodeId) {
+                await dashboardStorage.saveDashboard({
+                    ...nextDashboard,
+                    ownerNodeId: nodeId,
+                });
+            }
+        }
+
+        await load();
+    };
+
+    const handleDeleteNode = (id: string) => {
+        setDeleteTargetNodeId(id);
+    };
+
+    const handleConfirmDeleteNode = async () => {
+        if (!deleteTargetNodeId) return;
+        const targetId = deleteTargetNodeId;
+        setDeleteTargetNodeId(null);
+
+        const success = await hierarchyStorage.deleteNode(targetId);
+        if (!success) {
+            setDialogMessage('No se puede eliminar un nodo que contiene sub-nodos. Elimina primero a los hijos o muévelos.');
+            return;
+        }
+
+        if (selectedNodeId === targetId) {
+            setSelectedNodeId(null);
+        }
+
+        await load();
     };
 
     const handleAddChild = async (parentId: string, name: string, type: NodeType) => {
@@ -398,57 +417,368 @@ export default function HierarchyPage() {
     const handleMoveNode = async (id: string, newParentId: string | null) => {
         const success = await hierarchyStorage.updateNodeParent(id, newParentId);
         if (!success) {
-            alert("No se puede mover el nodo allí. Operación inválida o ciclo infinito (un nodo padre no puede ser movido dentro de su propio descendiente).");
+            setDialogMessage('No se puede mover el nodo allí. Operación inválida o ciclo infinito (un nodo padre no puede ser movido dentro de su propio descendiente).');
         } else {
             await load();
         }
     };
 
+    const handleRailAddChild = () => {
+        if (!selectedNode) return;
+        handleOpenAddChildModal();
+    };
+
+    const handleRailRename = () => {
+        if (!selectedNode) return;
+        setRenameValue(selectedNode.name);
+        setShowRenameDialog(true);
+    };
+
+    const handleConfirmRenameNode = async () => {
+        if (!selectedNode) return;
+        const nextName = renameValue.trim();
+        if (!nextName || nextName === selectedNode.name) {
+            setShowRenameDialog(false);
+            return;
+        }
+
+        await handleUpdateNode(selectedNode.id, { name: nextName });
+        setShowRenameDialog(false);
+    };
+
+    const handleRailMove = () => {
+        if (!selectedNode) return;
+        handleOpenMoveModal();
+    };
+
+    const handleCreateDashboard = async (nodeId: string) => {
+        const node = allNodes.find(n => n.id === nodeId);
+        if (!node) return;
+        const newDashboard = await dashboardStorage.createEmptyDashboard(node.name);
+        await handleDashboardLinkChange(nodeId, newDashboard.id);
+        navigate(`/admin/builder/${newDashboard.id}`);
+    };
+
+    const handleRailDelete = () => {
+        if (!selectedNode) return;
+        handleDeleteNode(selectedNode.id);
+    };
+
+    const handleOpenAddChildModal = () => {
+        if (!selectedNode) return;
+        setNewChildName('');
+        setNewChildType('equipment');
+        setShowAddChildModal(true);
+    };
+
+    const handleCloseAddChildModal = () => {
+        setShowAddChildModal(false);
+        setNewChildName('');
+        setNewChildType('equipment');
+    };
+
+    const handleOpenMoveModal = () => {
+        if (!selectedNode) return;
+        setMoveTargetId(selectedNode.parentId ?? '');
+        setShowMoveModal(true);
+    };
+
+    const handleSaveNodeTypes = async (types: NodeTypeDefinition[]) => {
+        await nodeTypeStorage.save(types);
+        setNodeTypes(types);
+        applyNodeTypeLabels(types);
+        if (!types.some((type) => type.key === newChildType)) {
+            setNewChildType(types[0]?.key ?? 'equipment');
+        }
+        setShowNodeTypeConfigDialog(false);
+    };
+
+    const handleConfirmAddChild = async () => {
+        if (!selectedNode || !newChildName.trim()) return;
+        await handleAddChild(selectedNode.id, newChildName.trim(), newChildType);
+        setShowAddChildModal(false);
+        setNewChildName('');
+    };
+
+    const handleConfirmMoveNode = async () => {
+        if (!selectedNode) return;
+        await handleMoveNode(selectedNode.id, moveTargetId || null);
+        setShowMoveModal(false);
+    };
+
     return (
-        <div className="flex h-full overflow-hidden">
-
-            {/* PANEL IZQUIERDO — Árbol */}
-            <aside className="w-72 border-r border-white/5 flex flex-col shrink-0 bg-industrial-panel/20 overflow-hidden relative">
-                <div className="h-14 px-4 border-b border-white/5 shrink-0 flex items-center justify-between">
-                    <h2 className="text-[10px] font-black uppercase tracking-widest text-industrial-muted flex items-center gap-2">
-                        <Network size={12} />
-                        Estructura Planta
-                    </h2>
-                    <button 
-                        onClick={handleAddRoot}
-                        title="Crear nueva Planta/Sitio (Raíz)"
-                        className="p-1.5 hover:bg-white/10 text-white/60 hover:text-white rounded transition-colors"
-                    >
-                        <Plus size={14} />
-                    </button>
+        <AdminWorkspaceLayout
+            contextBarPanel={
+                <div className="flex h-full w-full items-center px-4">
+                    <label className="relative w-full">
+                        <Search
+                            size={14}
+                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-industrial-muted"
+                        />
+                        <input
+                            type="search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="Buscar área, box o equipo"
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} h-9 pl-9 pr-3 text-xs font-medium`}
+                            aria-label="Buscar nodos de jerarquía por nombre"
+                        />
+                    </label>
                 </div>
+            }
+            contextBar={
+                selectedNode ? (
+                    <div className="flex h-full w-full items-center justify-between gap-4 px-4">
+                        <nav className="flex min-w-0 items-center gap-1 overflow-hidden text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                            {selectedNodeBreadcrumbs.map((ancestor, idx) => (
+                                <span key={ancestor.id} className="flex min-w-0 items-center gap-1">
+                                    {idx > 0 && <ChevronRight size={10} className="shrink-0 opacity-40" />}
+                                    <span className={`truncate ${idx === selectedNodeBreadcrumbs.length - 1 ? 'text-white/80' : ''}`}>
+                                        {ancestor.name}
+                                    </span>
+                                </span>
+                            ))}
+                        </nav>
 
-                <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+                        <div className="flex shrink-0 items-center gap-2">
+                            <AdminActionButton
+                                onClick={handleOpenAddChildModal}
+                                variant="primary"
+                            >
+                                <Plus size={14} /> Hijo
+                            </AdminActionButton>
+                            <AdminActionButton
+                                onClick={handleOpenMoveModal}
+                                variant="secondary"
+                            >
+                                <FolderSymlink size={14} /> Mover
+                            </AdminActionButton>
+                            <AdminActionButton
+                                onClick={() => void handleDeleteNode(selectedNode.id)}
+                                disabled={selectedNode.children.length > 0}
+                                title={selectedNode.children.length > 0 ? 'No se puede eliminar un nodo con hijos' : 'Eliminar nodo'}
+                                variant="secondary"
+                            >
+                                <Trash2 size={14} /> Eliminar
+                            </AdminActionButton>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex h-full w-full items-center px-4 text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        Seleccioná un nodo para ver acciones contextualizadas
+                    </div>
+                )
+            }
+            rail={
+                <HierarchyActionsRail
+                    selectedNodeId={selectedNode?.id ?? null}
+                    onAddRoot={handleAddRoot}
+                    onAddChild={handleRailAddChild}
+                    onRename={handleRailRename}
+                    onMove={handleRailMove}
+                    onDelete={handleRailDelete}
+                    onConfigureTypes={() => setShowNodeTypeConfigDialog(true)}
+                />
+            }
+            sidePanel={
+                <div className="h-full min-h-0 overflow-y-auto py-2 hmi-scrollbar">
                     {isLoading ? (
-                        <div className="flex justify-center items-center h-40">
+                        <div className="flex h-full min-h-0 justify-center items-center">
                             <Loader2 className="animate-spin text-admin-accent" size={24} />
+                        </div>
+                    ) : searchTerm.trim() && filteredTree.length === 0 ? (
+                        <div className="h-full min-h-0 px-4 py-4">
+                            <AdminEmptyState
+                                icon={SearchX}
+                                message={`No encontramos nodos que coincidan con “${searchTerm.trim()}”.`}
+                            />
                         </div>
                     ) : (
                         <HierarchyTree
-                            nodes={tree}
+                            nodes={filteredTree}
+                            nodeTypes={nodeTypes}
                             selectedNodeId={selectedNodeId || undefined}
+                            expandedNodeIds={expandedNodeIds}
+                            onToggleExpand={handleToggleExpand}
                             onSelect={(n) => setSelectedNodeId(n.id)}
                         />
                     )}
                 </div>
-            </aside>
+            }
+        >
+            <>
+                <NodeDetailPanel
+                    node={selectedNode}
+                    dashboards={dashboards}
+                    allNodes={allNodes}
+                    nodeTypeLabels={nodeTypeLabels}
+                    onUpdate={handleUpdateNode}
+                    onDashboardLinkChange={handleDashboardLinkChange}
+                    onCreateDashboard={handleCreateDashboard}
+                />
 
-            {/* PANEL DERECHO — Detalle */}
-            <NodeDetailPanel 
-                node={selectedNode} 
-                allNodes={allNodes}
-                dashboards={dashboards}
-                onUpdate={handleUpdateNode}
-                onDelete={handleDeleteNode}
-                onAddChild={handleAddChild}
-                onMove={handleMoveNode}
-            />
+                <AdminDialog
+                    open={showAddChildModal && Boolean(selectedNode)}
+                    title="NUEVO NODO HIJO"
+                    onClose={handleCloseAddChildModal}
+                    actions={(
+                        <>
+                            <AdminActionButton variant="secondary" onClick={handleCloseAddChildModal}>Cancelar</AdminActionButton>
+                            <AdminActionButton
+                                onClick={() => void handleConfirmAddChild()}
+                                disabled={!newChildName.trim()}
+                                variant="primary"
+                            >Crear</AdminActionButton>
+                        </>
+                    )}
+                >
+                    <div>
+                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Nombre</label>
+                        <input
+                            autoFocus
+                            type="text"
+                            value={newChildName}
+                            onChange={(e) => setNewChildName(e.target.value)}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                        />
+                    </div>
 
-        </div>
+                    <div>
+                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Tipo</label>
+                        <AdminSelect
+                            value={newChildType}
+                            onChange={(value) => setNewChildType(value as NodeType)}
+                            options={nodeTypeOptions}
+                        />
+                    </div>
+                </AdminDialog>
+
+                <NodeTypeConfigDialog
+                    open={showNodeTypeConfigDialog}
+                    onClose={() => setShowNodeTypeConfigDialog(false)}
+                    nodeTypes={nodeTypes}
+                    onSave={(types) => void handleSaveNodeTypes(types)}
+                    nodeCountByType={nodeCountByType}
+                />
+
+                {showMoveModal && selectedNode && (
+                    <AdminDialog
+                        open={showMoveModal}
+                        title="Reubicar Nodo"
+                        onClose={() => setShowMoveModal(false)}
+                        actions={(
+                            <>
+                                <AdminActionButton variant="secondary" onClick={() => setShowMoveModal(false)}>Cancelar</AdminActionButton>
+                                <AdminActionButton
+                                    onClick={() => void handleConfirmMoveNode()}
+                                    variant="primary"
+                                >Confirmar Mover</AdminActionButton>
+                            </>
+                        )}
+                    >
+                        <p className="text-xs text-industrial-muted">
+                            ¿Bajo qué nodo padre querés mover "{selectedNode.name}"?
+                        </p>
+
+                        <select
+                            value={moveTargetId}
+                            onChange={(e) => setMoveTargetId(e.target.value)}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                        >
+                            <option value="">-- Mover a la Raíz (Sin padre) --</option>
+                            {allNodes
+                                .filter((n) => n.id !== selectedNode.id)
+                                .map((n) => (
+                                    <option key={n.id} value={n.id}>
+                                        {getAncestors(n.id, allNodes).map((a) => a.name).join(' > ')}
+                                    </option>
+                                ))}
+                        </select>
+                    </AdminDialog>
+                )}
+
+                <AdminDialog
+                    open={showAddRootDialog}
+                    title="Nueva Locación / Planta Raíz"
+                    onClose={() => setShowAddRootDialog(false)}
+                    actions={(
+                        <>
+                            <AdminActionButton variant="secondary" onClick={() => setShowAddRootDialog(false)}>Cancelar</AdminActionButton>
+                            <AdminActionButton
+                                onClick={() => void handleConfirmAddRoot()}
+                                disabled={!addRootName.trim()}
+                                variant="primary"
+                            >Crear</AdminActionButton>
+                        </>
+                    )}
+                >
+                    <div>
+                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto tracking-widest`}>Nombre</label>
+                        <input
+                            autoFocus
+                            type="text"
+                            value={addRootName}
+                            onChange={(e) => setAddRootName(e.target.value)}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                        />
+                    </div>
+                </AdminDialog>
+
+                <AdminDialog
+                    open={showRenameDialog && Boolean(selectedNode)}
+                    title="Renombrar Nodo"
+                    onClose={() => setShowRenameDialog(false)}
+                    actions={(
+                        <>
+                            <AdminActionButton variant="secondary" onClick={() => setShowRenameDialog(false)}>Cancelar</AdminActionButton>
+                            <AdminActionButton
+                                onClick={() => void handleConfirmRenameNode()}
+                                disabled={!renameValue.trim() || renameValue.trim() === selectedNode?.name}
+                                variant="primary"
+                            >Guardar</AdminActionButton>
+                        </>
+                    )}
+                >
+                    <div>
+                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto tracking-widest`}>Nombre</label>
+                        <input
+                            autoFocus
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                        />
+                    </div>
+                </AdminDialog>
+
+                <AdminDialog
+                    open={Boolean(deleteTargetNodeId)}
+                    title="Confirmar Eliminación"
+                    onClose={() => setDeleteTargetNodeId(null)}
+                    actions={(
+                        <>
+                            <AdminActionButton variant="secondary" onClick={() => setDeleteTargetNodeId(null)}>Cancelar</AdminActionButton>
+                            <AdminActionButton
+                                onClick={() => void handleConfirmDeleteNode()}
+                                variant="secondary"
+                            >Eliminar</AdminActionButton>
+                        </>
+                    )}
+                >
+                    <p className="text-xs text-industrial-muted">¿Seguro que deseás eliminar el nodo seleccionado?</p>
+                </AdminDialog>
+
+                <AdminDialog
+                    open={Boolean(dialogMessage)}
+                    title="Operación no permitida"
+                    onClose={() => setDialogMessage(null)}
+                    actions={(
+                        <AdminActionButton variant="primary" onClick={() => setDialogMessage(null)}>Entendido</AdminActionButton>
+                    )}
+                >
+                    <p className="text-xs text-industrial-muted">{dialogMessage}</p>
+                </AdminDialog>
+            </>
+        </AdminWorkspaceLayout>
     );
 }

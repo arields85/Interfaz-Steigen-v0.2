@@ -1,6 +1,7 @@
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 
 interface DashboardViewerProps {
     widgets: WidgetConfig[];
@@ -12,6 +13,7 @@ interface DashboardViewerProps {
      * Viene de `dashboard.headerConfig.widgetSlots`.
      */
     headerWidgetIds?: Set<string>;
+    hierarchyContext?: HierarchyContext;
 }
 
 // =============================================================================
@@ -31,12 +33,13 @@ export default function DashboardViewer({
     layout, 
     equipmentMap,
     headerWidgetIds,
+    hierarchyContext,
 }: DashboardViewerProps) {
     
     const widgetMap = new Map(widgets.map(w => [w.id, w]));
 
     return (
-        <div className="w-full h-full p-4 overflow-y-auto overflow-x-hidden">
+        <div className="w-full h-full p-4 overflow-y-auto overflow-x-hidden hmi-scrollbar">
             <div className="grid grid-cols-4 gap-4 auto-rows-[140px] w-full">
                 {layout.map((item) => {
                     // Excluir del grid los widgets asignados al header
@@ -64,6 +67,7 @@ export default function DashboardViewer({
                                     equipmentMap={equipmentMap} 
                                     isLoadingData={false} 
                                     siblingWidgets={widgets}
+                                    hierarchyContext={hierarchyContext}
                                     className="w-full h-full"
                                 />
                             </div>

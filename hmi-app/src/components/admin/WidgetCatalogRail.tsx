@@ -1,0 +1,43 @@
+import { Activity, BarChart2, Gauge, History, LineChart, PlugZap, TrendingUp, Wifi } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { WidgetType } from '../../domain/admin.types';
+
+interface WidgetCatalogRailProps {
+    onAddWidget: (type: WidgetType) => void;
+}
+
+interface RailAction {
+    type: WidgetType;
+    label: string;
+    icon: LucideIcon;
+}
+
+const ACTIONS: RailAction[] = [
+    { type: 'kpi', label: 'Indicador (KPI)', icon: Gauge },
+    { type: 'metric-card', label: 'Tarjeta de Métrica', icon: BarChart2 },
+    { type: 'trend-chart', label: 'Gráfico de Tendencia', icon: TrendingUp },
+    { type: 'oee-production-trend', label: 'OEE vs Producción', icon: LineChart },
+    { type: 'prod-history', label: 'Producción Histórica', icon: LineChart },
+    { type: 'status', label: 'Estado de Equipo', icon: Activity },
+    { type: 'connection-indicator', label: 'Indicador de Conexión', icon: Wifi },
+    { type: 'connection-status', label: 'Estado de Conexión', icon: PlugZap },
+    { type: 'alert-history', label: 'Histórico de Alertas', icon: History },
+];
+
+export default function WidgetCatalogRail({ onAddWidget }: WidgetCatalogRailProps) {
+    return (
+        <div className="h-full w-full flex flex-col items-center py-3 gap-1">
+            {ACTIONS.map(({ type, label, icon: Icon }) => (
+                <button
+                    key={type}
+                    type="button"
+                    title={label}
+                    onClick={() => onAddWidget(type)}
+                    className="h-9 w-9 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
+                >
+                    <Icon size={18} />
+                </button>
+            ))}
+        </div>
+    );
+}

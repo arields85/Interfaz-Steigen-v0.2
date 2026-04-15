@@ -10,16 +10,7 @@
 
 // --- JERARQUÍA ---
 
-export type NodeType =
-    | 'plant'
-    | 'area'
-    | 'sector'
-    | 'line'
-    | 'cell'
-    | 'box'
-    | 'equipment'
-    | 'folder'
-    | 'group';
+export type NodeType = string;
 
 /**
  * Nodo del árbol jerárquico de planta.
@@ -31,7 +22,9 @@ export interface HierarchyNode {
     type: NodeType;
     parentId: string | null;
     order: number;
+    /** Dashboard asociado al nodo para navegación y agregación jerárquica. */
     linkedDashboardId?: string;
+    /** Asset asociado al nodo para bindings puntuales de solo lectura. */
     linkedAssetId?: string;
 }
 
@@ -80,6 +73,26 @@ export interface DashboardHeaderConfig {
 }
 
 /**
+ * Snapshot congelado de la versión publicada de un dashboard.
+ * Mientras el admin edita la working copy (widgets/layout/headerConfig del Dashboard),
+ * el viewer siempre lee de este snapshot. Se actualiza únicamente al publicar.
+ */
+export interface PublishedSnapshot {
+    widgets: WidgetConfig[];
+    layout: WidgetLayout[];
+    headerConfig?: DashboardHeaderConfig;
+    publishedAt: string;
+}
+
+/**
+ * Estado visual derivado del dashboard, calculado a partir de `status` y `publishedSnapshot`.
+ * - `draft`:     nunca publicado (status='draft', sin snapshot)
+ * - `published`: publicado y al día (snapshot coincide con working copy)
+ * - `pending`:   publicado con cambios guardados sin publicar (snapshot difiere de working copy)
+ */
+export type DashboardVisualStatus = 'draft' | 'published' | 'pending';
+
+/**
  * Composición visual completa: un dashboard con su layout y sus widgets.
  */
 export interface Dashboard {
@@ -100,6 +113,13 @@ export interface Dashboard {
      * Opcional: si está ausente, el header usa `name`/`description` y sin widget slots.
      */
     headerConfig?: DashboardHeaderConfig;
+    /**
+     * Snapshot congelado de la versión publicada.
+     * Presente solo en dashboards que fueron publicados al menos una vez.
+     * El viewer lee de aquí; la working copy (widgets/layout/headerConfig) es el estado
+     * más reciente del editor.
+     */
+    publishedSnapshot?: PublishedSnapshot;
 }
 
 export interface WidgetLayout {
@@ -119,6 +139,8 @@ export type WidgetType =
     | 'badge'
     | 'sparkline'
     | 'trend-chart'
+    | 'oee-production-trend'
+    | 'prod-history'
     | 'table'
     | 'alert-list'
     | 'alert-history'
@@ -128,6 +150,15 @@ export type WidgetType =
     | 'multi-metric'
     | 'ai-summary'
     | 'section-title';
+
+// --- AGREGACIÓN JERÁRQUICA ---
+
+/**
+ * Función de agregación aplicable cuando un widget opera en modo jerárquico.
+ * El resolver recorre los descendientes del nodo actual, recolecta valores
+ * numéricos de widgets con la misma unidad, y aplica esta operación.
+ */
+export type AggregationMode = 'sum' | 'avg' | 'max' | 'min';
 
 // --- BINDING ---
 
@@ -143,6 +174,11 @@ export interface WidgetBinding {
     variableKey?: string;    // clave semántica del dominio (ej: 'rotorSpeed', 'temperature')
     formatter?: string;
     unit?: string;
+    /**
+     * Identidad canónica de variable para agregación jerárquica.
+     * Refiere a `CatalogVariable.id`.
+     */
+    catalogVariableId?: string;
     lastKnownValueAllowed?: boolean;
     staleTimeout?: number;   // segundos antes de considerar el dato como stale
     simulatedValue?: number | string | boolean;
@@ -287,6 +323,90 @@ export interface StatusDisplayOptions {
 }
 
 /**
+ * Opciones de visualización para widgets de tipo 'oee-production-trend'.
+ *
+ * Replica visual del gráfico OEE vs Producción de la página Tendencias.
+ * Dos series: OEE (%) en eje izquierdo y Volumen/Producción en eje derecho.
+ *
+ * - `oeeLabel`:         label para la serie OEE en la leyenda (default: 'OEE (%)')
+ * - `productionLabel`:  label para la serie de producción (default: 'Volumen (k)')
+ * - `chartTitle`:       sobreescribe el título del gráfico (default: 'TENDENCIA HISTÓRICA: OEE vs PRODUCCIÓN')
+ * - `volumeChartMode`:  modo de visualización del volumen de producción:
+ *                       - `'area'`  (default): área rellena, igual que OEE
+ *                       - `'bars'`: barras con gradiente oscuro y tope luminoso (estilo industrial)
+ */
+export interface OeeProductionTrendDisplayOptions {
+    oeeLabel?: string;
+    productionLabel?: string;
+    chartTitle?: string;
+    volumeChartMode?: 'area' | 'bars';
+}
+
+export type TemporalBucket = 'hour' | 'shift' | 'day' | 'month';
+export type ProductionChartMode = 'bars' | 'area';
+
+/**
+ * Unidad de producción del widget `prod-history`.
+ *
+ * Conceptualmente ortogonal a `binding.unit` (unidades físicas tipo °C, RPM).
+ * Representa la unidad de dominio con la que se cuantifica la producción
+ * del equipo/línea: cantidad discreta, masa, peso industrial o lote de envase.
+ */
+export type ProductionUnit = 'unidades' | 'kg' | 'tn' | 'cuñetes';
+
+/**
+ * Opciones de visualización para widgets de tipo 'prod-history'.
+ *
+ * - `sourceLabel`:             etiqueta de origen de datos (default: 'Simulado').
+ * - `productionLabel`:         label de serie producción (default: 'Producción').
+ * - `oeeLabel`:                label de serie OEE (default: 'OEE (%)').
+ * - `chartTitle`:              título superior del widget (default: 'PRODUCCIÓN HISTÓRICA').
+ * - `icon`:                    nombre del ícono Lucide a mostrar en el header.
+ *                              `undefined` = pendiente de configuración (placeholder),
+ *                              `null` = sin ícono explícito.
+ * - `productionUnit`:          unidad de producción a mostrar en leyenda y ticks del
+ *                              eje Y izquierdo. Ortogonal a `binding.unit` (unidades
+ *                              físicas). Default: 'unidades'.
+ * - `productionChartMode`:     modo de producción ('bars' | 'area', default: 'bars').
+ * - `oeeChartMode`:            reservado para contrato explícito; por ahora solo 'line'.
+ * - `useSecondaryAxis`:        usa eje derecho para OEE (default: true).
+ * - `autoScale`:               escala Y dinámica por series visibles (default: true).
+ * - `showGrid`:                habilita grid horizontal (default: true).
+ * - `oeeShowArea`:             relleno bajo línea OEE (default: false).
+ * - `oeeShowPoints`:           puntos visibles en línea OEE (default: false).
+ * - `productionBarWidth`:      factor multiplicador en [0.5, 1.5], default 1.0,
+ *                              aplicado al ancho natural de barra calculado dentro
+ *                              del renderer SVG. Se clamppea silenciosamente tanto
+ *                              en el renderer como en el slider del dock.
+ * - `defaultTemporalGrouping`: valor inicial local del selector (default: 'hour').
+ * - `defaultShowOee`:          visibilidad inicial local de OEE (default: true).
+ */
+export interface ProdHistoryDisplayOptions {
+    sourceLabel?: string;
+    productionLabel?: string;
+    oeeLabel?: string;
+    chartTitle?: string;
+    icon?: string | null;
+    productionUnit?: ProductionUnit;
+    productionChartMode?: ProductionChartMode;
+    oeeChartMode?: 'line';
+    useSecondaryAxis?: boolean;
+    autoScale?: boolean;
+    showGrid?: boolean;
+    oeeShowArea?: boolean;
+    oeeShowPoints?: boolean;
+    productionBarWidth?: number;
+    productionAxisMin?: number;
+    productionAxisMax?: number;
+    oeeAxisMin?: number;
+    oeeAxisMax?: number;
+    productionVariableKey?: string;
+    oeeVariableKey?: string;
+    defaultTemporalGrouping?: TemporalBucket;
+    defaultShowOee?: boolean;
+}
+
+/**
  * Opciones de visualización para widgets sin opciones específicas tipadas.
  * Extensible, pero deliberadamente vacío — no es un Record<string, unknown> abierto.
  */
@@ -312,6 +432,30 @@ interface WidgetConfigBase {
     thresholds?: ThresholdRule[];
     fallbackMode?: 'last-known' | 'empty' | 'error';
     simulatedValue?: number | string | boolean;
+    /**
+     * Modo jerárquico: el widget agrega valores de los descendientes del nodo
+     * actual en la jerarquía de planta, en vez de mostrar un binding puntual.
+     * Cuando está activo, `binding.catalogVariableId` define la variable
+     * canónica a buscar en los dashboards hijos.
+     * Default: false (modo puntual).
+     */
+    hierarchyMode?: boolean;
+    /**
+     * Función de agregación para modo jerárquico.
+     * Ignorado cuando `hierarchyMode` es false/undefined.
+     * Default: 'sum'.
+     */
+    aggregation?: AggregationMode;
+    /**
+     * Porcentaje de banda muerta (histéresis) para alertas por umbral.
+     * Previene re-disparos cuando el valor oscila alrededor del umbral.
+     * Ejemplo: umbral=50, deadbandPercent=5 → la recuperación a 'normal'
+     * solo ocurre cuando el valor cae por debajo de 50 - (50*0.05) = 47.5.
+     * Solo aplica al registro del histórico; el color visual del widget
+     * sigue reaccionando instantáneamente al cruce del umbral.
+     * Default: 5 cuando los umbrales están activos.
+     */
+    deadbandPercent?: number;
 }
 
 export interface KpiWidgetConfig extends WidgetConfigBase {
@@ -327,6 +471,16 @@ export interface MetricCardWidgetConfig extends WidgetConfigBase {
 export interface TrendChartWidgetConfig extends WidgetConfigBase {
     type: 'trend-chart';
     displayOptions?: TrendChartDisplayOptions;
+}
+
+export interface OeeProductionTrendWidgetConfig extends WidgetConfigBase {
+    type: 'oee-production-trend';
+    displayOptions?: OeeProductionTrendDisplayOptions;
+}
+
+export interface ProdHistoryWidgetConfig extends WidgetConfigBase {
+    type: 'prod-history';
+    displayOptions?: ProdHistoryDisplayOptions;
 }
 
 export interface AlertHistoryWidgetConfig extends WidgetConfigBase {
@@ -351,7 +505,7 @@ export interface StatusWidgetConfig extends WidgetConfigBase {
 
 /** Variante genérica para todos los tipos de widget sin displayOptions específicos. */
 export interface GenericWidgetConfig extends WidgetConfigBase {
-    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'alert-history' | 'connection-status' | 'connection-indicator' | 'status'>;
+    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'oee-production-trend' | 'prod-history' | 'alert-history' | 'connection-status' | 'connection-indicator' | 'status'>;
     displayOptions?: BaseDisplayOptions;
 }
 
@@ -363,6 +517,8 @@ export type WidgetConfig =
     | KpiWidgetConfig
     | MetricCardWidgetConfig
     | TrendChartWidgetConfig
+    | OeeProductionTrendWidgetConfig
+    | ProdHistoryWidgetConfig
     | AlertHistoryWidgetConfig
     | ConnectionStatusWidgetConfig
     | ConnectionIndicatorWidgetConfig
@@ -402,8 +558,34 @@ export interface Template {
     id: string;
     name: string;
     type: TemplateType;
+    dashboardType?: DashboardType;
     sourceDashboardId?: string;
     widgetPresets?: Partial<WidgetConfig>[];
     layoutPreset?: WidgetLayout[];
     status: TemplateStatus;
+}
+
+// =============================================================================
+// DASHBOARD VISUAL STATUS — Helper derivado
+// =============================================================================
+
+/**
+ * Calcula el estado visual de un dashboard a partir de su `status` y `publishedSnapshot`.
+ *
+ * - `draft`:     status='draft' (nunca publicado o despublicado)
+ * - `published`: status='published' y working copy coincide con el snapshot
+ * - `pending`:   status='published' pero working copy difiere del snapshot
+ */
+export function getDashboardVisualStatus(dashboard: Dashboard): DashboardVisualStatus {
+    // Regla de negocio: sin nodo asignado, nunca puede estar publicado
+    if (!dashboard.ownerNodeId) return 'draft';
+    if (dashboard.status !== 'published') return 'draft';
+    if (!dashboard.publishedSnapshot) return 'published';
+
+    const snap = dashboard.publishedSnapshot;
+    const widgetsMatch = JSON.stringify(dashboard.widgets) === JSON.stringify(snap.widgets);
+    const layoutMatch = JSON.stringify(dashboard.layout) === JSON.stringify(snap.layout);
+    const headerMatch = JSON.stringify(dashboard.headerConfig) === JSON.stringify(snap.headerConfig);
+
+    return (widgetsMatch && layoutMatch && headerMatch) ? 'published' : 'pending';
 }

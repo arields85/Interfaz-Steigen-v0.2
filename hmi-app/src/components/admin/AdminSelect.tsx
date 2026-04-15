@@ -1,6 +1,7 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
+import { ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
 
 // =============================================================================
 // AdminSelect
@@ -22,13 +23,26 @@ interface AdminSelectProps {
     onChange: (value: string) => void;
     className?: string;
     placeholder?: string;
+    disabled?: boolean;
 }
 
-export default function AdminSelect({ value, options, onChange, className = '', placeholder }: AdminSelectProps) {
+export default function AdminSelect({ value, options, onChange, className = '', placeholder, disabled = false }: AdminSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
 
-    const handleToggle = () => setIsOpen(prev => !prev);
+    useEffect(() => {
+        if (disabled) {
+            setIsOpen(false);
+        }
+    }, [disabled]);
+
+    const handleToggle = () => {
+        if (disabled) {
+            return;
+        }
+
+        setIsOpen(prev => !prev);
+    };
 
     const estimatedHeight = Math.min(options.length * 30 + 8, 300);
     const selected = options.find(o => o.value === value);
@@ -39,8 +53,13 @@ export default function AdminSelect({ value, options, onChange, className = '', 
             <button
                 ref={triggerRef}
                 type="button"
+                disabled={disabled}
                 onClick={handleToggle}
-                className="w-full flex items-center justify-between gap-1 bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white hover:border-white/20 focus:outline-none transition-colors"
+                className={`${ADMIN_SIDEBAR_INPUT_CLS} flex items-center justify-between gap-1 ${
+                    disabled
+                        ? 'cursor-not-allowed opacity-50 text-white/40'
+                        : 'hover:border-white/20'
+                }`}
             >
                 <span className="truncate flex items-center gap-1.5">
                     {selected?.icon && <span className="shrink-0 opacity-60">{selected.icon}</span>}

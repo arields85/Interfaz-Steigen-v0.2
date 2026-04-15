@@ -1,5 +1,6 @@
 import type { WidgetConfig } from '../domain/admin.types';
 import type { EquipmentSummary } from '../domain/equipment.types';
+import type { HierarchyContext } from './resolvers/hierarchyResolver';
 import MetricWidget from './renderers/MetricWidget';
 import StatusWidget from './renderers/StatusWidget';
 import ConnectionWidget from './renderers/ConnectionWidget';
@@ -7,6 +8,8 @@ import ConnectionStatusWidget from './renderers/ConnectionStatusWidget';
 import TrendChartWidget from './renderers/TrendChartWidget';
 import KpiWidget from './renderers/KpiWidget';
 import AlertHistoryWidget from './renderers/AlertHistoryWidget';
+import OeeProductionTrendWidget from './renderers/OeeProductionTrendWidget';
+import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
 
 // =============================================================================
 // WidgetRenderer — Dispatcher central
@@ -16,12 +19,14 @@ import AlertHistoryWidget from './renderers/AlertHistoryWidget';
 // Las páginas no importan renderers individuales.
 //
 // Tipos soportados:
-//   'metric-card', 'kpi'   → MetricWidget / KpiWidget
-//   'status'               → StatusWidget
-//   'connection-indicator' → ConnectionWidget
-//   'connection-status'    → ConnectionStatusWidget
-//   'trend-chart'          → TrendChartWidget
-//   'alert-history'        → AlertHistoryWidget
+//   'metric-card', 'kpi'        → MetricWidget / KpiWidget
+//   'status'                    → StatusWidget
+//   'connection-indicator'      → ConnectionWidget
+//   'connection-status'         → ConnectionStatusWidget
+//   'trend-chart'               → TrendChartWidget
+//   'oee-production-trend'      → OeeProductionTrendWidget
+//   'prod-history'              → ProdHistoryWidget
+//   'alert-history'             → AlertHistoryWidget
 //
 // Para 'alert-history' se necesita la prop opcional `siblingWidgets`
 // con los demás widgets del mismo dashboard para detectar cambios de estado.
@@ -40,6 +45,12 @@ interface WidgetRendererProps {
      * Ignorado por todos los demás renderers.
      */
     siblingWidgets?: WidgetConfig[];
+    /**
+     * Contexto jerárquico para resolver widgets en modo jerárquico.
+     * Contiene todos los nodos, dashboards y el nodo actual.
+     * Ignorado por renderers que no soportan modo jerárquico.
+     */
+    hierarchyContext?: HierarchyContext;
 }
 
 export default function WidgetRenderer({
@@ -48,6 +59,7 @@ export default function WidgetRenderer({
     isLoadingData = false,
     className,
     siblingWidgets,
+    hierarchyContext,
 }: WidgetRendererProps) {
     switch (widget.type) {
         case 'metric-card':
@@ -57,6 +69,7 @@ export default function WidgetRenderer({
                     equipmentMap={equipmentMap}
                     isLoadingData={isLoadingData}
                     className={className}
+                    hierarchyContext={hierarchyContext}
                 />
             );
 
@@ -100,6 +113,26 @@ export default function WidgetRenderer({
         case 'trend-chart':
             return (
                 <TrendChartWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    isLoadingData={isLoadingData}
+                    className={className}
+                />
+            );
+
+        case 'oee-production-trend':
+            return (
+                <OeeProductionTrendWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    isLoadingData={isLoadingData}
+                    className={className}
+                />
+            );
+
+        case 'prod-history':
+            return (
+                <ProdHistoryWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
                     isLoadingData={isLoadingData}

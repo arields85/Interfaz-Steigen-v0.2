@@ -103,7 +103,7 @@ export default function KpiWidget({ widget, equipmentMap, isLoadingData, classNa
 
             {/* Footer subtext — texto aclaratorio inferior, sin alterar el centrado del KPI */}
             {footerSubtext && (
-                <div className="absolute left-0 bottom-1 z-20 text-[10px] font-black uppercase tracking-widest leading-none text-industrial-muted">
+                <div className="absolute left-5 bottom-3 z-20 text-[10px] font-black uppercase tracking-widest leading-none text-industrial-muted truncate max-w-[calc(100%-2.5rem)]">
                     {footerSubtext}
                 </div>
             )}

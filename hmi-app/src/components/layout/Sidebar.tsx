@@ -12,7 +12,7 @@ const navItems = [
 export default function Sidebar() {
     return (
         <aside className="w-64 h-full bg-industrial-bg border-r border-[var(--color-industrial-border)] flex-col hidden md:flex shrink-0">
-            <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto mt-2">
+            <nav className="mt-2 flex-1 overflow-y-auto hmi-scrollbar space-y-2 px-4 py-6">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.path}
@@ -21,7 +21,7 @@ export default function Sidebar() {
                     >
                         {({ isActive }) => (
                             <>
-                                <item.icon size={20} className={isActive ? "drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]" : ""} stroke={isActive ? "url(#icon-gradient)" : "currentColor"} />
+                                <item.icon size={20} className={isActive ? "text-admin-accent drop-shadow-[0_0_8px_var(--color-admin-accent)]" : ""} />
                                 <span className={`font-medium text-sm ${isActive ? 'text-white' : ''}`}>{item.label}</span>
                             </>
                         )}

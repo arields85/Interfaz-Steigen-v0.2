@@ -1,6 +1,7 @@
 import type { Template, WidgetConfig, WidgetLayout } from '../domain/admin.types';
 import type { Dashboard } from '../domain/admin.types';
 import { mockTemplates } from '../mocks/template.mock';
+import { dashboardStorage } from './DashboardStorageService';
 
 const STORAGE_KEY = 'steigen_hmi_templates_v1';
 
@@ -14,6 +15,48 @@ const STORAGE_KEY = 'steigen_hmi_templates_v1';
 // =============================================================================
 
 class TemplateStorageService {
+    private getMockDashboardType(template: Template) {
+        return mockTemplates.find((mockTemplate) => mockTemplate.id === template.id)?.dashboardType;
+    }
+
+    private async ensureDashboardType(templates: Template[]): Promise<Template[]> {
+        let didChange = false;
+
+        const migratedTemplates = await Promise.all(
+            templates.map(async (template) => {
+                if (template.dashboardType) {
+                    return template;
+                }
+
+                let inferredDashboardType: Template['dashboardType'];
+
+                if (template.sourceDashboardId) {
+                    const sourceDashboard = await dashboardStorage.getDashboard(template.sourceDashboardId);
+                    inferredDashboardType = sourceDashboard?.dashboardType;
+                }
+
+                if (!inferredDashboardType) {
+                    inferredDashboardType = this.getMockDashboardType(template);
+                }
+
+                if (!inferredDashboardType) {
+                    return template;
+                }
+
+                didChange = true;
+                return {
+                    ...template,
+                    dashboardType: inferredDashboardType,
+                };
+            })
+        );
+
+        if (didChange) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedTemplates));
+        }
+
+        return migratedTemplates;
+    }
 
     private async initStorage(): Promise<void> {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -25,7 +68,8 @@ class TemplateStorageService {
     private async readStorage(): Promise<Template[]> {
         await this.initStorage();
         const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
+        const templates: Template[] = stored ? JSON.parse(stored) : [];
+        return this.ensureDashboardType(templates);
     }
 
     /** Retorna todos los templates */
@@ -71,6 +115,7 @@ class TemplateStorageService {
             id: `tpl-${Date.now().toString(36)}`,
             name: templateName,
             type: 'dashboard',
+            dashboardType: dashboard.dashboardType,
             sourceDashboardId: dashboard.id,
             status: 'active',
             widgetPresets: dashboard.widgets.map(w => ({

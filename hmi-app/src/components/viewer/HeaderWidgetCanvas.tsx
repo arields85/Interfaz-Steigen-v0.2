@@ -4,6 +4,7 @@ import { ArrowDown, Plus, Trash2, Activity, Wifi, PlugZap } from 'lucide-react';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
 import type { WidgetConfig, WidgetType } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import HeaderSelectionFrame from '../ui/HeaderSelectionFrame';
 import WidgetHoverActions from '../ui/WidgetHoverActions';
 import {
@@ -200,6 +201,7 @@ interface HeaderWidgetCanvasProps {
     /** Callback para asignar (por drop desde el grid) un widget existente a una columna específica.
      *  Recibe el widgetId y el índice de columna (0-2) objetivo. */
     onDropWidgetAtSlot?: (widgetId: string, slotIndex: number) => void;
+    hierarchyContext?: HierarchyContext;
 }
 
 export default function HeaderWidgetCanvas({
@@ -220,7 +222,9 @@ export default function HeaderWidgetCanvas({
     canDropHeaderWidget,
     onAddHeaderWidget,
     onDropWidgetAtSlot,
+    hierarchyContext,
 }: HeaderWidgetCanvasProps) {
+    void hierarchyContext;
     const isPreview = mode === 'preview';
     // Debe mantenerse sincronizado con `.glass-panel { border-radius: 1.5rem }` en hmi-app/src/index.css
     const widgetCornerRadius = '1.5rem';

@@ -1,21 +1,16 @@
-import { useState } from 'react';
 import {
     ChevronRight,
     ChevronDown,
-    Factory,
-    Layers,
-    Grid3X3,
-    Minus,
     Square,
-    Cpu,
     FolderOpen,
     Folder,
-    Users,
     LayoutDashboard,
-    Box
+    type LucideIcon,
 } from 'lucide-react';
-import type { NodeType } from '../../domain/admin.types';
 import type { HierarchyNodeWithChildren } from '../../utils/hierarchyTree';
+import type { NodeTypeDefinition } from '../../services/NodeTypeStorageService';
+import { AVAILABLE_NODE_ICONS, DEFAULT_ICON_KEY } from '../../utils/nodeTypeIcons';
+import AdminEmptyState from './AdminEmptyState';
 
 // =============================================================================
 // HierarchyTree
@@ -27,67 +22,54 @@ import type { HierarchyNodeWithChildren } from '../../utils/hierarchyTree';
 
 interface HierarchyTreeProps {
     nodes: HierarchyNodeWithChildren[];
+    nodeTypes: NodeTypeDefinition[];
     selectedNodeId?: string;
+    expandedNodeIds: Set<string>;
+    onToggleExpand: (nodeId: string) => void;
     onSelect: (node: HierarchyNodeWithChildren) => void;
 }
 
 // Íconos semánticos por tipo de nodo
-function NodeIcon({ type, isOpen }: { type: NodeType; isOpen: boolean }) {
-    const cls = 'shrink-0';
-    const size = 15;
+function NodeIcon({ type, isOpen, nodeTypes }: { type: string; isOpen: boolean; nodeTypes: NodeTypeDefinition[] }) {
+    const typeDefinition = nodeTypes.find((nodeType) => nodeType.key === type);
+    const iconKey = typeDefinition?.icon ?? DEFAULT_ICON_KEY;
+    const iconDefinition = AVAILABLE_NODE_ICONS[iconKey];
+    const colorClassName = typeDefinition?.color ?? iconDefinition?.defaultColor ?? 'text-industrial-muted';
+    const Icon: LucideIcon = iconDefinition?.component ?? Square;
 
-    switch (type) {
-        case 'plant':    return <Factory size={size} className={`${cls} text-accent-cyan`} />;
-        case 'area':     return <Layers size={size} className={`${cls} text-blue-400`} />;
-        case 'sector':   return <Grid3X3 size={size} className={`${cls} text-indigo-400`} />;
-        case 'line':     return <Minus size={size} className={`${cls} text-violet-400`} />;
-        case 'cell':     return <Square size={size} className={`${cls} text-purple-400`} />;
-        case 'box':      return <Box size={size} className={`${cls} text-amber-400`} />;
-        case 'equipment':return <Cpu size={size} className={`${cls} text-emerald-400`} />;
-        case 'folder':   return isOpen
-            ? <FolderOpen size={size} className={`${cls} text-yellow-400`} />
-            : <Folder size={size} className={`${cls} text-yellow-400`} />;
-        case 'group':    return <Users size={size} className={`${cls} text-rose-400`} />;
-        default:         return <Square size={size} className={cls} />;
+    if (iconKey === 'folder') {
+        const FolderIcon = isOpen ? FolderOpen : Folder;
+        return <FolderIcon size={15} className={`shrink-0 ${colorClassName}`} />;
     }
+
+    return <Icon size={15} className={`shrink-0 ${colorClassName}`} />;
 }
-
-// Badges de tipo de nodo
-const NODE_TYPE_LABELS: Record<NodeType, string> = {
-    plant: 'Planta',
-    area: 'Área',
-    sector: 'Sector',
-    line: 'Línea',
-    cell: 'Celda',
-    box: 'Box',
-    equipment: 'Equipo',
-    folder: 'Carpeta',
-    group: 'Grupo',
-};
-
-export { NODE_TYPE_LABELS };
 
 // Nodo individual recursivo
 function TreeNode({
     node,
     depth,
     selectedNodeId,
+    expandedNodeIds,
+    nodeTypes,
+    onToggleExpand,
     onSelect,
 }: {
     node: HierarchyNodeWithChildren;
     depth: number;
     selectedNodeId?: string;
+    expandedNodeIds: Set<string>;
+    nodeTypes: NodeTypeDefinition[];
+    onToggleExpand: (nodeId: string) => void;
     onSelect: (node: HierarchyNodeWithChildren) => void;
 }) {
     const hasChildren = node.children.length > 0;
     const isSelected = node.id === selectedNodeId;
-
-    // Los nodos raíz (plant) comienzan expandidos; el resto empieza colapsado
-    const [isOpen, setIsOpen] = useState(depth === 0);
+    const isOpen = expandedNodeIds.has(node.id);
 
     const toggleOpen = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (hasChildren) setIsOpen(prev => !prev);
+        if (hasChildren) onToggleExpand(node.id);
     };
 
     const indentPx = depth * 16;
@@ -118,7 +100,7 @@ function TreeNode({
                 </span>
 
                 {/* Ícono de tipo */}
-                <NodeIcon type={node.type} isOpen={isOpen} />
+                <NodeIcon type={node.type} isOpen={isOpen} nodeTypes={nodeTypes} />
 
                 {/* Nombre */}
                 <span className="flex-1 truncate font-medium text-xs">
@@ -143,6 +125,9 @@ function TreeNode({
                             node={child}
                             depth={depth + 1}
                             selectedNodeId={selectedNodeId}
+                            expandedNodeIds={expandedNodeIds}
+                            nodeTypes={nodeTypes}
+                            onToggleExpand={onToggleExpand}
                             onSelect={onSelect}
                         />
                     ))}
@@ -155,13 +140,19 @@ function TreeNode({
 // Árbol raíz
 export default function HierarchyTree({
     nodes,
+    nodeTypes,
     selectedNodeId,
+    expandedNodeIds,
+    onToggleExpand,
     onSelect,
 }: HierarchyTreeProps) {
     if (nodes.length === 0) {
         return (
-            <div className="p-4 text-xs text-industrial-muted italic text-center">
-                La jerarquía está vacía.
+            <div className="h-full p-4">
+                <AdminEmptyState
+                    icon={FolderOpen}
+                    message="La jerarquía está vacía."
+                />
             </div>
         );
     }
@@ -174,6 +165,9 @@ export default function HierarchyTree({
                     node={root}
                     depth={0}
                     selectedNodeId={selectedNodeId}
+                    expandedNodeIds={expandedNodeIds}
+                    nodeTypes={nodeTypes}
+                    onToggleExpand={onToggleExpand}
                     onSelect={onSelect}
                 />
             ))}

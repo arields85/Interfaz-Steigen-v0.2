@@ -1,5 +1,6 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { Settings, LayoutDashboard, Network, LogOut } from 'lucide-react';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation';
 
 // =============================================================================
 // AdminLayout
@@ -11,16 +12,16 @@ import { Settings, LayoutDashboard, Network, LogOut } from 'lucide-react';
 // =============================================================================
 
 export default function AdminLayout() {
+    const location = useLocation();
+    const activeSectionKey = getAdminSectionByPath(location.pathname)?.key;
+
     return (
-        <div className="min-h-screen bg-industrial-bg text-industrial-text flex flex-col font-sans overflow-hidden">
+        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-industrial-bg font-sans text-industrial-text">
             
             {/* TOPBAR ADMIN */}
-            <header className="h-14 border-b border-admin-accent/20 bg-industrial-panel/80 backdrop-blur flex items-center justify-between px-6 z-20 shrink-0">
-                <div className="flex items-center gap-4">
+            <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-industrial-border bg-industrial-surface px-6">
+                <div className="flex items-center gap-8">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded flex items-center justify-center">
-                            <Settings className="w-4 h-4 text-admin-accent" />
-                        </div>
                         <div className="flex flex-col">
                             <h1 className="text-sm font-black tracking-widest leading-tight">
                                 CORE <span className="text-admin-accent font-light">BUILDER</span>
@@ -30,6 +31,17 @@ export default function AdminLayout() {
                             </span>
                         </div>
                     </div>
+
+                    <nav className="flex h-full items-end gap-1">
+                        {ADMIN_SECTIONS.map((section) => (
+                            <AdminNavItem
+                                key={section.key}
+                                to={section.navTo}
+                                label={section.label}
+                                isActive={section.key === activeSectionKey}
+                            />
+                        ))}
+                    </nav>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -37,7 +49,7 @@ export default function AdminLayout() {
                         <div className="w-1.5 h-1.5 rounded-full bg-admin-accent animate-pulse" />
                         SESIÓN ADMIN ACTIVA
                     </span>
-                    <div className="w-px h-4 bg-white/10" />
+                    <div className="h-4 w-px bg-industrial-border" />
                     <NavLink 
                         to="/" 
                         className="flex items-center gap-2 text-xs font-bold text-industrial-muted hover:text-white transition-colors"
@@ -48,54 +60,31 @@ export default function AdminLayout() {
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* SIDEBAR ADMIN */}
-                <aside className="w-64 border-r border-white/5 bg-industrial-panel/30 flex flex-col pt-6 shrink-0 z-10">
-                    <nav className="flex-1 px-3 space-y-1">
-                        <div className="mb-4 px-3 text-[10px] font-black uppercase tracking-widest text-industrial-muted">
-                            Gestión Visual
-                        </div>
-                        
-                        <NavLink
-                            to="/admin/dashboards"
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-bold transition-all ${
-                                    isActive
-                                        ? 'admin-accent-ghost'
-                                        : 'text-industrial-muted hover:bg-white/5 hover:text-industrial-text'
-                                }`
-                            }
-                        >
-                            <LayoutDashboard size={16} />
-                            Dashboards
-                        </NavLink>
-                        
-                        <div className="mt-8 mb-4 px-3 text-[10px] font-black uppercase tracking-widest text-industrial-muted block">
-                            Estructura
-                        </div>
-
-                        <NavLink
-                            to="/admin/hierarchy"
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-bold transition-all ${
-                                    isActive
-                                        ? 'admin-accent-ghost'
-                                        : 'text-industrial-muted hover:bg-white/5 hover:text-industrial-text'
-                                }`
-                            }
-                        >
-                            <Network size={16} />
-                            Jerarquía de Planta
-                        </NavLink>
-                    </nav>
-                </aside>
-
-                {/* MAIN ADMIN CONTENT */}
-                <main className="flex-1 overflow-y-auto bg-[rgba(2,6,23,0.5)] relative">
-                    <Outlet />
-                </main>
-            </div>
+            {/* MAIN ADMIN CONTENT */}
+            <main className="flex-1 min-h-0 overflow-hidden relative">
+                <Outlet />
+            </main>
             
         </div>
+    );
+}
+
+function AdminNavItem({ to, label, isActive }: { to: string; label: string; isActive: boolean }) {
+    return (
+        <NavLink
+            to={to}
+            className={`relative px-3 pb-2 pt-3 text-xs font-bold tracking-wide transition-colors ${
+                isActive ? 'text-white' : 'text-industrial-muted hover:text-white'
+            }`}
+        >
+            <>
+                {label}
+                <span
+                    className={`pointer-events-none absolute bottom-1 left-2 right-2 h-0.5 rounded-full transition-opacity ${
+                        isActive ? 'bg-admin-accent opacity-100' : 'bg-admin-accent opacity-0'
+                    }`}
+                />
+            </>
+        </NavLink>
     );
 }

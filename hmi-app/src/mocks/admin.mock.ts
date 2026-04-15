@@ -106,7 +106,7 @@ export const mockDashboards: Dashboard[] = [
                 title: 'VELOCIDAD',
                 position: { x: 0, y: 0 },
                 size: { w: 1, h: 1 },
-                binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Velocidad', unit: 'RPM' },
+                binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Velocidad', unit: 'RPM', catalogVariableId: 'cv-velocidad-rpm' },
                 thresholds: [
                     { value: 1900, severity: 'critical' },
                     { value: 1700, severity: 'warning' }
@@ -118,7 +118,7 @@ export const mockDashboards: Dashboard[] = [
                 title: 'FUERZA MÁXIMA',
                 position: { x: 1, y: 0 },
                 size: { w: 1, h: 1 },
-                binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Fuerza', unit: 'kN' },
+                binding: { mode: 'real_variable', assetId: 'eq-001', variableKey: 'Fuerza', unit: 'kN', catalogVariableId: 'cv-fuerza-kn' },
                 thresholds: [
                     { value: 32, severity: 'critical' },
                     { value: 28, severity: 'warning' }

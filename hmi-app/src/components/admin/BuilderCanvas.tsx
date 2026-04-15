@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Copy, Trash2, ArrowUp } from 'lucide-react';
+import { Copy, Trash2, ArrowUp, LayoutDashboard } from 'lucide-react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import GridSelectionFrame from '../ui/GridSelectionFrame';
 import WidgetHoverActions from '../ui/WidgetHoverActions';
 import {
@@ -12,11 +13,13 @@ import {
     serializeHeaderWidgetDragPayload,
     isHeaderCompatibleWidget,
 } from '../../utils/headerWidgets';
+import AdminEmptyState from './AdminEmptyState';
 
 interface BuilderCanvasProps {
     widgets: WidgetConfig[];
     layout: WidgetLayout[];
     equipmentMap: Map<string, EquipmentSummary>;
+    hierarchyContext?: HierarchyContext;
     onWidgetSelect?: (widgetId: string) => void;
     selectedWidgetId?: string;
     onReorder?: (startIndex: number, endIndex: number) => void;
@@ -123,6 +126,7 @@ export default function BuilderCanvas({
     widgets, 
     layout, 
     equipmentMap,
+    hierarchyContext,
     onWidgetSelect,
     selectedWidgetId,
     onReorder,
@@ -207,7 +211,7 @@ export default function BuilderCanvas({
 
     // Grilla con CSS Grid. Auto-rows-[140px] define el alto base de H=1.
     return (
-        <div className="w-full h-full p-8 overflow-y-auto custom-scrollbar">
+        <div className="w-full p-8">
             <div className="grid grid-cols-4 gap-6 auto-rows-[140px]">
                 
                 {layout.map((item, index) => {
@@ -293,6 +297,7 @@ export default function BuilderCanvas({
                                     equipmentMap={equipmentMap} 
                                     isLoadingData={false} 
                                     siblingWidgets={widgets}
+                                    hierarchyContext={hierarchyContext}
                                     className="w-full h-full"
                                 />
                             </div>
@@ -302,8 +307,11 @@ export default function BuilderCanvas({
 
                 {/* Dropzone visual sutil si el canvas está vacío */}
                 {layout.filter(item => !headerWidgetIds?.has(item.widgetId)).length === 0 && (
-                    <div className="col-span-4 h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-sm font-bold text-industrial-muted uppercase tracking-widest">
-                        El Dashboard está vacío
+                    <div className="col-span-4 h-64 px-6">
+                        <AdminEmptyState
+                            icon={LayoutDashboard}
+                            message="El dashboard está vacío"
+                        />
                     </div>
                 )}
             </div>

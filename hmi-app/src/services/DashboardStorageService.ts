@@ -12,11 +12,65 @@ const STORAGE_KEY = 'steigen_hmi_dashboards_v2';
 
 class DashboardStorageService {
     
-    // Inicializa el Storage copiando los Mocks si es la primera vez
+    // Inicializa el Storage copiando los Mocks si es la primera vez.
+    // Si ya existen datos, migra dashboards publicados sin snapshot
+    // para que el viewer los muestre correctamente.
     private async initStorage(): Promise<void> {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (!stored) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(mockDashboards));
+            return;
+        }
+
+        // Migración: corregir datos inconsistentes, renombrar tipos legacy y agregar snapshots faltantes
+        const dashboards: Dashboard[] = JSON.parse(stored);
+        let migrated = false;
+
+        // Rename legacy widget types
+        const WIDGET_TYPE_RENAMES: Record<string, string> = {
+            'produccion-historica': 'prod-history',
+        };
+
+        for (const d of dashboards) {
+            // Migrar widget types renombrados
+            for (const w of d.widgets) {
+                const newType = WIDGET_TYPE_RENAMES[w.type];
+                if (newType) {
+                    (w as { type: string }).type = newType;
+                    migrated = true;
+                }
+            }
+            // También migrar widgets en el publishedSnapshot si existe
+            if (d.publishedSnapshot) {
+                for (const w of d.publishedSnapshot.widgets) {
+                    const newType = WIDGET_TYPE_RENAMES[w.type];
+                    if (newType) {
+                        (w as { type: string }).type = newType;
+                        migrated = true;
+                    }
+                }
+            }
+            // Regla: sin nodo asignado no puede estar publicado
+            if (d.status === 'published' && !d.ownerNodeId) {
+                d.status = 'draft';
+                d.publishedSnapshot = undefined;
+                migrated = true;
+            }
+            // Agregar snapshot a dashboards publicados con nodo que no lo tengan
+            if (d.status === 'published' && d.ownerNodeId && !d.publishedSnapshot) {
+                d.publishedSnapshot = {
+                    widgets: JSON.parse(JSON.stringify(d.widgets)),
+                    layout: JSON.parse(JSON.stringify(d.layout)),
+                    headerConfig: d.headerConfig
+                        ? JSON.parse(JSON.stringify(d.headerConfig))
+                        : undefined,
+                    publishedAt: d.lastUpdateAt ?? new Date().toISOString(),
+                };
+                migrated = true;
+            }
+        }
+        if (migrated) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboards));
         }
     }
 
@@ -76,6 +130,21 @@ class DashboardStorageService {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
     }
 
+    async reorderDashboards(orderedIds: string[]): Promise<Dashboard[]> {
+        const dashboards = await this.readStorage();
+        const dashboardById = new Map(dashboards.map((dashboard) => [dashboard.id, dashboard]));
+
+        const reordered = orderedIds
+            .map((id) => dashboardById.get(id))
+            .filter((dashboard): dashboard is Dashboard => Boolean(dashboard));
+
+        const missingDashboards = dashboards.filter((dashboard) => !orderedIds.includes(dashboard.id));
+        const nextDashboards = [...reordered, ...missingDashboards];
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDashboards));
+        return nextDashboards;
+    }
+
     /**
      * Duplica un dashboard existente con IDs frescos.
      * Conserva widgets, layout y bindings; resetea status/version.
@@ -100,15 +169,22 @@ class DashboardStorageService {
             widgetId: idMap.get(l.widgetId) || l.widgetId,
         }));
 
+        const resolvedName = newName || `${original.name} (Copia)`;
+
         const duplicate: Dashboard = {
             ...original,
             id: `dash-${idSuffix}`,
-            name: newName || `${original.name} (Copia)`,
+            name: resolvedName,
             status: 'draft',
             version: 1,
             isTemplate: false,
+            ownerNodeId: undefined,
             widgets: newWidgets,
             layout: newLayout,
+            headerConfig: {
+                ...original.headerConfig,
+                title: resolvedName,
+            },
             lastUpdateAt: new Date().toISOString(),
         };
 
@@ -152,7 +228,7 @@ class DashboardStorageService {
             id: `dash-${idSuffix}`,
             name,
             description: `Creado desde template: ${template.name}`,
-            dashboardType: 'equipment',
+            dashboardType: template.dashboardType ?? 'equipment',
             status: 'draft',
             isTemplate: false,
             version: 1,
@@ -168,7 +244,8 @@ class DashboardStorageService {
 
     /**
      * Marca un dashboard como 'published' e incrementa su versión.
-     * Esto lo hace visible para el Visor público.
+     * Congela la working copy actual como `publishedSnapshot` para que el viewer
+     * siempre lea de ahí. Esto lo hace visible para el Visor público.
      */
     async publishDashboard(id: string): Promise<Dashboard | null> {
         const dashboard = await this.getDashboard(id);
@@ -176,7 +253,35 @@ class DashboardStorageService {
 
         dashboard.status = 'published';
         dashboard.version = (dashboard.version || 1) + 1;
+        dashboard.publishedSnapshot = {
+            widgets: JSON.parse(JSON.stringify(dashboard.widgets)),
+            layout: JSON.parse(JSON.stringify(dashboard.layout)),
+            headerConfig: dashboard.headerConfig
+                ? JSON.parse(JSON.stringify(dashboard.headerConfig))
+                : undefined,
+            publishedAt: new Date().toISOString(),
+        };
         
+        await this.saveDashboard(dashboard);
+        return dashboard;
+    }
+
+    /**
+     * Descarta los cambios pendientes de un dashboard publicado,
+     * restaurando widgets/layout/headerConfig desde el publishedSnapshot.
+     * No-op si el dashboard no tiene snapshot.
+     */
+    async discardChanges(id: string): Promise<Dashboard | null> {
+        const dashboard = await this.getDashboard(id);
+        if (!dashboard?.publishedSnapshot) return dashboard ?? null;
+
+        dashboard.widgets = JSON.parse(JSON.stringify(dashboard.publishedSnapshot.widgets));
+        dashboard.layout = JSON.parse(JSON.stringify(dashboard.publishedSnapshot.layout));
+        dashboard.headerConfig = dashboard.publishedSnapshot.headerConfig
+            ? JSON.parse(JSON.stringify(dashboard.publishedSnapshot.headerConfig))
+            : undefined;
+        dashboard.lastUpdateAt = new Date().toISOString();
+
         await this.saveDashboard(dashboard);
         return dashboard;
     }

@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Link2Off } from 'lucide-react';
 import { dashboardStorage } from '../services/DashboardStorageService';
-import type { Dashboard } from '../domain/admin.types';
+import { hierarchyStorage } from '../services/HierarchyStorageService';
+import type { Dashboard, HierarchyNode } from '../domain/admin.types';
 import DashboardViewer from '../components/viewer/DashboardViewer';
 import DashboardHeader from '../components/viewer/DashboardHeader';
 import { mockEquipmentList } from '../mocks/equipment.mock';
 import type { EquipmentSummary } from '../domain/equipment.types';
+import type { HierarchyContext } from '../widgets/resolvers/hierarchyResolver';
 
 // =============================================================================
 // Dashboard Público (Visor)
@@ -20,7 +22,9 @@ import type { EquipmentSummary } from '../domain/equipment.types';
 // =============================================================================
 
 export default function Dashboard() {
+    const [allDashboards, setAllDashboards] = useState<Dashboard[]>([]);
     const [publishedDashboards, setPublishedDashboards] = useState<Dashboard[]>([]);
+    const [allNodes, setAllNodes] = useState<HierarchyNode[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
 
@@ -50,9 +54,14 @@ export default function Dashboard() {
         const loadPublished = async () => {
             setIsLoading(true);
             try {
-                const all = await dashboardStorage.getDashboards();
+                const [all, nodes] = await Promise.all([
+                    dashboardStorage.getDashboards(),
+                    hierarchyStorage.getNodes(),
+                ]);
                 const published = all.filter(d => d.status === 'published');
+                setAllDashboards(all);
                 setPublishedDashboards(published);
+                setAllNodes(nodes);
             } catch (error) {
                 console.error("Error cargando dashboards públicos:", error);
             } finally {
@@ -75,7 +84,21 @@ export default function Dashboard() {
         }
     }, [activeTab, publishedDashboards.length]);
 
-    const activeDashboard = publishedDashboards[activeTab] ?? publishedDashboards[0];
+    const rawActiveDashboard = publishedDashboards[activeTab] ?? publishedDashboards[0];
+
+    // Si el dashboard tiene publishedSnapshot, el viewer muestra esa versión congelada
+    // en vez de la working copy (que puede tener cambios pendientes del admin).
+    const activeDashboard = useMemo(() => {
+        if (!rawActiveDashboard) return rawActiveDashboard;
+        const snap = rawActiveDashboard.publishedSnapshot;
+        if (!snap) return rawActiveDashboard;
+        return {
+            ...rawActiveDashboard,
+            widgets: snap.widgets,
+            layout: snap.layout,
+            headerConfig: snap.headerConfig,
+        };
+    }, [rawActiveDashboard]);
 
     // Calcular los IDs de widgets asignados al header (para excluirlos del grid)
     // Hook ubicado en la zona superior del componente para mantener el orden
@@ -84,6 +107,12 @@ export default function Dashboard() {
         const slots = activeDashboard?.headerConfig?.widgetSlots ?? [];
         return new Set(slots.map(s => s.widgetId));
     }, [activeDashboard]);
+
+    const hierarchyContext = useMemo<HierarchyContext>(() => ({
+        allNodes,
+        allDashboards,
+        currentNodeId: activeDashboard?.ownerNodeId,
+    }), [allNodes, allDashboards, activeDashboard?.ownerNodeId]);
 
     const renderNoPublishedState = () => (
         <div className="h-full flex flex-col items-center justify-center text-industrial-muted space-y-4">
@@ -116,15 +145,13 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto mt-4 px-2 overflow-hidden">
+        <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto px-2 overflow-hidden">
 
             {/* HEADER CONFIGURADO DESDE dashboard.headerConfig */}
             <DashboardHeader
                 dashboard={activeDashboard}
                 equipmentMap={equipmentMap}
-                publishedDashboards={publishedDashboards}
-                activeTabIndex={activeTab}
-                onTabChange={setActiveTab}
+                hierarchyContext={hierarchyContext}
             />
 
             {/* GRID DEL DASHBOARD — widgets del header excluidos */}
@@ -134,6 +161,7 @@ export default function Dashboard() {
                     layout={activeDashboard.layout}
                     equipmentMap={equipmentMap}
                     headerWidgetIds={headerWidgetIds}
+                    hierarchyContext={hierarchyContext}
                 />
             </div>
         </div>

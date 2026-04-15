@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
 
 // =============================================================================
 // AdminNumberInput
@@ -16,6 +17,11 @@ interface AdminNumberInputProps {
     placeholder?: string;
     disabled?: boolean;
     className?: string;
+    /** When true, onChange fires only on blur and nudge — not on every keystroke.
+     *  Use for config values like thresholds where intermediate values cause side effects. */
+    commitOnBlur?: boolean;
+    /** Fixed text rendered inside the input at the left edge (e.g. "%", "ms"). */
+    prefix?: string;
 }
 
 export default function AdminNumberInput({
@@ -27,6 +33,8 @@ export default function AdminNumberInput({
     placeholder,
     disabled = false,
     className = '',
+    commitOnBlur = false,
+    prefix,
 }: AdminNumberInputProps) {
     const [localValue, setLocalValue] = useState(String(value ?? ''));
     const [isFocused, setIsFocused] = useState(false);
@@ -40,7 +48,9 @@ export default function AdminNumberInput({
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setLocalValue(e.target.value);
-        onChange(e.target.value);
+        if (!commitOnBlur) {
+            onChange(e.target.value);
+        }
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -48,11 +58,26 @@ export default function AdminNumberInput({
         e.target.select();
     };
 
+    const commit = () => {
+        const finalValue = (localValue === '' || localValue === '-') ? '0' : localValue;
+        if (finalValue !== localValue) {
+            setLocalValue(finalValue);
+        }
+        if (commitOnBlur) {
+            onChange(finalValue);
+        } else if (localValue === '' || localValue === '-') {
+            onChange('0');
+        }
+    };
+
     const handleBlur = () => {
         setIsFocused(false);
-        if (localValue === '' || localValue === '-') {
-            setLocalValue('0');
-            onChange('0');
+        commit();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && commitOnBlur) {
+            e.currentTarget.blur();
         }
     };
 
@@ -67,6 +92,11 @@ export default function AdminNumberInput({
 
     return (
         <div className={`relative flex items-center ${className}`}>
+            {prefix && (
+                <span className={`absolute left-2 text-[10px] pointer-events-none ${disabled ? 'text-industrial-muted/40' : 'text-industrial-muted'}`}>
+                    {prefix}
+                </span>
+            )}
             <input
                 type="text"
                 inputMode="decimal"
@@ -75,8 +105,9 @@ export default function AdminNumberInput({
                 onChange={handleChange}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
                 placeholder={placeholder}
-                className={`w-16 bg-black/40 border border-white/10 rounded pl-2 pr-5 py-1 text-xs focus:outline-none focus:border-admin-accent/50 transition-colors ${
+                className={`${ADMIN_SIDEBAR_INPUT_CLS} w-16 ${prefix ? 'pl-6' : 'pl-2'} pr-5 ${
                     disabled ? 'text-white/30 cursor-not-allowed' : 'text-white'
                 }`}
             />

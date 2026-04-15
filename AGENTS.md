@@ -76,6 +76,24 @@ Fuente externa → service → adapter → domain model → query/store → comp
 
 Estos tres tipos son **independientes** y no deben mezclarse ni colapsarse en uno solo.
 
+### Catálogo de Variables
+
+- El catálogo de variables centraliza identidades semánticas compartidas via `CatalogVariable { id, name, unit, description? }`.
+- Su objetivo es que la agregación jerárquica matchee por identidad de variable y no solo por coincidencia de unidad.
+- En `WidgetBinding`, `catalogVariableId` reemplaza a `variableKey` como identidad canónica para matching jerárquico.
+- Flujo de referencia: `VariableCatalogStorageService → PropertyDock → widget.binding.catalogVariableId → hierarchyResolver`.
+- La variable es **obligatoria** cuando el catálogo ya tiene entradas para esa unidad; esto evita errores de configuración a escala.
+- La variable es independiente del modo jerárquico: también debe definirse correctamente en widgets hijos para que el matching del padre sea confiable.
+
+### Sistema de Capacidades por Widget
+
+- `utils/widgetCapabilities.ts` es el registro central de qué soporta cada tipo de widget.
+- Capacidades actuales:
+  - `catalogVariable` — el widget puede asociarse a una variable del catálogo.
+  - `hierarchy` — el widget puede agregar valores desde hijos jerárquicos.
+- `PropertyDock` y `DashboardBuilderPage` consumen este registro para decidir qué campos mostrar, habilitar y validar.
+- Para habilitar capacidades en un widget nuevo, cambiar **una sola línea** en `widgetCapabilities.ts`.
+
 ---
 
 ## 5. Estructura de Archivos
@@ -91,7 +109,8 @@ hmi-app/src/
 │   ├── telemetry.types.ts
 │   ├── widget.types.ts
 │   ├── admin.types.ts
-│   └── assistant.types.ts
+│   ├── assistant.types.ts
+│   └── variableCatalog.types.ts
 ├── adapters/               # Transforman datos externos al modelo de dominio
 │   ├── equipment.adapter.ts
 │   └── alert.adapter.ts
@@ -100,7 +119,8 @@ hmi-app/src/
 │   ├── alert.service.ts
 │   ├── DashboardStorageService.ts
 │   ├── HierarchyStorageService.ts
-│   └── TemplateStorageService.ts
+│   ├── TemplateStorageService.ts
+│   └── VariableCatalogStorageService.ts
 ├── queries/                # Hooks TanStack Query
 │   ├── useEquipmentList.ts
 │   ├── useEquipmentDetail.ts
@@ -113,7 +133,8 @@ hmi-app/src/
 │   ├── telemetry.mock.ts
 │   ├── admin.mock.ts
 │   ├── hierarchy.mock.ts
-│   └── template.mock.ts
+│   ├── template.mock.ts
+│   └── variableCatalog.mock.ts
 ├── pages/                  # Composiciones de página (viewer + admin)
 │   ├── Dashboard.tsx
 │   ├── EquipmentDetail.tsx
@@ -126,6 +147,8 @@ hmi-app/src/
 │   ├── charts/             # Visualizaciones
 │   ├── viewer/             # Componentes específicos del viewer
 │   ├── admin/              # Componentes del modo admin
+│   │   ├── CatalogVariableSelector.tsx
+│   │   └── DockInfoBox.tsx
 │   ├── Sidebar.tsx
 │   └── Topbar.tsx
 ├── widgets/                # Sistema de widgets del dashboard builder
@@ -138,10 +161,14 @@ hmi-app/src/
 ├── styles/                 # Estilos globales adicionales
 ├── assets/                 # Recursos estáticos
 ├── utils/                  # Utilidades puras
+│   ├── catalogMigration.ts
+│   └── widgetCapabilities.ts
 ├── index.css               # @theme {} de Tailwind v4 — tokens del sistema de diseño
 ├── App.tsx
 └── main.tsx
 ```
+
+> Nota: `components/admin/TemplateBadge.tsx` fue eliminado. El badge canónico de template vive en `AdminTag`.
 
 ---
 
@@ -157,6 +184,8 @@ hmi-app/src/
 - **Exports de barrel** via `index.ts` en los módulos que lo requieran.
 - **Hooks custom** para lógica compleja en componentes. No lógica async directa en componentes.
 - Los servicios de almacenamiento admin usan `localStorage` como capa mock; no asumir persistencia real.
+- Para matching jerárquico, `catalogVariableId` reemplaza a `variableKey` como identidad canónica del binding.
+- Las capacidades por tipo de widget se registran en `hmi-app/src/utils/widgetCapabilities.ts`; no hardcodear reglas dispersas por widget.
 
 ### Política anti-parches (obligatoria)
 
@@ -173,6 +202,22 @@ hmi-app/src/
 - No hardcodear valores visuales/semánticos cuando exista token, primitive o contrato de dominio.
 - Colores y fuentes: siempre vía `@theme` (`hmi-app/src/index.css`).
 - Labels de estado y copy configurable: siempre vía `displayOptions` tipadas (no strings mágicos dispersos).
+- Scrollbars: usar siempre `hmi-scrollbar` en cualquier contenedor scrolleable. Prohibido usar scrollbars genéricos o `custom-scrollbar`.
+
+### Política anti-hardcode dimensional (obligatoria)
+
+- **CERO valores hardcodeados** para dimensiones, anchos, posiciones o cálculos que dependan del contenido o del contexto de renderizado.
+- Si un valor depende del **contenido** (ej. ancho de un texto, alto de un bloque dinámico): medirlo en runtime (`canvas.measureText()`, `getBoundingClientRect()`, `ResizeObserver`, `translateX(-100%)`, etc.).
+- Si un valor depende del **container** (ej. cuántas labels caben en el eje X): calcularlo a partir del ancho real disponible, no de una estimación fija.
+- Los únicos hardcodes dimensionales permitidos son:
+  - **Tokens del sistema de diseño** (`p-5`, `gap-2`, `text-[10px]`) — son constantes de diseño intencionadas.
+  - **Valores estructurales fijos por definición** (ej. `radius = 60` de un SVG con `viewBox` fijo, `margin = { top: 10, ... }` de un chart).
+  - **Valores temporales de testing** documentados con `// TODO: reemplazar por medición dinámica`.
+- **Casos de referencia que violan esta regla y cómo se resolvieron:**
+  - `tooltipWidth = 160` → reemplazado por `transform: translateX(-100%)` que usa el ancho real renderizado.
+  - `estimatedLabelWidth = 38` → reemplazado por `canvas.measureText()` que mide el ancho exacto de cada string.
+  - `.glass-panel > * { position: relative }` → reemplazado por `isolation: isolate` que crea stacking context sin pisar propiedades de los hijos.
+- **Regla mental**: si el valor que estás hardcodeando *podría ser distinto* con otro contenido, otro idioma, o otro tamaño de container, entonces **no lo hardcodees — medilo o calculalo**.
 
 ---
 
@@ -202,60 +247,23 @@ Esta regla es arquitectural: el panel de administración incluirá un ícono de 
 
 ### Convención para widgets nuevos
 
-**Widgets con color dinámico**
-- Todo widget nuevo que represente estado, severidad o umbrales debe usar exclusivamente los tokens semánticos definidos en `hmi-app/src/index.css`.
-- Para colorizado dinámico usar:
-  - `--color-dynamic-normal-from`
-  - `--color-dynamic-normal-to`
-  - `--color-dynamic-warning-from`
-  - `--color-dynamic-warning-to`
-  - `--color-dynamic-critical-from`
-  - `--color-dynamic-critical-to`
-- Para íconos, acentos y subtexto usar:
-  - `--color-widget-icon`
-  - `--color-status-normal`
-  - `--color-status-warning`
-  - `--color-status-critical`
-  - `--color-widget-gradient-from`
-  - `--color-widget-gradient-to`
-- Para UI estructural del modo admin usar:
-  - `--color-admin-accent`
-  - `--color-admin-selection-from`
-  - `--color-admin-selection-to`
+Ver guía completa: [`hmi-app/src/widgets/WIDGET_AUTHORING.md`](hmi-app/src/widgets/WIDGET_AUTHORING.md)
 
-**Prohibido**
-- Hardcodear colores hex en renderers, componentes o SVGs de widgets.
-- Inventar una lógica cromática paralela por fuera de los tokens semánticos.
-- Usar colores visualmente correctos pero semánticamente inconsistentes con el sistema.
+### Convenciones del modo admin (paneles, context bar, rails, widgets)
 
-**Criterio**
-- Si el widget no usa estado dinámico, usar el degradado base de widget.
-- Si el widget responde a umbrales o severidad, usar los tokens `--color-dynamic-*`.
-- Si el widget muestra estado puntual, usar `--color-status-*`.
-
-### Convención estructural para widgets nuevos
-
-- Todo widget nuevo debe apoyarse en primitives compartidos del sistema y NO reinventar estructura base.
-- Shell visual base: `glass-panel`.
-- Header canónico: `hmi-app/src/components/ui/WidgetHeader.tsx`.
-- Acciones hover: `hmi-app/src/components/ui/WidgetHoverActions.tsx`.
-- Foco/selección:
-  - grid → `hmi-app/src/components/ui/GridSelectionFrame.tsx`
-  - header → `hmi-app/src/components/ui/HeaderSelectionFrame.tsx`
-- Registro obligatorio del renderer en `hmi-app/src/widgets/WidgetRenderer.tsx`.
-- Si el widget agrega configuración nueva, tipar `displayOptions` en `hmi-app/src/domain/admin.types.ts`.
-- `subtitle` = contexto de header. `subtext` = texto inferior/footer. Nunca mezclar.
-- Template base para widgets nuevos: `.agent/skills/interfaz-widget/assets/NewWidgetTemplate.tsx`.
-- Guía detallada: `hmi-app/src/widgets/WIDGET_AUTHORING.md`.
+Ver guía completa: [`hmi-app/src/components/admin/ADMIN_CONVENTIONS.md`](hmi-app/src/components/admin/ADMIN_CONVENTIONS.md)
 
 ### Fuentes
 
-| Token           | Familia                | Uso                       |
-|-----------------|------------------------|---------------------------|
-| `--font-sans`   | Plus Jakarta Sans      | Texto de interfaz         |
-| `--font-mono`   | Roboto Mono            | Datos, números, telemetría|
+| Token           | Uso                                              |
+|-----------------|--------------------------------------------------|
+| `--font-sans`   | Texto de interfaz, labels, tags, UI general      |
+| `--font-mono`   | Datos, números, telemetría, IDs técnicos         |
+| `--font-chart`  | Texto dentro de charts SVG (ejes, ticks, labels) |
 
-> Las fuentes también serán configurables dinámicamente desde el panel admin en el futuro.
+> La familia tipográfica concreta de cada token se define en `@font-face` + `@theme {}` de `hmi-app/src/index.css`.
+> Nunca referenciar nombres de fuente directamente en componentes — usar siempre los tokens via clases Tailwind (`font-sans`, `font-mono`).
+> Las fuentes serán configurables dinámicamente desde el panel admin en el futuro.
 
 ### Íconos
 
@@ -273,8 +281,16 @@ El modo admin es una **interfaz de configuración de la propia HMI**, no un pane
   - `widgets/renderers/` — un componente de renderizado por tipo de widget.
   - `widgets/resolvers/` — lógica que resuelve qué datos muestra cada widget.
   - Los layouts de dashboard se persisten via `DashboardStorageService`.
-- **Almacenamiento**: `localStorage` como capa mock. `DashboardStorageService`, `HierarchyStorageService` y `TemplateStorageService` abstraen el acceso. No asumir backend real todavía.
+- El catálogo de variables se gestiona inline desde `PropertyDock` con create/delete dentro del selector.
+- **Almacenamiento**: `localStorage` como capa mock. `DashboardStorageService`, `HierarchyStorageService`, `TemplateStorageService` y `VariableCatalogStorageService` abstraen el acceso. No asumir backend real todavía.
+- El dashboard builder valida que la variable sea obligatoria cuando el catálogo tiene entradas para la unidad seleccionada.
 - **Theming futuro**: el panel admin incluirá configuración de colores y fuentes via el `@theme {}` de `index.css`.
+
+### Esqueleto obligatorio de toda página admin
+
+Toda página nueva bajo `/admin` DEBE usar `AdminWorkspaceLayout` como shell y seguir los 4 bloques fundamentales (context bar, rail, panel, main).
+
+Ver convenciones completas: [`hmi-app/src/components/admin/ADMIN_CONVENTIONS.md`](hmi-app/src/components/admin/ADMIN_CONVENTIONS.md)
 
 ---
 
@@ -286,7 +302,9 @@ El modo admin es una **interfaz de configuración de la propia HMI**, no un pane
 2. ¿Los tipos que uso están definidos en `domain/`?
 3. ¿Estoy respetando el flujo de datos: service → adapter → domain → query/store → UI?
 4. ¿Estoy usando tokens CSS del `@theme {}` en lugar de valores hardcodeados?
-5. ¿Pregunta de control: **"¿Esto refuerza una interfaz observadora, premium, industrial, clara y escalable?"**
+5. ¿Todo contenedor con scroll usa `hmi-scrollbar`?
+6. ¿Estoy usando `widgetCapabilities.ts` para chequear capacidades en vez de hardcodear `widget.type === 'xxx'`?
+7. ¿Pregunta de control: **"¿Esto refuerza una interfaz observadora, premium, industrial, clara y escalable?"**
 
 ### Prohibido:
 
@@ -312,3 +330,4 @@ Consultá los documentos en `Directrices/` antes de tomar una decisión arquitec
 | [`Directrices/Especificación funcional_Modo Administrador.md`](Directrices/Especificación%20funcional_Modo%20Administrador.md) | Especificación funcional completa del modo administrador: dashboard builder, widgets y almacenamiento |
 | [`Directrices/UI_Style_Guide_Design_System_Base_v1.md`](Directrices/UI_Style_Guide_Design_System_Base_v1.md) | Guía de estilo y sistema de diseño: tokens visuales, componentes, patrones de UI y sistema de colores |
 | [`hmi-app/src/widgets/WIDGET_AUTHORING.md`](hmi-app/src/widgets/WIDGET_AUTHORING.md) | Convención operativa para crear widgets nuevos reutilizando header, focus, hover actions y template base |
+| [`hmi-app/src/components/admin/ADMIN_CONVENTIONS.md`](hmi-app/src/components/admin/ADMIN_CONVENTIONS.md) | Convenciones del modo admin: esqueleto de página, rails, paneles, context bar y widgets |

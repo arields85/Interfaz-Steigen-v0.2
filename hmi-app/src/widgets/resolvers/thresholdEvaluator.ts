@@ -54,7 +54,15 @@ export function evaluateThresholds(
     }
 
     // Ordenar de mayor a menor para evaluar el umbral más severo primero.
-    const sorted = [...thresholds].sort((a, b) => b.value - a.value);
+    // Se ignoran reglas con value === 0: no tienen significado semántico en un HMI
+    // industrial y dispararían sobre cualquier valor positivo.
+    const sorted = [...thresholds]
+        .filter((t) => t.value !== 0)
+        .sort((a, b) => b.value - a.value);
+
+    if (sorted.length === 0) {
+        return 'normal';
+    }
 
     for (const rule of sorted) {
         if (value >= rule.value) {

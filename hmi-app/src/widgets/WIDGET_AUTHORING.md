@@ -16,6 +16,9 @@ Todo widget nuevo debe:
 - Usar `glass-panel` como superficie base del widget.
 - No inventar otro radio ni otra materialidad.
 - No hardcodear colores ni fuentes.
+- Usar siempre `hmi-scrollbar` en cualquier contenedor scrolleable del widget o de su UI asociada.
+- Incluir la clase `group` en el contenedor `glass-panel` para que las utilidades `group-hover:*` de `WidgetHeader` funcionen (transición de opacidad del ícono, transición de color del título).
+- `glass-panel` usa `isolation: isolate` como stacking context. Los hijos directos NO reciben `position: relative` forzado — las utilidades de Tailwind como `absolute` funcionan normalmente en hijos directos.
 
 ### Header
 - Si el widget tiene encabezado, usar `components/ui/WidgetHeader.tsx`.
@@ -24,6 +27,10 @@ Todo widget nuevo debe:
 - Usar `WidgetHeader` con alineación estándar (default). No pasar `alignment` salvo excepción justificada.
 - No usar wrappers con `-translate-y-*` alrededor del header ni offsets ad-hoc por renderer.
 - No duplicar la lógica de header dentro del renderer.
+- `WidgetHeader` soporta `iconPosition?: 'left' | 'right'` (default: `'right'`). Usar `'left'` cuando el ícono debe preceder al título (ej. widgets de chart con controles overlay a la derecha).
+- El título se lee de `widget.title` (campo que escribe el PropertyDock). El renderer debe usar `widget.title ?? displayOptions?.chartTitle ?? 'Título Default'`.
+- Los títulos largos se truncan automáticamente con puntos suspensivos gracias a `grid-cols-[minmax(0,1fr)]` en el grid del header.
+- El comportamiento hover está integrado en `WidgetHeader`: el ícono transiciona `opacity-70 → opacity-100`, el título transiciona `text-industrial-muted → text-white`. Requiere la clase `group` en el `glass-panel` ancestro.
 
 ### Layout (elegir patrón explícito)
 - **Patrón A — flujo natural (`header + body + footer`)**:
@@ -33,6 +40,11 @@ Todo widget nuevo debe:
   - Usar cuando el contenido principal debe quedar centrado respecto de TODO el widget (alto/ancho completos), no del espacio restante bajo el header.
   - Usar `components/ui/WidgetCenteredContentLayout.tsx`.
   - Ejemplo típico: indicador central (badge/estado/gauge puntual) con header informativo arriba.
+- **Patrón C — overlay controls (controles locales flotantes)**:
+  - Usar cuando el widget tiene controles interactivos (selectores, toggles) que deben flotar sobre el header sin participar de su layout.
+  - Los controles se posicionan con `absolute right-5 top-5 z-10` como hijo directo del `glass-panel`.
+  - El `WidgetHeader` NO debe usar `trailing` para controles multi-fila; usar overlay en su lugar.
+  - Ejemplo: `prod-history` con selector de bucket + toggle OEE como overlay.
 
 ### Acciones y selección
 - El widget en grid debe convivir con:
@@ -49,6 +61,7 @@ Todo widget nuevo debe:
 - Si el widget tiene propiedades configurables, exponerlas en:
   - `components/admin/PropertiesPanel.tsx`
   - `components/admin/PropertyDock.tsx`
+- La UI lateral de configuración debe reutilizar `components/admin/adminSidebarStyles.ts` para mantener el look industrial del `PropertyDock`.
 - Si aplica al header, declarar explícitamente su compatibilidad con las reglas del header.
 
 ### Diseño y semántica
@@ -70,6 +83,10 @@ Todo widget nuevo debe:
 - Resolver alineación vertical de header no-KPI con wrappers locales u offsets mágicos.
 - Aplicar parches globales para corregir un problema local del widget.
 - Hardcodear copy de estados cuando ese copy deba ser configurable vía `displayOptions`.
+- Usar scrollbars genéricos o `custom-scrollbar` en contenedores scrolleables.
+- Usar un ancho hardcodeado para calcular posiciones de tooltip cuando `translateX(-100%)` o medición dinámica resuelven para cualquier contenido.
+- Reimplementar hover/tooltip inline en un widget chart cuando existen `ChartHoverLayer` y `ChartTooltip` como primitives.
+- Usar Recharts para tooltip o hover en widgets que consumen primitives SVG propias del proyecto.
 
 ## Regla de ownership de layout (anti-parche)
 
@@ -95,6 +112,9 @@ Todo widget nuevo debe:
 - `hmi-app/src/components/ui/HeaderSelectionFrame.tsx`
 - `hmi-app/src/components/ui/AnchoredOverlay.tsx` — menús flotantes / dropdowns / popovers
 - `hmi-app/src/widgets/WidgetRenderer.tsx`
+- `hmi-app/src/components/ui/ChartTooltip.tsx` — tooltip panel compartido para widgets con charts. Posicionamiento automático con flip.
+- `hmi-app/src/components/ui/ChartHoverLayer.tsx` — capa SVG de interacción hover para charts (hit areas + línea vertical + highlight dots).
+- `hmi-app/src/utils/chartHelpers.ts` — funciones matemáticas compartidas para SVG charts (`smoothPath`, `buildAreaPath`, `formatTick`, `clamp`, `round2`).
 
 ## Menús flotantes / overlays contextuales
 
