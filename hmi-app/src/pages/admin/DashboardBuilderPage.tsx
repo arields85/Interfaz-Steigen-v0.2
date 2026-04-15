@@ -966,7 +966,7 @@ export default function DashboardBuilderPage() {
                 return null;
             }
 
-            let nextDashboard: Dashboard = { ...dashboard, status };
+            let nextDashboard: Dashboard = { ...dashboard, status, gridVersion: 2 };
 
             if (stagedVariables.length > 0) {
                 const stagedIdMap = new Map<string, string>();

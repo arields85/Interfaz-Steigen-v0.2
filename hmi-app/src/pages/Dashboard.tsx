@@ -145,7 +145,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto px-2 overflow-hidden">
+        <div className="flex flex-col h-full space-y-4 px-2 overflow-hidden">
 
             {/* HEADER CONFIGURADO DESDE dashboard.headerConfig */}
             <DashboardHeader

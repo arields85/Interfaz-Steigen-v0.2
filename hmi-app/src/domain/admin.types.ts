@@ -82,6 +82,11 @@ export interface PublishedSnapshot {
     layout: WidgetLayout[];
     headerConfig?: DashboardHeaderConfig;
     publishedAt: string;
+    /**
+     * Grid version at the time of publishing.
+     * Absent means the snapshot was created under the legacy 4-column layout.
+     */
+    gridVersion?: number;
 }
 
 /**
@@ -113,6 +118,11 @@ export interface Dashboard {
      * Opcional: si está ausente, el header usa `name`/`description` y sin widget slots.
      */
     headerConfig?: DashboardHeaderConfig;
+    /**
+     * Versión del sistema de grilla con que fue guardado este dashboard.
+     * Ausente significa layout legacy de 4 columnas fijas.
+     */
+    gridVersion?: number;
     /**
      * Snapshot congelado de la versión publicada.
      * Presente solo en dashboards que fueron publicados al menos una vez.

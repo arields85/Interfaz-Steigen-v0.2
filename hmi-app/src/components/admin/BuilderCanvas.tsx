@@ -14,6 +14,13 @@ import {
     isHeaderCompatibleWidget,
 } from '../../utils/headerWidgets';
 import AdminEmptyState from './AdminEmptyState';
+import { useGridCols } from '../../utils/useGridCols';
+import {
+    getGridTemplateStyle,
+    getWidgetSpanStyle,
+    computeCellWidth,
+    BUILDER_GAP,
+} from '../../utils/gridConfig';
 
 interface BuilderCanvasProps {
     widgets: WidgetConfig[];
@@ -59,12 +66,16 @@ interface BuilderCanvasProps {
 function ResizeHandle({ 
     widgetId, 
     currentW, 
-    currentH, 
+    currentH,
+    cellWidth,
+    maxCols,
     onResize 
 }: { 
     widgetId: string; 
     currentW: number; 
-    currentH: number; 
+    currentH: number;
+    cellWidth: number;
+    maxCols: number;
     onResize?: (id: string, w: number, h: number) => void; 
 }) {
     const handlePointerDown = (e: React.PointerEvent) => {
@@ -77,7 +88,6 @@ function ResizeHandle({
         const startW = currentW;
         const startH = currentH;
         
-        const CELL_WIDTH = 280; // aprox width px per col 
         const CELL_HEIGHT = 160; // aprox height px per row (140 + gap)
         
         let lastNewW = startW;
@@ -87,10 +97,10 @@ function ResizeHandle({
             const deltaX = moveEv.clientX - startX;
             const deltaY = moveEv.clientY - startY;
             
-            let newW = startW + Math.round(deltaX / CELL_WIDTH);
+            let newW = startW + Math.round(deltaX / cellWidth);
             let newH = startH + Math.round(deltaY / CELL_HEIGHT);
             
-            newW = Math.max(1, Math.min(newW, 4));
+            newW = Math.max(1, Math.min(newW, maxCols));
             newH = Math.max(1, Math.min(newH, 6)); // Límite de alto 6 filas
             
             if (newW !== lastNewW || newH !== lastNewH) {
@@ -142,6 +152,16 @@ export default function BuilderCanvas({
     const widgetCornerRadius = '1.5rem';
     
     const widgetMap = new Map(widgets.map(w => [w.id, w]));
+
+    // Dynamic columns: computed from viewer reference width so builder and viewer
+    // always produce the same column count regardless of the admin chrome (rail, panels).
+    const { containerRef, cols, containerWidth } = useGridCols(BUILDER_GAP, true);
+
+    // Cell width for the resize handle delta calculation.
+    // Falls back to 280 until the first ResizeObserver measurement arrives.
+    const cellWidth = containerWidth > 0
+        ? computeCellWidth(containerWidth, cols, BUILDER_GAP)
+        : 280;
 
     // Estados efímeros de Drag & Drop
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -209,11 +229,19 @@ export default function BuilderCanvas({
         onWidgetDragChange?.(null);
     };
 
-    // Grilla con CSS Grid. Auto-rows-[140px] define el alto base de H=1.
+    // Grilla con CSS Grid. auto-rows-[140px] define el alto base de H=1.
     return (
-        <div className="w-full p-8">
-            <div className="grid grid-cols-4 gap-6 auto-rows-[140px]">
-                
+        <div ref={containerRef} className="w-full p-8 overflow-x-auto">
+            <div
+                className="grid gap-6 auto-rows-[140px]"
+                style={{
+                    ...getGridTemplateStyle(cols),
+                    ...(containerWidth > 0 && {
+                        width: `${containerWidth}px`,
+                        minWidth: `${containerWidth}px`,
+                    }),
+                }}
+            >
                 {layout.map((item, index) => {
                     // Excluir del grid los widgets asignados al header (igual que DashboardViewer)
                     if (headerWidgetIds?.has(item.widgetId)) return null;
@@ -225,21 +253,13 @@ export default function BuilderCanvas({
 
                     const isSelected = selectedWidgetId === widget.id;
 
-                    // Mapeo básico: col-span según w
-                    const colSpan = item.w === 4 ? 'col-span-4' : 
-                                    item.w === 3 ? 'col-span-3' : 
-                                    item.w === 2 ? 'col-span-2' : 
-                                    'col-span-1';
-
-                    const rowSpanClasses = ['', 'row-span-1', 'row-span-2', 'row-span-3', 'row-span-4', 'row-span-5', 'row-span-6'];
-                    const rowSpan = rowSpanClasses[item.h || 1] || 'row-span-1';
-
                     return (
                         <div 
                             key={widget.id}
-                            className={`${colSpan} ${rowSpan} relative group cursor-grab active:cursor-grabbing rounded-xl transition-opacity duration-200 ${
+                            className={`relative group cursor-grab active:cursor-grabbing rounded-xl transition-opacity duration-200 ${
                                 draggedIndex === index ? 'opacity-40' : 'opacity-100'
                             }`}
+                            style={getWidgetSpanStyle(item.w || 1, item.h || 1, cols)}
                             onClick={() => onWidgetSelect?.(widget.id)}
                             draggable={true}
                             onDragStart={(e) => handleDragStart(e, index)}
@@ -285,7 +305,9 @@ export default function BuilderCanvas({
                                 <ResizeHandle 
                                     widgetId={widget.id} 
                                     currentW={item.w} 
-                                    currentH={item.h || 1} 
+                                    currentH={item.h || 1}
+                                    cellWidth={cellWidth}
+                                    maxCols={cols}
                                     onResize={onResize} 
                                 />
                             )}
@@ -307,7 +329,7 @@ export default function BuilderCanvas({
 
                 {/* Dropzone visual sutil si el canvas está vacío */}
                 {layout.filter(item => !headerWidgetIds?.has(item.widgetId)).length === 0 && (
-                    <div className="col-span-4 h-64 px-6">
+                    <div style={{ gridColumn: '1 / -1' }} className="h-64 px-6">
                         <AdminEmptyState
                             icon={LayoutDashboard}
                             message="El dashboard está vacío"
