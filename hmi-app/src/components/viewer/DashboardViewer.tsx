@@ -1,16 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
-import { useGridCols } from '../../utils/useGridCols';
-import {
-    getGridTemplateStyle,
-    getWidgetSpanStyle,
-    VIEWER_GAP,
-} from '../../utils/gridConfig';
-
-const MIN_ROW_H = 60; // prevents unusable widgets
+import { useCanvasReference } from '../../utils/useCanvasReference';
+import { DEFAULT_COLS, DEFAULT_ROWS, getGridTemplateStyle } from '../../utils/gridConfig';
 
 interface DashboardViewerProps {
     widgets: WidgetConfig[];
@@ -23,12 +16,8 @@ interface DashboardViewerProps {
      */
     headerWidgetIds?: Set<string>;
     hierarchyContext?: HierarchyContext;
-    /**
-     * Grid version from the dashboard record.
-     * Absent means the layout was authored for the legacy 4-column grid —
-     * widget widths are migrated at render time via migrateLayoutWidth.
-     */
-    gridVersion?: number;
+    cols?: number;
+    rows?: number;
 }
 
 // =============================================================================
@@ -53,80 +42,30 @@ export default function DashboardViewer({
     equipmentMap,
     headerWidgetIds,
     hierarchyContext,
+    cols = DEFAULT_COLS,
+    rows = DEFAULT_ROWS,
 }: DashboardViewerProps) {
-
-    // Columns: measured from the outer container via ResizeObserver.
-    const { containerRef, cols } = useGridCols(VIEWER_GAP);
-
-    // Row height: derived from the container's available height so the grid
-    // fills the viewport exactly with no scroll (single-screen HMI constraint).
-    const [rowHeight, setRowHeight] = useState(140);
+    const { containerRef, width, height, rowHeight } = useCanvasReference({
+        cols,
+        rows,
+    });
 
     const widgetMap = new Map(widgets.map(w => [w.id, w]));
 
-    // Simulate CSS grid auto-placement (dense packing, left-to-right) to count
-    // how many rows the current layout occupies.
-    // x/y in WidgetLayout are NOT used for placement — widgets render in array
-    // order, with col-span (w) and row-span (h) only.
-    const maxRows = useMemo(() => {
-        const visible = layout.filter(item => !headerWidgetIds?.has(item.widgetId));
-        if (visible.length === 0) return 1;
-
-        // colTops[c] = next available row index for column c
-        const colTops = new Array(cols).fill(0);
-
-        for (const item of visible) {
-            const rawW = item.w || 1;
-            const w = Math.min(rawW, cols);
-            const h = item.h || 1;
-
-            // Find the leftmost column span where the widget can be placed earliest
-            let bestRow = Infinity;
-            let bestCol = 0;
-            for (let col = 0; col <= cols - w; col++) {
-                const startRow = Math.max(...colTops.slice(col, col + w));
-                if (startRow < bestRow) {
-                    bestRow = startRow;
-                    bestCol = col;
-                }
-            }
-
-            for (let col = bestCol; col < bestCol + w; col++) {
-                colTops[col] = bestRow + h;
-            }
-        }
-
-        return Math.max(...colTops, 1);
-    }, [layout, headerWidgetIds, cols]);
-
-    // Measure the container's available height and compute the row height that
-    // makes the grid fill it exactly with no leftover space or scroll.
-    // The same containerRef used by useGridCols is observed here for height —
-    // two separate ResizeObserver instances on the same element is valid.
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            // contentRect already excludes the container's own padding
-            const available = entry.contentRect.height;
-            const computed = (available - (maxRows - 1) * VIEWER_GAP) / maxRows;
-            setRowHeight(Math.max(computed, MIN_ROW_H));
-        });
-
-        observer.observe(container);
-        return () => observer.disconnect();
-    }, [maxRows]);
-
     return (
-        <div ref={containerRef} className="w-full h-full p-4 overflow-hidden">
+        <div
+            ref={containerRef}
+            data-testid="dashboard-viewer-root"
+            className="flex h-full w-full items-center justify-center overflow-hidden"
+        >
             <div
-                className="grid gap-4 w-full"
+                className="grid shrink-0"
                 style={{
                     ...getGridTemplateStyle(cols),
-                    gridAutoRows: `${rowHeight}px`,
+                    gridTemplateRows: `repeat(${rows}, ${rowHeight}px)`,
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    gap: 0,
                 }}
             >
                 {layout.map((item) => {
@@ -136,16 +75,23 @@ export default function DashboardViewer({
                     const widget = widgetMap.get(item.widgetId);
                     if (!widget) return null;
 
-                    const rawW = item.w || 1;
-                    const effectiveW = Math.min(rawW, cols);
-
                     return (
                         <div
                             key={widget.id}
+                            data-testid={`dashboard-viewer-item-${widget.id}`}
                             className="h-full relative"
-                            style={getWidgetSpanStyle(effectiveW, item.h || 1, cols)}
+                            style={{
+                                gridColumnStart: item.x + 1,
+                                gridColumnEnd: `span ${item.w}`,
+                                gridRowStart: item.y + 1,
+                                gridRowEnd: `span ${item.h}`,
+                            }}
                         >
-                            <div className="relative w-full h-full z-0">
+                            <div
+                                data-testid={`dashboard-viewer-item-surface-${widget.id}`}
+                                className="relative z-0 h-full w-full box-border"
+                                style={{ padding: 'var(--widget-spacing)' }}
+                            >
                                 <WidgetRenderer 
                                     widget={widget} 
                                     equipmentMap={equipmentMap} 

@@ -33,6 +33,8 @@ export interface HierarchyNode {
 export type DashboardType = 'global' | 'area' | 'line' | 'equipment' | 'free' | 'template';
 export type DashboardStatus = 'draft' | 'published' | 'archived';
 
+export type DashboardAspect = '16:9' | '21:9' | '4:3';
+
 /**
  * Slot de widget asignado al header del dashboard.
  * Referencia un widget del array `widgets` del dashboard.
@@ -78,15 +80,13 @@ export interface DashboardHeaderConfig {
  * el viewer siempre lee de este snapshot. Se actualiza únicamente al publicar.
  */
 export interface PublishedSnapshot {
+    aspect: DashboardAspect;
+    cols: number;
+    rows: number;
     widgets: WidgetConfig[];
     layout: WidgetLayout[];
     headerConfig?: DashboardHeaderConfig;
     publishedAt: string;
-    /**
-     * Grid version at the time of publishing.
-     * Absent means the snapshot was created under the legacy 4-column layout.
-     */
-    gridVersion?: number;
 }
 
 /**
@@ -105,6 +105,9 @@ export interface Dashboard {
     name: string;
     description?: string;
     dashboardType: DashboardType;
+    aspect: DashboardAspect;
+    cols: number;
+    rows: number;
     layout: WidgetLayout[];
     widgets: WidgetConfig[];
     lastUpdateAt?: string;
@@ -118,11 +121,6 @@ export interface Dashboard {
      * Opcional: si está ausente, el header usa `name`/`description` y sin widget slots.
      */
     headerConfig?: DashboardHeaderConfig;
-    /**
-     * Versión del sistema de grilla con que fue guardado este dashboard.
-     * Ausente significa layout legacy de 4 columnas fijas.
-     */
-    gridVersion?: number;
     /**
      * Snapshot congelado de la versión publicada.
      * Presente solo en dashboards que fueron publicados al menos una vez.
@@ -435,7 +433,17 @@ export interface BaseDisplayOptions {
 interface WidgetConfigBase {
     id: string;
     title?: string;
+    /**
+     * @deprecated Use the matching `Dashboard.layout` entry (`WidgetLayout.x/y`) as the canonical source of truth.
+     * Kept temporarily for compatibility with legacy widget config callsites during the canvas-bounds transition.
+     * TODO(canvas-bounds): remove `position` after all render/edit paths read from `Dashboard.layout` only.
+     */
     position: { x: number; y: number };
+    /**
+     * @deprecated Use the matching `Dashboard.layout` entry (`WidgetLayout.w/h`) as the canonical source of truth.
+     * Kept temporarily for compatibility with legacy widget config callsites during the canvas-bounds transition.
+     * TODO(canvas-bounds): remove `size` after all render/edit paths read from `Dashboard.layout` only.
+     */
     size: { w: number; h: number };
     styleVariant?: string;
     binding?: WidgetBinding;
@@ -568,6 +576,9 @@ export interface Template {
     id: string;
     name: string;
     type: TemplateType;
+    aspect: DashboardAspect;
+    cols: number;
+    rows: number;
     dashboardType?: DashboardType;
     sourceDashboardId?: string;
     widgetPresets?: Partial<WidgetConfig>[];

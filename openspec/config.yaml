@@ -1,0 +1,64 @@
+schema: spec-driven
+
+context: |
+  App: `hmi-app/` (React 19 + TypeScript 5.9 strict + Vite 7)
+  Styling: Tailwind CSS v4 via `@theme` in `hmi-app/src/index.css`
+  State: Zustand 5 for UI + TanStack Query 5 for async/server state
+  Architecture: `services -> adapters -> domain -> queries/store -> UI`
+  Conventions: `AGENTS.md` is canonical; read-only HMI, Lucide-only icons, no edits in `Directrices/`
+  Testing: `AGENTS.md` §11; Vitest 4 + RTL + jest-dom + user-event + jsdom
+
+strict_tdd: true
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+  verify:
+    - Run tests if test infrastructure exists
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)
+
+testing:
+  detected: 2026-04-16
+  strict_tdd: true
+  runner:
+    framework: vitest
+    command: npm run test
+  layers:
+    unit:
+      available: true
+      tool: vitest
+    integration:
+      available: true
+      tool: '@testing-library/react + jsdom'
+    e2e:
+      available: false
+      tool: ''
+  coverage:
+    available: true
+    command: npm run test:coverage
+  quality:
+    linter:
+      available: true
+      command: npm run lint
+    type_checker:
+      available: true
+      command: npx tsc -b
+    formatter:
+      available: false
+      command: ''

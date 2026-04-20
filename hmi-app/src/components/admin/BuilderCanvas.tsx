@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, Trash2, ArrowUp, LayoutDashboard } from 'lucide-react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
@@ -7,20 +7,22 @@ import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver
 import GridSelectionFrame from '../ui/GridSelectionFrame';
 import WidgetHoverActions from '../ui/WidgetHoverActions';
 import {
-    HEADER_WIDGET_DRAG_MIME,
     HEADER_WIDGET_SLOT_COUNT,
     type HeaderWidgetDragPayload,
-    serializeHeaderWidgetDragPayload,
     isHeaderCompatibleWidget,
 } from '../../utils/headerWidgets';
 import AdminEmptyState from './AdminEmptyState';
-import { useGridCols } from '../../utils/useGridCols';
+import { useCanvasReference } from '../../utils/useCanvasReference';
+import { clampWidgetBounds, DEFAULT_COLS, DEFAULT_ROWS, getGridTemplateStyle } from '../../utils/gridConfig';
+import { useUIStore } from '../../store/ui.store';
 import {
-    getGridTemplateStyle,
-    getWidgetSpanStyle,
-    computeCellWidth,
-    BUILDER_GAP,
-} from '../../utils/gridConfig';
+    applyPointerDeltaToPixelBounds,
+    layoutToPixelBounds,
+    pixelBoundsToGridBounds,
+    type WidgetInteractionMetrics,
+    type WidgetInteractionType,
+    type WidgetPixelBounds,
+} from '../../utils/widgetInteraction';
 
 interface BuilderCanvasProps {
     widgets: WidgetConfig[];
@@ -31,311 +33,524 @@ interface BuilderCanvasProps {
     selectedWidgetId?: string;
     onReorder?: (startIndex: number, endIndex: number) => void;
     onResize?: (widgetId: string, w: number, h: number) => void;
+    onLayoutCommit?: (layout: WidgetLayout) => void;
     onDelete?: (widgetId: string) => void;
     onDuplicate?: (widgetId: string) => void;
     onWidgetDragChange?: (payload: HeaderWidgetDragPayload | null) => void;
-    /**
-     * IDs de widgets asignados al header del dashboard.
-     * Estos widgets se excluyen del grid para evitar duplicación con el header.
-     * Espeja la misma prop de DashboardViewer.
-     */
     headerWidgetIds?: Set<string>;
-    /**
-     * Número de slots del header actualmente ocupados (0-3).
-     * Cuando es menor que HEADER_WIDGET_SLOT_COUNT y el widget es compatible,
-     * se muestra el ícono de "subir al header".
-     */
     headerOccupiedSlotCount?: number;
-    /**
-     * Callback para mover un widget del grid al header.
-     * Invocado al hacer click en el ícono ArrowUp del widget.
-     */
     onPromoteToHeader?: (widgetId: string) => void;
+    cols?: number;
+    rows?: number;
 }
 
-// =============================================================================
-// BuilderCanvas
-// Área de trabajo central del Modo Administrador.
-// Itera sobre el layout del dashboard y renderiza cada WidgetConfig usando
-// el WidgetRenderer de la Fase 3, demostrando la separación entre el 
-// builder visual y los componentes presentacionales.
-//
-// Especificación Funcional Modo Admin §8
-// =============================================================================
+const DRAG_THRESHOLD_PX = 3;
 
-function ResizeHandle({ 
-    widgetId, 
-    currentW, 
-    currentH,
-    cellWidth,
-    maxCols,
-    onResize 
-}: { 
-    widgetId: string; 
-    currentW: number; 
-    currentH: number;
-    cellWidth: number;
-    maxCols: number;
-    onResize?: (id: string, w: number, h: number) => void; 
+interface InteractionState {
+    widgetId: string;
+    type: WidgetInteractionType;
+    startPointer: { x: number; y: number };
+    startLayout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>;
+    startBounds: WidgetPixelBounds;
+    tentativeBounds: WidgetPixelBounds;
+    hasExceededThreshold: boolean;
+}
+
+interface PanState {
+    startPointer: { x: number; y: number };
+    startScroll: { left: number; top: number };
+}
+
+function isInputElement(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
+    return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
+function isSpaceKey(event: Pick<KeyboardEvent, 'code' | 'key'> | Pick<React.KeyboardEvent<HTMLDivElement>, 'code' | 'key'>): boolean {
+    return event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar';
+}
+
+function isFiniteLayout(layout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>): boolean {
+    return [layout.x, layout.y, layout.w, layout.h].every((value) => Number.isFinite(value));
+}
+
+function resolveCommittedLayout(args: {
+    interaction: InteractionState;
+    metrics: WidgetInteractionMetrics;
+    cols: number;
+    rows: number;
+}): Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'> {
+    const tentativeLayout = pixelBoundsToGridBounds(args.interaction.tentativeBounds, args.metrics);
+
+    if (!isFiniteLayout(tentativeLayout)) {
+        return clampWidgetBounds(args.interaction.startLayout, args.cols, args.rows);
+    }
+
+    if (args.interaction.type === 'resize') {
+        const safeX = Math.min(Math.max(args.interaction.startLayout.x, 0), Math.max(0, args.cols - 1));
+        const safeY = Math.min(Math.max(args.interaction.startLayout.y, 0), Math.max(0, args.rows - 1));
+
+        return {
+            x: safeX,
+            y: safeY,
+            w: Math.min(Math.max(tentativeLayout.w, 1), Math.max(1, args.cols - safeX)),
+            h: Math.min(Math.max(tentativeLayout.h, 1), Math.max(1, args.rows - safeY)),
+        };
+    }
+
+    return clampWidgetBounds(tentativeLayout, args.cols, args.rows);
+}
+
+function ResizeHandle({
+    widgetId,
+    onPointerDown,
+}: {
+    widgetId: string;
+    onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
 }) {
-    const handlePointerDown = (e: React.PointerEvent) => {
-        if (!onResize) return;
-        e.stopPropagation();
-        e.preventDefault();
-        
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startW = currentW;
-        const startH = currentH;
-        
-        const CELL_HEIGHT = 160; // aprox height px per row (140 + gap)
-        
-        let lastNewW = startW;
-        let lastNewH = startH;
-
-        const handlePointerMove = (moveEv: PointerEvent) => {
-            const deltaX = moveEv.clientX - startX;
-            const deltaY = moveEv.clientY - startY;
-            
-            let newW = startW + Math.round(deltaX / cellWidth);
-            let newH = startH + Math.round(deltaY / CELL_HEIGHT);
-            
-            newW = Math.max(1, Math.min(newW, maxCols));
-            newH = Math.max(1, Math.min(newH, 6)); // Límite de alto 6 filas
-            
-            if (newW !== lastNewW || newH !== lastNewH) {
-                lastNewW = newW;
-                lastNewH = newH;
-                onResize(widgetId, newW, newH);
-            }
-        };
-        
-        const handlePointerUp = () => {
-            document.body.style.cursor = '';
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        };
-        
-        document.body.style.cursor = 'se-resize';
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-    };
-
     return (
-        <div 
-            onPointerDown={handlePointerDown}
-            className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md"
+        <div
+            data-testid={`builder-canvas-resize-handle-${widgetId}`}
+            onPointerDown={onPointerDown}
+            className="absolute bottom-0 right-0 z-20 flex h-6 w-6 cursor-se-resize items-end justify-end p-1.5 opacity-0 transition-opacity drop-shadow-md group-hover:opacity-100"
             title="Arrastrar para cambiar tamaño"
         >
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: 'var(--color-admin-selection-to)', clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)' }} />
+            <div
+                className="h-2.5 w-2.5 rounded-sm"
+                style={{
+                    background: 'var(--color-admin-selection-to)',
+                    clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)',
+                }}
+            />
         </div>
     );
 }
 
-export default function BuilderCanvas({ 
-    widgets, 
-    layout, 
+export default function BuilderCanvas({
+    widgets,
+    layout,
     equipmentMap,
     hierarchyContext,
     onWidgetSelect,
     selectedWidgetId,
-    onReorder,
     onResize,
+    onLayoutCommit,
     onDelete,
     onDuplicate,
     onWidgetDragChange,
     headerWidgetIds,
     headerOccupiedSlotCount = 0,
     onPromoteToHeader,
+    cols = DEFAULT_COLS,
+    rows = DEFAULT_ROWS,
 }: BuilderCanvasProps) {
-    // Debe mantenerse sincronizado con `.glass-panel { border-radius: 1.5rem }` en hmi-app/src/index.css
     const widgetCornerRadius = '1.5rem';
-    
-    const widgetMap = new Map(widgets.map(w => [w.id, w]));
+    const widgetMap = new Map(widgets.map((widget) => [widget.id, widget]));
+    const isGridVisible = useUIStore((state) => state.isGridVisible);
+    const { containerRef, width, height, rowHeight, cellWidth } = useCanvasReference({
+        cols,
+        rows,
+    });
 
-    // Dynamic columns: computed from viewer reference width so builder and viewer
-    // always produce the same column count regardless of the admin chrome (rail, panels).
-    const { containerRef, cols, containerWidth } = useGridCols(BUILDER_GAP, true);
+    const metrics: WidgetInteractionMetrics = { cellWidth, rowHeight };
+    const [interaction, setInteraction] = useState<InteractionState | null>(null);
+    const [isPanMode, setIsPanMode] = useState(false);
+    const [isBuilderFocused, setIsBuilderFocused] = useState(false);
+    const [panState, setPanState] = useState<PanState | null>(null);
 
-    // Cell width for the resize handle delta calculation.
-    // Falls back to 280 until the first ResizeObserver measurement arrives.
-    const cellWidth = containerWidth > 0
-        ? computeCellWidth(containerWidth, cols, BUILDER_GAP)
-        : 280;
+    const interactionRef = useRef<InteractionState | null>(null);
+    const interactionCleanupRef = useRef<(() => void) | null>(null);
+    const isBuilderFocusedRef = useRef(false);
+    const panStateRef = useRef<PanState | null>(null);
+    const panCleanupRef = useRef<(() => void) | null>(null);
 
-    // Estados efímeros de Drag & Drop
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const clearPan = () => {
+        panCleanupRef.current?.();
+        panCleanupRef.current = null;
+        panStateRef.current = null;
+        setPanState(null);
+    };
 
-    // Si cambia el conjunto de widgets visibles del grid (por ejemplo, uno se mueve
-    // al header y luego vuelve), cualquier índice efímero de drag previo deja de
-    // ser válido. Si no se limpia, el índice zombie sigue aplicando `opacity-40`
-    // al item que reaparece en esa posición.
+    const activatePanMode = () => {
+        setIsPanMode(true);
+    };
+
+    const deactivatePanMode = () => {
+        setIsPanMode(false);
+        clearPan();
+    };
+
+    const handleSpaceKeyDown = (event: KeyboardEvent | React.KeyboardEvent<HTMLDivElement>) => {
+        if (!isSpaceKey(event) || event.repeat || !isBuilderFocusedRef.current || isInputElement(event.target)) {
+            return;
+        }
+
+        event.preventDefault();
+        activatePanMode();
+    };
+
+    const handleSpaceKeyUp = (event: KeyboardEvent | React.KeyboardEvent<HTMLDivElement>) => {
+        if (!isSpaceKey(event)) {
+            return;
+        }
+
+        deactivatePanMode();
+    };
+
+    const clearInteraction = () => {
+        interactionCleanupRef.current?.();
+        interactionCleanupRef.current = null;
+        interactionRef.current = null;
+        setInteraction(null);
+        document.body.style.cursor = '';
+    };
+
+    useEffect(() => () => {
+        clearPan();
+        clearInteraction();
+    }, []);
+
     useEffect(() => {
-        setDraggedIndex(null);
-        setHoveredIndex(null);
-    }, [headerWidgetIds, layout.length]);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            handleSpaceKeyDown(event);
+        };
 
-    // Handlers de Drag & Drop HTML5
-    const handleDragStart = (e: React.DragEvent, index: number) => {
-        setDraggedIndex(index);
-        const layoutItem = layout[index];
-        const draggedWidget = layoutItem ? widgetMap.get(layoutItem.widgetId) : undefined;
+        const handleKeyUp = (event: KeyboardEvent) => {
+            handleSpaceKeyUp(event);
+        };
 
-        // Set drag ghost image data
-        e.dataTransfer.effectAllowed = 'move';
-        // Hack for Firefox support
-        e.dataTransfer.setData('text/plain', index.toString());
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
 
-        if (draggedWidget) {
-            const payload: HeaderWidgetDragPayload = {
-                widgetId: draggedWidget.id,
-                widgetType: draggedWidget.type,
-                source: 'builder-grid',
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
+    const commitLayout = (widgetId: string, nextLayout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>) => {
+        onLayoutCommit?.({ widgetId, ...nextLayout });
+
+        if (!onLayoutCommit && onResize) {
+            onResize(widgetId, nextLayout.w, nextLayout.h);
+        }
+    };
+
+    const beginInteraction = (
+        event: React.PointerEvent<HTMLDivElement>,
+        item: WidgetLayout,
+        type: WidgetInteractionType,
+    ) => {
+        if (isPanMode) {
+            return;
+        }
+
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+        if (type === 'resize') {
+            event.stopPropagation();
+        }
+
+        const startLayout = { x: item.x, y: item.y, w: item.w, h: item.h };
+        const startBounds = layoutToPixelBounds(startLayout, metrics);
+        const initialInteraction: InteractionState = {
+            widgetId: item.widgetId,
+            type,
+            startPointer: { x: event.clientX, y: event.clientY },
+            startLayout,
+            startBounds,
+            tentativeBounds: startBounds,
+            hasExceededThreshold: false,
+        };
+
+        interactionRef.current = initialInteraction;
+        setInteraction(initialInteraction);
+        document.body.style.cursor = type === 'resize' ? 'se-resize' : 'grabbing';
+        onWidgetDragChange?.(null);
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            const currentInteraction = interactionRef.current;
+
+            if (!currentInteraction) {
+                return;
+            }
+
+            const deltaX = moveEvent.clientX - currentInteraction.startPointer.x;
+            const deltaY = moveEvent.clientY - currentInteraction.startPointer.y;
+            const distance = Math.hypot(deltaX, deltaY);
+            const hasExceededThreshold = currentInteraction.type === 'resize'
+                ? true
+                : currentInteraction.hasExceededThreshold || distance > DRAG_THRESHOLD_PX;
+
+            const tentativeBounds = currentInteraction.type === 'move' && !hasExceededThreshold
+                ? currentInteraction.startBounds
+                : applyPointerDeltaToPixelBounds(
+                    currentInteraction.type,
+                    currentInteraction.startBounds,
+                    deltaX,
+                    deltaY,
+                );
+
+            const nextInteraction: InteractionState = {
+                ...currentInteraction,
+                tentativeBounds,
+                hasExceededThreshold,
             };
 
-            e.dataTransfer.setData(
-                HEADER_WIDGET_DRAG_MIME,
-                serializeHeaderWidgetDragPayload(payload),
+            interactionRef.current = nextInteraction;
+            setInteraction(nextInteraction);
+        };
+
+        const handlePointerUp = () => {
+            const currentInteraction = interactionRef.current;
+
+            if (!currentInteraction) {
+                clearInteraction();
+                return;
+            }
+
+            if (currentInteraction.type === 'move' && !currentInteraction.hasExceededThreshold) {
+                onWidgetSelect?.(currentInteraction.widgetId);
+                clearInteraction();
+                return;
+            }
+
+            commitLayout(
+                currentInteraction.widgetId,
+                resolveCommittedLayout({
+                    interaction: currentInteraction,
+                    metrics,
+                    cols,
+                    rows,
+                }),
             );
-            onWidgetDragChange?.(payload);
-        } else {
-            onWidgetDragChange?.(null);
+
+            clearInteraction();
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        interactionCleanupRef.current = () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    };
+
+    const beginPan = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!isPanMode || event.button !== 0) {
+            return;
         }
-    };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault(); // Requiere preventDefault para permitir onDrop
-        e.dataTransfer.dropEffect = 'move';
-    };
+        const scrollContainer = containerRef.current?.parentElement;
 
-    const handleDragEnter = (e: React.DragEvent, index: number) => {
-        e.preventDefault();
-        setHoveredIndex(index);
-    };
-
-    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-        e.preventDefault();
-        if (draggedIndex !== null && draggedIndex !== dropIndex && onReorder) {
-            onReorder(draggedIndex, dropIndex);
+        if (!(scrollContainer instanceof HTMLElement)) {
+            return;
         }
-        setDraggedIndex(null);
-        setHoveredIndex(null);
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const nextPanState: PanState = {
+            startPointer: { x: event.clientX, y: event.clientY },
+            startScroll: { left: scrollContainer.scrollLeft, top: scrollContainer.scrollTop },
+        };
+
+        panStateRef.current = nextPanState;
+        setPanState(nextPanState);
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            const currentPanState = panStateRef.current;
+
+            if (!currentPanState) {
+                return;
+            }
+
+            scrollContainer.scrollLeft = currentPanState.startScroll.left - (moveEvent.clientX - currentPanState.startPointer.x);
+            scrollContainer.scrollTop = currentPanState.startScroll.top - (moveEvent.clientY - currentPanState.startPointer.y);
+        };
+
+        const handlePointerUp = () => {
+            clearPan();
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        panCleanupRef.current = () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
     };
 
-    const handleDragEnd = () => {
-        setDraggedIndex(null);
-        setHoveredIndex(null);
-        onWidgetDragChange?.(null);
-    };
-
-    // Grilla con CSS Grid. auto-rows-[140px] define el alto base de H=1.
     return (
-        <div ref={containerRef} className="w-full p-8 overflow-x-auto">
+        <div
+            ref={containerRef}
+            data-testid="builder-canvas-root"
+            tabIndex={0}
+            className="flex h-full w-full items-start justify-start overflow-visible"
+            style={{ cursor: panState ? 'grabbing' : isPanMode ? 'grab' : undefined }}
+            onFocusCapture={() => {
+                isBuilderFocusedRef.current = true;
+                setIsBuilderFocused(true);
+            }}
+            onBlurCapture={(event) => {
+                const nextFocused = event.relatedTarget;
+
+                if (containerRef.current?.contains(nextFocused as Node | null)) {
+                    return;
+                }
+
+                isBuilderFocusedRef.current = false;
+                setIsBuilderFocused(false);
+                deactivatePanMode();
+            }}
+            onKeyDownCapture={handleSpaceKeyDown}
+            onKeyUpCapture={handleSpaceKeyUp}
+            onPointerDownCapture={(event) => {
+                if (!isInputElement(event.target)) {
+                    isBuilderFocusedRef.current = true;
+                    setIsBuilderFocused(true);
+                    containerRef.current?.focus({ preventScroll: true });
+                }
+
+                beginPan(event);
+            }}
+        >
             <div
-                className="grid gap-6 auto-rows-[140px]"
+                className="relative shrink-0"
                 style={{
-                    ...getGridTemplateStyle(cols),
-                    ...(containerWidth > 0 && {
-                        width: `${containerWidth}px`,
-                        minWidth: `${containerWidth}px`,
-                    }),
+                    width: `${width}px`,
+                    height: `${height}px`,
                 }}
             >
-                {layout.map((item, index) => {
-                    // Excluir del grid los widgets asignados al header (igual que DashboardViewer)
-                    if (headerWidgetIds?.has(item.widgetId)) return null;
+                <div
+                    data-testid="builder-canvas-grid-overlay"
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 transition-opacity"
+                    style={{
+                        backgroundImage: isGridVisible
+                            ? [
+                                'repeating-linear-gradient(to right, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc((100% / var(--canvas-cols)) * 2))',
+                                'repeating-linear-gradient(to bottom, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc((100% / var(--canvas-rows)) * 2))',
+                                'repeating-linear-gradient(to right, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent calc(100% / var(--canvas-cols)))',
+                                'repeating-linear-gradient(to bottom, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent calc(100% / var(--canvas-rows)))',
+                            ].join(', ')
+                            : 'none',
+                        opacity: isGridVisible ? 1 : 0,
+                        ['--canvas-cols' as string]: String(cols),
+                        ['--canvas-rows' as string]: String(rows),
+                        ['--cell-width-px' as string]: `${cellWidth}px`,
+                        ['--row-height-px' as string]: `${rowHeight}px`,
+                    }}
+                />
 
-                    const widget = widgetMap.get(item.widgetId);
-                    
-                    // Si el widget referenciado en el layout no existe en config, se ignora
-                    if (!widget) return null;
+                <div
+                    className="relative z-10 grid h-full w-full"
+                    style={{
+                        ...getGridTemplateStyle(cols),
+                        gridTemplateRows: `repeat(${rows}, ${rowHeight}px)`,
+                        gap: 0,
+                    }}
+                >
+                    {layout.map((item) => {
+                        if (headerWidgetIds?.has(item.widgetId)) {
+                            return null;
+                        }
 
-                    const isSelected = selectedWidgetId === widget.id;
+                        const widget = widgetMap.get(item.widgetId);
+                        if (!widget) {
+                            return null;
+                        }
 
-                    return (
-                        <div 
-                            key={widget.id}
-                            className={`relative group cursor-grab active:cursor-grabbing rounded-xl transition-opacity duration-200 ${
-                                draggedIndex === index ? 'opacity-40' : 'opacity-100'
-                            }`}
-                            style={getWidgetSpanStyle(item.w || 1, item.h || 1, cols)}
-                            onClick={() => onWidgetSelect?.(widget.id)}
-                            draggable={true}
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragOver={handleDragOver}
-                            onDragEnter={(e) => handleDragEnter(e, index)}
-                            onDrop={(e) => handleDrop(e, index)}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <GridSelectionFrame
-                                isSelected={isSelected}
-                                isHighlighted={hoveredIndex === index && draggedIndex !== index}
-                                radius={widgetCornerRadius}
-                            />
+                        const isSelected = selectedWidgetId === widget.id;
+                        const activeInteraction = interaction?.widgetId === widget.id ? interaction : null;
+                        const itemStyle = activeInteraction
+                            ? {
+                                position: 'absolute' as const,
+                                left: `${activeInteraction.tentativeBounds.left}px`,
+                                top: `${activeInteraction.tentativeBounds.top}px`,
+                                width: `${activeInteraction.tentativeBounds.width}px`,
+                                height: `${activeInteraction.tentativeBounds.height}px`,
+                                zIndex: 20,
+                              }
+                            : {
+                                gridColumnStart: item.x + 1,
+                                gridColumnEnd: `span ${item.w}`,
+                                gridRowStart: item.y + 1,
+                                gridRowEnd: `span ${item.h}`,
+                              };
 
-                            <WidgetHoverActions
-                                actions={[
-                                    // La flecha de "subir al header" aparece solo si:
-                                    // 1) El widget es compatible con header
-                                    // 2) Hay al menos un slot libre en el header
-                                    ...(isHeaderCompatibleWidget(widget) && headerOccupiedSlotCount < HEADER_WIDGET_SLOT_COUNT
-                                        ? [{
-                                            label: 'Subir al header',
-                                            icon: ArrowUp,
-                                            onClick: () => onPromoteToHeader?.(widget.id),
-                                          }]
-                                        : []
-                                    ),
-                                    {
-                                        label: 'Duplicar widget',
-                                        icon: Copy,
-                                        onClick: () => onDuplicate?.(widget.id),
-                                    },
-                                    {
-                                        label: 'Eliminar widget',
-                                        icon: Trash2,
-                                        onClick: () => onDelete?.(widget.id),
-                                    },
-                                ]}
-                            />
-                            
-                            {/* Manejador de Redimensionamiento (esquina inf-der) */}
-                            {isSelected && (
-                                <ResizeHandle 
-                                    widgetId={widget.id} 
-                                    currentW={item.w} 
-                                    currentH={item.h || 1}
-                                    cellWidth={cellWidth}
-                                    maxCols={cols}
-                                    onResize={onResize} 
+                        return (
+                            <div
+                                key={widget.id}
+                                data-testid={`builder-canvas-item-${widget.id}`}
+                                className="relative group cursor-grab rounded-xl transition-opacity duration-200"
+                                style={itemStyle}
+                                onPointerDown={(event) => beginInteraction(event, item, 'move')}
+                            >
+                                <GridSelectionFrame
+                                    isSelected={isSelected}
+                                    isHighlighted={false}
+                                    radius={widgetCornerRadius}
                                 />
-                            )}
-                            
-                            {/* Renderizado real del widget delegando al dispatcher de la Fase 3 */}
-                            <div className="relative w-full h-full z-0 pointer-events-none">
-                                <WidgetRenderer 
-                                    widget={widget} 
-                                    equipmentMap={equipmentMap} 
-                                    isLoadingData={false} 
-                                    siblingWidgets={widgets}
-                                    hierarchyContext={hierarchyContext}
-                                    className="w-full h-full"
+
+                                <WidgetHoverActions
+                                    actions={[
+                                        ...(isHeaderCompatibleWidget(widget) && headerOccupiedSlotCount < HEADER_WIDGET_SLOT_COUNT
+                                            ? [{
+                                                label: 'Subir al header',
+                                                icon: ArrowUp,
+                                                onClick: () => onPromoteToHeader?.(widget.id),
+                                              }]
+                                            : []),
+                                        {
+                                            label: 'Duplicar widget',
+                                            icon: Copy,
+                                            onClick: () => onDuplicate?.(widget.id),
+                                        },
+                                        {
+                                            label: 'Eliminar widget',
+                                            icon: Trash2,
+                                            onClick: () => onDelete?.(widget.id),
+                                        },
+                                    ]}
                                 />
+
+                                {isSelected && (
+                                    <ResizeHandle
+                                        widgetId={widget.id}
+                                        onPointerDown={(event) => beginInteraction(event, item, 'resize')}
+                                    />
+                                )}
+
+                                <div
+                                    data-testid={`builder-canvas-item-surface-${widget.id}`}
+                                    className="pointer-events-none relative z-0 h-full w-full box-border"
+                                    style={{ padding: 'var(--widget-spacing)' }}
+                                >
+                                    <WidgetRenderer
+                                        widget={widget}
+                                        equipmentMap={equipmentMap}
+                                        isLoadingData={false}
+                                        siblingWidgets={widgets}
+                                        hierarchyContext={hierarchyContext}
+                                        className="h-full w-full"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
 
-                {/* Dropzone visual sutil si el canvas está vacío */}
-                {layout.filter(item => !headerWidgetIds?.has(item.widgetId)).length === 0 && (
-                    <div style={{ gridColumn: '1 / -1' }} className="h-64 px-6">
-                        <AdminEmptyState
-                            icon={LayoutDashboard}
-                            message="El dashboard está vacío"
-                        />
-                    </div>
-                )}
+                    {layout.filter((item) => !headerWidgetIds?.has(item.widgetId)).length === 0 && (
+                        <div style={{ gridColumn: '1 / -1' }} className="h-64 px-6">
+                            <AdminEmptyState
+                                icon={LayoutDashboard}
+                                message="El dashboard está vacío"
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

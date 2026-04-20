@@ -12,7 +12,7 @@ export const mockHierarchyNodes: HierarchyNode[] = [
     // --- RAÍZ ---
     {
         id: 'node-plant-01',
-        name: 'Planta Steigen',
+        name: 'Planta Demo',
         type: 'plant',
         parentId: null,
         order: 0,

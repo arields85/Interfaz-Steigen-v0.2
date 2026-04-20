@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import type { Dashboard, DashboardAspect, Template, WidgetLayout } from '../domain/admin.types';
 
 // =============================================================================
 // Grid Configuration — Dynamic Column Layout
@@ -7,20 +8,89 @@ import type { CSSProperties } from 'react';
 // Used by useGridCols, DashboardViewer, and BuilderCanvas.
 // =============================================================================
 
-export const MIN_COL_WIDTH = 220;
-export const MAX_COLS = 8;
+export const MIN_COL_WIDTH = 60;
+export const MAX_COLS = 20;
 export const MIN_COLS = 1;
 export const VIEWER_GAP = 16;  // matches gap-4 (Tailwind)
 export const BUILDER_GAP = 24; // matches gap-6 (Tailwind)
-export const LEGACY_COLS = 4;  // column count assumed for data without gridVersion
+export const DEFAULT_COLS = 20;
+export const DEFAULT_ROWS = 12;
+
+const ASPECT_RATIOS: Record<DashboardAspect, number> = {
+    '16:9': 16 / 9,
+    '21:9': 21 / 9,
+    '4:3': 4 / 3,
+};
 
 /**
- * Computes the number of grid columns that fit in a container, given a gap size.
- * Formula: floor((containerWidth + gap) / (MIN_COL_WIDTH + gap)), clamped to [1, 8].
+ * Suggestion helper only.
+ * Canvas sizing no longer derives cols from measured width; dashboards persist cols explicitly.
  */
-export function computeGridCols(containerWidth: number, gap: number): number {
-    const cols = Math.floor((containerWidth + gap) / (MIN_COL_WIDTH + gap));
+export function computeGridCols(containerWidth: number): number {
+    const cols = Math.floor(containerWidth / MIN_COL_WIDTH);
     return Math.min(Math.max(cols, MIN_COLS), MAX_COLS);
+}
+
+export function fitToAspect(usableW: number, usableH: number, aspect: DashboardAspect): { width: number; height: number } {
+    const safeWidth = Math.max(0, usableW);
+    const safeHeight = Math.max(0, usableH);
+    const ratio = ASPECT_RATIOS[aspect];
+
+    if (safeWidth === 0 || safeHeight === 0) {
+        return { width: 0, height: 0 };
+    }
+
+    const widthLimitedHeight = safeWidth / ratio;
+
+    if (widthLimitedHeight <= safeHeight) {
+        return { width: safeWidth, height: widthLimitedHeight };
+    }
+
+    return { width: safeHeight * ratio, height: safeHeight };
+}
+
+export function getRowHeight(canvasHeight: number, rows: number): number {
+    const safeRows = Math.max(1, rows);
+    const safeHeight = Math.max(0, canvasHeight);
+    return safeHeight / safeRows;
+}
+
+export function clampWidgetBounds(layout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>, cols: number, rows: number): Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'> {
+    const safeCols = Math.max(1, cols);
+    const safeRows = Math.max(1, rows);
+    const clampedW = Math.min(Math.max(layout.w, 1), safeCols);
+    const clampedH = Math.min(Math.max(layout.h, 1), safeRows);
+
+    return {
+        x: Math.min(Math.max(layout.x, 0), safeCols - clampedW),
+        y: Math.min(Math.max(layout.y, 0), safeRows - clampedH),
+        w: clampedW,
+        h: clampedH,
+    };
+}
+
+interface ComputeCanvasReferenceInput {
+    viewport: { width: number; height: number };
+    topbarHeight: number;
+    headerHeight: number;
+    paddings: { top: number; right: number; bottom: number; left: number };
+    aspect: DashboardAspect;
+}
+
+export function computeCanvasReference(input: ComputeCanvasReferenceInput): { width: number; height: number; offsetX: number; offsetY: number } {
+    const usableWidth = Math.max(0, input.viewport.width - input.paddings.left - input.paddings.right);
+    const usableHeight = Math.max(0, input.viewport.height - input.topbarHeight - input.headerHeight - input.paddings.top - input.paddings.bottom);
+
+    return {
+        width: usableWidth,
+        height: usableHeight,
+        offsetX: 0,
+        offsetY: 0,
+    };
+}
+
+export function isTemplateApplicable(template: Pick<Template, 'aspect'>, dashboard: Pick<Dashboard, 'aspect'>): boolean {
+    return template.aspect === dashboard.aspect;
 }
 
 /**
@@ -32,23 +102,15 @@ export function getGridTemplateStyle(cols: number): CSSProperties {
 
 /**
  * Returns inline styles for a grid item spanning `w` columns and `h` rows.
- * Clamps w to [1, cols] and h to [1, 6].
+ * Clamps w to [1, cols] and h to [1, DEFAULT_ROWS].
  */
 export function getWidgetSpanStyle(w: number, h: number, cols: number): CSSProperties {
     const clampedW = Math.min(Math.max(w, 1), cols);
-    const clampedH = Math.min(Math.max(h, 1), 6);
+    const clampedH = Math.min(Math.max(h, 1), DEFAULT_ROWS);
     return {
         gridColumn: `span ${clampedW} / span ${clampedW}`,
         gridRow: `span ${clampedH} / span ${clampedH}`,
     };
-}
-
-/**
- * Scales a widget's column span from one grid size to another.
- * Used at render time to adapt legacy (4-col) layout data to the current col count.
- */
-export function migrateLayoutWidth(w: number, fromCols: number, toCols: number): number {
-    return Math.max(1, Math.round(w * (toCols / fromCols)));
 }
 
 /**

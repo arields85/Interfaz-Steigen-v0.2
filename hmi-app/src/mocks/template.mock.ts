@@ -12,6 +12,9 @@ export const mockTemplates: Template[] = [
         id: 'tpl-comprimidora-std',
         name: 'Comprimidora Estándar',
         type: 'dashboard',
+        aspect: '16:9',
+        cols: 20,
+        rows: 12,
         dashboardType: 'equipment',
         status: 'active',
         widgetPresets: [

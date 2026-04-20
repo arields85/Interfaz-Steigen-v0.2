@@ -154,7 +154,7 @@ El tipo `HierarchyNode` ya existe y está alineado con la spec. Solo añadiremos
 ### 2. Mock de jerarquía (`mocks/hierarchy.mock.ts`) [NUEVO]
 Crearemos un mock estructurado que represente la planta de ejemplo del sistema:
 ```
-Planta Steigen
+Planta Demo
   ├─ Área Compresión
   │   ├─ Sector Sur
   │       ├─ Línea 1
@@ -233,7 +233,7 @@ Esas operaciones tendrán la base tipo y de servicio lista para ser implementada
 3. Expandir y colapsar ramas.
 4. Seleccionar "Comprimidora FETTE-2090"; el panel derecho muestra su detalle y el link al dashboard.
 5. Hacer click en "Abrir en Builder" y confirmar que navega al builder correcto.
-6. Seleccionar el nodo raíz "Planta Steigen" y ver el detalle sin dashboard.
+6. Seleccionar el nodo raíz "Planta Demo" y ver el detalle sin dashboard.
 7. Refrescar la página (F5) y verificar que el árbol carga correctamente desde el ServicioStorage.
 8. Sin impacto visual en el resto de la aplicación (Visor, Gestor de Dashboards, Builder).
 

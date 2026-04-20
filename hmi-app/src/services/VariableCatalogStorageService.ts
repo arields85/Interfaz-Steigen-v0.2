@@ -1,8 +1,8 @@
 import type { CatalogVariable, Dashboard } from '../domain';
 import { mockVariableCatalog } from '../mocks/variableCatalog.mock';
+import { DASHBOARDS_STORAGE_KEY, VARIABLE_CATALOG_STORAGE_KEY } from '../utils/legacyStorageCleanup';
 
-const STORAGE_KEY = 'steigen_hmi_variable_catalog_v1';
-const DASHBOARDS_STORAGE_KEY = 'steigen_hmi_dashboards_v2';
+const STORAGE_KEY = VARIABLE_CATALOG_STORAGE_KEY;
 
 interface AffectedDashboard {
     id: string;

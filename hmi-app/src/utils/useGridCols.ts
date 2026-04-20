@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { computeGridCols, computeViewerReferenceWidth, LEGACY_COLS, VIEWER_GAP } from './gridConfig';
+import { computeGridCols, computeViewerReferenceWidth, MIN_COLS, VIEWER_GAP } from './gridConfig';
 
 // =============================================================================
 // useGridCols — ResizeObserver-based dynamic column count hook
@@ -31,7 +31,7 @@ interface UseGridColsResult {
  */
 export function useGridCols(gap: number, useViewerReference = false): UseGridColsResult {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [cols, setCols] = useState(LEGACY_COLS);
+    const [cols, setCols] = useState(MIN_COLS);
     const [containerWidth, setContainerWidth] = useState(0);
 
     useEffect(() => {

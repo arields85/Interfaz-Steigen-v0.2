@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { DragEvent } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
-import { Save, ArrowLeft, Loader2, AlertCircle, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, AlertCircle, ChevronRight, AlertTriangle, LayoutGrid, SlidersHorizontal, LayoutTemplate } from 'lucide-react';
 import { dashboardStorage } from '../../services/DashboardStorageService';
 import { hierarchyStorage } from '../../services/HierarchyStorageService';
+import { templateStorage } from '../../services/TemplateStorageService';
 import { variableCatalogStorage } from '../../services/VariableCatalogStorageService';
 import { mockEquipmentList } from '../../mocks/equipment.mock';
 import type { CatalogVariable } from '../../domain';
-import type { Dashboard, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
+import type { Dashboard, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, Template, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import { getDashboardVisualStatus } from '../../domain/admin.types';
 import type { EquipmentSummary, MetricValue } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
@@ -23,6 +24,7 @@ import AdminDestructiveDialog from '../../components/admin/AdminDestructiveDialo
 import AdminActionButton from '../../components/admin/AdminActionButton';
 import AdminTag from '../../components/admin/AdminTag';
 import ContextBarNotice from '../../components/admin/ContextBarNotice';
+import DashboardSettingsPanel from '../../components/admin/DashboardSettingsPanel';
 import { generateWidgetId } from '../../utils/idGenerator';
 import {
     HEADER_WIDGET_DRAG_MIME,
@@ -43,6 +45,10 @@ import { getAncestors } from '../../utils/hierarchyTree';
 import { loadNodeTypeLabels, resolveTypeLabel } from '../../utils/nodeTypeLabels';
 import { migrateLegacyBindings } from '../../utils/catalogMigration';
 import { supportsCatalogVariable } from '../../utils/widgetCapabilities';
+import { planDashboardBoundsChange } from '../../utils/dashboardBoundsSettings';
+import { DEFAULT_COLS, DEFAULT_ROWS, isTemplateApplicable } from '../../utils/gridConfig';
+import { useUIStore } from '../../store/ui.store';
+import { buildTemplateAspectMismatchMessage, TemplateAspectMismatchError } from '../../utils/templateAspectMismatch';
 
 // =============================================================================
 // DashboardBuilderPage
@@ -58,6 +64,7 @@ export default function DashboardBuilderPage() {
     const [originalConfig, setOriginalConfig] = useState<Dashboard | null>(null);
     const [draft, setDraft] = useState<Dashboard | null>(null);
     const [allDashboards, setAllDashboards] = useState<Dashboard[]>([]);
+    const [templates, setTemplates] = useState<Template[]>([]);
     const [allNodes, setAllNodes] = useState<HierarchyNode[]>([]);
     const [catalogVariables, setCatalogVariables] = useState<CatalogVariable[]>([]);
     const [stagedVariables, setStagedVariables] = useState<CatalogVariable[]>([]);
@@ -71,13 +78,48 @@ export default function DashboardBuilderPage() {
     const [isHeaderDropActive, setIsHeaderDropActive] = useState(false);
     const [dialogMessage, setDialogMessage] = useState<string | null>(null);
     const [variableDeletionState, setVariableDeletionState] = useState<VariableDeletionState | null>(null);
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+    const [builderViewport, setBuilderViewport] = useState({ width: 0, height: 0 });
+    const [pendingBoundsChange, setPendingBoundsChange] = useState<PendingBoundsChange | null>(null);
+    const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
     const [, setNodeTypeLabelsVersion] = useState(0);
+    const builderViewportRef = useRef<HTMLDivElement | null>(null);
+
+    const isGridVisible = useUIStore((state) => state.isGridVisible);
+    const toggleGrid = useUIStore((state) => state.toggleGrid);
 
     useEffect(() => {
         void loadNodeTypeLabels().then(() => {
             setNodeTypeLabelsVersion((current) => current + 1);
         });
     }, []);
+
+    useEffect(() => {
+        const viewportElement = builderViewportRef.current;
+
+        if (!viewportElement) {
+            return;
+        }
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+
+            if (!entry) {
+                return;
+            }
+
+            setBuilderViewport({
+                width: entry.contentRect.width,
+                height: entry.contentRect.height,
+            });
+        });
+
+        observer.observe(viewportElement);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [draft?.id]);
 
     const allCatalogVariables = useMemo(
         () => [...catalogVariables, ...stagedVariables],
@@ -153,9 +195,10 @@ export default function DashboardBuilderPage() {
             if (!id) return;
             setIsLoading(true);
             try {
-                const [config, dashboards, nodes, catalog] = await Promise.all([
+                const [config, dashboards, templateData, nodes, catalog] = await Promise.all([
                     dashboardStorage.getDashboard(id),
                     dashboardStorage.getDashboards(),
+                    templateStorage.getTemplates(),
                     hierarchyStorage.getNodes(),
                     variableCatalogStorage.getAll(),
                 ]);
@@ -178,6 +221,7 @@ export default function DashboardBuilderPage() {
                 }
 
                 setAllDashboards(nextDashboards);
+                setTemplates(templateData);
                 setAllNodes(nodes);
                 setCatalogVariables(nextCatalog);
                 setStagedVariables([]);
@@ -214,6 +258,179 @@ export default function DashboardBuilderPage() {
             Volver
         </button>
     );
+
+    const handleDashboardBoundsChange = (change: Partial<Pick<Dashboard, 'aspect'>>) => {
+        setDraft((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            const nextAspect = change.aspect ?? prev.aspect;
+
+            return {
+                ...prev,
+                aspect: nextAspect,
+            };
+        });
+    };
+
+    const handleDashboardGridChange = (change: Partial<Pick<Dashboard, 'cols' | 'rows'>>) => {
+        setDraft((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            const nextCols = change.cols ?? prev.cols ?? DEFAULT_COLS;
+            const nextRows = change.rows ?? prev.rows ?? DEFAULT_ROWS;
+            const plan = planDashboardBoundsChange({
+                layout: prev.layout,
+                nextCols,
+                nextRows,
+            });
+
+            if (plan.adjustedWidgetCount > 0) {
+                setPendingBoundsChange({
+                    aspect: prev.aspect,
+                    cols: nextCols,
+                    rows: nextRows,
+                    layout: plan.layout,
+                    adjustedWidgetCount: plan.adjustedWidgetCount,
+                });
+
+                return prev;
+            }
+
+            setPendingBoundsChange(null);
+
+            return {
+                ...prev,
+                cols: nextCols,
+                rows: nextRows,
+                layout: plan.layout,
+            };
+        });
+    };
+
+    const applyPendingBoundsChange = () => {
+        if (!pendingBoundsChange) {
+            return;
+        }
+
+        setDraft((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                aspect: pendingBoundsChange.aspect,
+                cols: pendingBoundsChange.cols,
+                rows: pendingBoundsChange.rows,
+                layout: pendingBoundsChange.layout,
+            };
+        });
+        setPendingBoundsChange(null);
+    };
+
+    const cancelPendingBoundsChange = () => {
+        setPendingBoundsChange(null);
+    };
+
+    const handleOpenTemplateDialog = () => {
+        setIsTemplateDialogOpen(true);
+    };
+
+    const handleCloseTemplateDialog = () => {
+        setIsTemplateDialogOpen(false);
+    };
+
+    const handleApplyTemplate = (template: Template) => {
+        if (!draft) {
+            return;
+        }
+
+        if (!isTemplateApplicable(template, draft)) {
+            setDialogMessage(buildTemplateAspectMismatchMessage(template.aspect, draft.aspect));
+            return;
+        }
+
+        try {
+            const nextDashboard = dashboardStorage.applyTemplate(draft, template);
+            setDraft(nextDashboard);
+            setSelectedWidgetId(undefined);
+            setIsTemplateDialogOpen(false);
+        } catch (error) {
+            if (error instanceof TemplateAspectMismatchError) {
+                setDialogMessage(error.message);
+                return;
+            }
+
+            console.error('Error aplicando template:', error);
+            setDialogMessage('Hubo un error al aplicar el template.');
+        }
+    };
+
+    const contextBarPanel = draft ? (
+        <div className="relative flex items-center gap-2 px-3">
+            {backButton}
+            <button
+                aria-label={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'}
+                aria-pressed={isGridVisible}
+                className={[
+                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                    isGridVisible
+                        ? 'bg-admin-accent/15 text-admin-accent hover:bg-admin-accent/20'
+                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                ].join(' ')}
+                title={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'}
+                type="button"
+                onClick={toggleGrid}
+            >
+                <LayoutGrid size={16} />
+            </button>
+            <button
+                aria-expanded={isTemplateDialogOpen}
+                aria-label="Aplicar template"
+                className={[
+                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                    isTemplateDialogOpen
+                        ? 'bg-white/10 text-white'
+                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                ].join(' ')}
+                title="Aplicar template"
+                type="button"
+                onClick={handleOpenTemplateDialog}
+            >
+                <LayoutTemplate size={16} />
+            </button>
+            <button
+                aria-expanded={isSettingsPanelOpen}
+                aria-label="Configurar dashboard"
+                className={[
+                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                    isSettingsPanelOpen
+                        ? 'bg-white/10 text-white'
+                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                ].join(' ')}
+                title="Configurar dashboard"
+                type="button"
+                onClick={() => setIsSettingsPanelOpen((current) => !current)}
+            >
+                <SlidersHorizontal size={16} />
+            </button>
+
+            {isSettingsPanelOpen ? (
+                <DashboardSettingsPanel
+                    aspect={draft.aspect}
+                    cols={draft.cols}
+                    rows={draft.rows}
+                    onAspectChange={(aspect) => handleDashboardBoundsChange({ aspect })}
+                    onColsChange={(cols) => handleDashboardGridChange({ cols })}
+                    onRowsChange={(rows) => handleDashboardGridChange({ rows })}
+                />
+            ) : null}
+        </div>
+    ) : backButton;
 
     const renderContextBarState = (content: ReactNode) => (
         <div className="flex h-full items-center justify-start gap-4 px-4">
@@ -966,7 +1183,7 @@ export default function DashboardBuilderPage() {
                 return null;
             }
 
-            let nextDashboard: Dashboard = { ...dashboard, status, gridVersion: 2 };
+            let nextDashboard: Dashboard = { ...dashboard, status };
 
             if (stagedVariables.length > 0) {
                 const stagedIdMap = new Map<string, string>();
@@ -1158,61 +1375,68 @@ export default function DashboardBuilderPage() {
         );
 
         content = (
-            <div className="min-h-full bg-[url('/grid.svg')] bg-center">
-                <div className="shrink-0 border-b border-white/5 bg-industrial-bg/60 px-8 pb-4 pt-6 backdrop-blur-sm">
-                    <DashboardHeader
-                        mode="preview"
-                        dashboard={draft}
-                        equipmentMap={equipmentMap}
-                        hierarchyContext={hierarchyContext}
-                        onTitleChange={handleHeaderTitleChange}
-                        onSubtitleChange={handleHeaderSubtitleChange}
-                        onHeaderDragEnter={() => setIsHeaderDropActive(Boolean(
-                            draggedWidget
-                            && isHeaderCompatibleWidgetType(draggedWidget.widgetType)
-                            && headerWidgetIds.size < HEADER_WIDGET_SLOT_COUNT,
-                        ))}
-                        onHeaderDragOver={handleHeaderDragOver}
-                        onHeaderDragLeave={() => setIsHeaderDropActive(false)}
-                        onHeaderDrop={handleHeaderDrop}
-                        onRemoveHeaderWidget={handleRemoveWidgetFromHeader}
-                        onDeleteHeaderWidget={handleDeleteWidget}
-                        onReorderHeaderWidget={handleReorderHeaderWidget}
-                        selectedWidgetId={selectedWidgetId}
-                        onSelectHeaderWidget={setSelectedWidgetId}
-                        isHeaderDropActive={isHeaderDropActive}
-                        canDropHeaderWidget={Boolean(
-                            draggedWidget
-                            && isHeaderCompatibleWidgetType(draggedWidget.widgetType)
-                            && headerWidgetIds.size < HEADER_WIDGET_SLOT_COUNT,
-                        )}
-                        onAddHeaderWidget={handleAddHeaderWidgetFromSlot}
-                        onDropWidgetAtSlot={handleDropWidgetAtSlot}
-                    />
+            <div className="flex h-full min-h-0 flex-col bg-[url('/grid.svg')] bg-center">
+                <div data-testid="dashboard-builder-content-column" className="flex h-full min-h-0 min-w-0 flex-1 flex-col px-8">
+                    <div className="shrink-0 border-b border-white/5 bg-industrial-bg/60 pb-4 pt-6 backdrop-blur-sm">
+                        <DashboardHeader
+                            mode="preview"
+                            dashboard={draft}
+                            equipmentMap={equipmentMap}
+                            hierarchyContext={hierarchyContext}
+                            onTitleChange={handleHeaderTitleChange}
+                            onSubtitleChange={handleHeaderSubtitleChange}
+                            onHeaderDragEnter={() => setIsHeaderDropActive(Boolean(
+                                draggedWidget
+                                && isHeaderCompatibleWidgetType(draggedWidget.widgetType)
+                                && headerWidgetIds.size < HEADER_WIDGET_SLOT_COUNT,
+                            ))}
+                            onHeaderDragOver={handleHeaderDragOver}
+                            onHeaderDragLeave={() => setIsHeaderDropActive(false)}
+                            onHeaderDrop={handleHeaderDrop}
+                            onRemoveHeaderWidget={handleRemoveWidgetFromHeader}
+                            onDeleteHeaderWidget={handleDeleteWidget}
+                            onReorderHeaderWidget={handleReorderHeaderWidget}
+                            selectedWidgetId={selectedWidgetId}
+                            onSelectHeaderWidget={setSelectedWidgetId}
+                            isHeaderDropActive={isHeaderDropActive}
+                            canDropHeaderWidget={Boolean(
+                                draggedWidget
+                                && isHeaderCompatibleWidgetType(draggedWidget.widgetType)
+                                && headerWidgetIds.size < HEADER_WIDGET_SLOT_COUNT,
+                            )}
+                            onAddHeaderWidget={handleAddHeaderWidgetFromSlot}
+                            onDropWidgetAtSlot={handleDropWidgetAtSlot}
+                        />
+                    </div>
+
+                    <div ref={builderViewportRef} data-testid="dashboard-builder-canvas-viewport" className="flex min-h-0 flex-1 overflow-x-auto overflow-y-auto hmi-scrollbar pt-10 pl-3 pr-3 pb-3">
+                        <BuilderCanvas
+                            layout={draft.layout}
+                            widgets={draft.widgets}
+                            equipmentMap={equipmentMap}
+                            hierarchyContext={hierarchyContext}
+                            cols={draft.cols}
+                            rows={draft.rows}
+                            selectedWidgetId={selectedWidgetId}
+                            onWidgetSelect={setSelectedWidgetId}
+                            onReorder={handleReorderLayout}
+                            onResize={handleResizeLayout}
+                            onLayoutCommit={handleUpdateLayout}
+                            onDelete={handleDeleteWidget}
+                            onDuplicate={handleDuplicateWidget}
+                            onWidgetDragChange={(payload) => {
+                                setDraggedWidget(payload);
+
+                                if (!payload || !isHeaderCompatibleWidgetType(payload.widgetType)) {
+                                    setIsHeaderDropActive(false);
+                                }
+                            }}
+                            headerWidgetIds={headerWidgetIds}
+                            headerOccupiedSlotCount={headerOccupiedColumns.size}
+                            onPromoteToHeader={handlePromoteToHeader}
+                        />
+                    </div>
                 </div>
-
-                <BuilderCanvas
-                    layout={draft.layout}
-                    widgets={draft.widgets}
-                    equipmentMap={equipmentMap}
-                    hierarchyContext={hierarchyContext}
-                    selectedWidgetId={selectedWidgetId}
-                    onWidgetSelect={setSelectedWidgetId}
-                    onReorder={handleReorderLayout}
-                    onResize={handleResizeLayout}
-                    onDelete={handleDeleteWidget}
-                    onDuplicate={handleDuplicateWidget}
-                    onWidgetDragChange={(payload) => {
-                        setDraggedWidget(payload);
-
-                        if (!payload || !isHeaderCompatibleWidgetType(payload.widgetType)) {
-                            setIsHeaderDropActive(false);
-                        }
-                    }}
-                    headerWidgetIds={headerWidgetIds}
-                    headerOccupiedSlotCount={headerOccupiedColumns.size}
-                    onPromoteToHeader={handlePromoteToHeader}
-                />
             </div>
         );
     }
@@ -1221,13 +1445,62 @@ export default function DashboardBuilderPage() {
         <>
             <AdminWorkspaceLayout
             mainScrollable={mainScrollable}
-            contextBarPanel={backButton}
+            contextBarPanel={contextBarPanel}
             contextBar={contextBar}
             rail={rail}
             sidePanel={sidePanel}
         >
             {content}
             </AdminWorkspaceLayout>
+
+            <AdminDialog
+                open={isTemplateDialogOpen}
+                title="Aplicar template"
+                onClose={handleCloseTemplateDialog}
+                actions={(
+                    <AdminActionButton variant="secondary" onClick={handleCloseTemplateDialog}>
+                        Cerrar
+                    </AdminActionButton>
+                )}
+            >
+                <div className="flex flex-col gap-2">
+                    {templates.length === 0 ? (
+                        <p className="text-xs text-industrial-muted">No hay templates disponibles.</p>
+                    ) : templates.map((template) => {
+                        const isApplicable = draft ? isTemplateApplicable(template, draft) : false;
+                        const mismatchMessage = draft
+                            ? buildTemplateAspectMismatchMessage(template.aspect, draft.aspect)
+                            : undefined;
+
+                        return (
+                            <div
+                                key={template.id}
+                                className={[
+                                    'rounded-md border border-white/10 bg-white/[0.02] p-3 transition-opacity',
+                                    isApplicable ? '' : 'opacity-40',
+                                ].join(' ')}
+                            >
+                                <div className="mb-2">
+                                    <p className="text-xs font-bold text-white">{template.name}</p>
+                                    <p className="text-[10px] font-medium text-industrial-muted">
+                                        Aspect {template.aspect} · {template.rows} filas
+                                    </p>
+                                </div>
+                                <AdminActionButton
+                                    aria-label={`Aplicar template ${template.name}`}
+                                    disabled={!isApplicable}
+                                    onClick={() => handleApplyTemplate(template)}
+                                    title={isApplicable ? 'Aplicar template' : mismatchMessage}
+                                    variant="primary"
+                                >
+                                    <LayoutTemplate size={14} />
+                                    Aplicar
+                                </AdminActionButton>
+                            </div>
+                        );
+                    })}
+                </div>
+            </AdminDialog>
 
             <AdminDialog
                 open={Boolean(dialogMessage)}
@@ -1274,6 +1547,26 @@ export default function DashboardBuilderPage() {
                     <p className="text-xs text-industrial-muted">Tenés cambios sin guardar en este dashboard. Si salís ahora, los cambios se perderán.</p>
                 </div>
             </AdminDialog>
+
+            <AdminDialog
+                open={Boolean(pendingBoundsChange)}
+                title="Confirmar ajuste de widgets"
+                onClose={cancelPendingBoundsChange}
+                actions={(
+                    <>
+                        <AdminActionButton variant="secondary" onClick={cancelPendingBoundsChange}>
+                            Cancelar
+                        </AdminActionButton>
+                        <AdminActionButton variant="primary" onClick={applyPendingBoundsChange}>
+                            Continuar
+                        </AdminActionButton>
+                    </>
+                )}
+            >
+                <p className="text-xs text-industrial-muted">
+                    Este cambio ajustará la posición/tamaño de {pendingBoundsChange?.adjustedWidgetCount ?? 0} widget{pendingBoundsChange?.adjustedWidgetCount === 1 ? '' : 's'} al nuevo área. ¿Continuar?
+                </p>
+            </AdminDialog>
         </>
     );
 }
@@ -1284,6 +1577,14 @@ interface VariableDeletionState {
         id: string;
         name: string;
     }>;
+}
+
+interface PendingBoundsChange {
+    aspect: DashboardAspect;
+    cols: number;
+    rows: number;
+    layout: WidgetLayout[];
+    adjustedWidgetCount: number;
 }
 
 function buildCatalogVariableId(name: string, unit: string): string {

@@ -1,8 +1,11 @@
 import type { Dashboard, Template, WidgetConfig, WidgetLayout } from '../domain/admin.types';
 import { mockDashboards } from '../mocks/admin.mock';
+import { clampWidgetBounds, DEFAULT_COLS, isTemplateApplicable } from '../utils/gridConfig';
+import { DASHBOARDS_STORAGE_KEY } from '../utils/legacyStorageCleanup';
+import { TemplateAspectMismatchError } from '../utils/templateAspectMismatch';
 
-// v2: bumped para re-seed automático al agregar headerConfig en mocks
-const STORAGE_KEY = 'steigen_hmi_dashboards_v2';
+const DEFAULT_DASHBOARD_ASPECT = '16:9' as const;
+const DEFAULT_DASHBOARD_ROWS = 12;
 
 // =============================================================================
 // DashboardStorageService
@@ -11,101 +14,111 @@ const STORAGE_KEY = 'steigen_hmi_dashboards_v2';
 // =============================================================================
 
 class DashboardStorageService {
-    
     // Inicializa el Storage copiando los Mocks si es la primera vez.
-    // Si ya existen datos, migra dashboards publicados sin snapshot
-    // para que el viewer los muestre correctamente.
+    // Si ya existen datos, corrige dashboards publicados sin snapshot o sin
+    // aspect/rows persistidos para mantener compatibilidad interna.
     private async initStorage(): Promise<void> {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(DASHBOARDS_STORAGE_KEY);
         if (!stored) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(mockDashboards));
+            localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(mockDashboards));
             return;
         }
 
-        // Migración: corregir datos inconsistentes, renombrar tipos legacy y agregar snapshots faltantes
         const dashboards: Dashboard[] = JSON.parse(stored);
         let migrated = false;
 
-        // Rename legacy widget types
-        const WIDGET_TYPE_RENAMES: Record<string, string> = {
-            'produccion-historica': 'prod-history',
-        };
+        for (const dashboard of dashboards) {
+            if (!dashboard.aspect) {
+                dashboard.aspect = DEFAULT_DASHBOARD_ASPECT;
+                migrated = true;
+            }
 
-        for (const d of dashboards) {
-            // Migrar widget types renombrados
-            for (const w of d.widgets) {
-                const newType = WIDGET_TYPE_RENAMES[w.type];
-                if (newType) {
-                    (w as { type: string }).type = newType;
+            if (!dashboard.rows) {
+                dashboard.rows = DEFAULT_DASHBOARD_ROWS;
+                migrated = true;
+            }
+
+            if (!dashboard.cols) {
+                dashboard.cols = DEFAULT_COLS;
+                migrated = true;
+            }
+
+            if (dashboard.status === 'published' && !dashboard.ownerNodeId) {
+                dashboard.status = 'draft';
+                dashboard.publishedSnapshot = undefined;
+                migrated = true;
+            }
+
+            if (dashboard.status === 'published' && dashboard.ownerNodeId && !dashboard.publishedSnapshot) {
+                dashboard.publishedSnapshot = {
+                    aspect: dashboard.aspect,
+                    cols: dashboard.cols,
+                    rows: dashboard.rows,
+                    widgets: JSON.parse(JSON.stringify(dashboard.widgets)),
+                    layout: JSON.parse(JSON.stringify(dashboard.layout)),
+                    headerConfig: dashboard.headerConfig
+                        ? JSON.parse(JSON.stringify(dashboard.headerConfig))
+                        : undefined,
+                    publishedAt: dashboard.lastUpdateAt ?? new Date().toISOString(),
+                };
+                migrated = true;
+                continue;
+            }
+
+            if (dashboard.publishedSnapshot) {
+                if (!dashboard.publishedSnapshot.aspect) {
+                    dashboard.publishedSnapshot.aspect = dashboard.aspect;
+                    migrated = true;
+                }
+
+                if (!dashboard.publishedSnapshot.rows) {
+                    dashboard.publishedSnapshot.rows = dashboard.rows;
+                    migrated = true;
+                }
+
+                if (!dashboard.publishedSnapshot.cols) {
+                    dashboard.publishedSnapshot.cols = dashboard.cols;
                     migrated = true;
                 }
             }
-            // También migrar widgets en el publishedSnapshot si existe
-            if (d.publishedSnapshot) {
-                for (const w of d.publishedSnapshot.widgets) {
-                    const newType = WIDGET_TYPE_RENAMES[w.type];
-                    if (newType) {
-                        (w as { type: string }).type = newType;
-                        migrated = true;
-                    }
-                }
-            }
-            // Regla: sin nodo asignado no puede estar publicado
-            if (d.status === 'published' && !d.ownerNodeId) {
-                d.status = 'draft';
-                d.publishedSnapshot = undefined;
-                migrated = true;
-            }
-            // Agregar snapshot a dashboards publicados con nodo que no lo tengan
-            if (d.status === 'published' && d.ownerNodeId && !d.publishedSnapshot) {
-                d.publishedSnapshot = {
-                    widgets: JSON.parse(JSON.stringify(d.widgets)),
-                    layout: JSON.parse(JSON.stringify(d.layout)),
-                    headerConfig: d.headerConfig
-                        ? JSON.parse(JSON.stringify(d.headerConfig))
-                        : undefined,
-                    publishedAt: d.lastUpdateAt ?? new Date().toISOString(),
-                };
-                migrated = true;
-            }
         }
+
         if (migrated) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboards));
+            localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(dashboards));
         }
     }
 
     private async readStorage(): Promise<Dashboard[]> {
         await this.initStorage();
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(DASHBOARDS_STORAGE_KEY);
         return stored ? JSON.parse(stored) : [];
     }
 
     async getDashboards(): Promise<Dashboard[]> {
-        // Simulamos latencia de red de 300ms
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
         return this.readStorage();
     }
 
     async getDashboard(id: string): Promise<Dashboard | null> {
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
         const dashboards = await this.readStorage();
-        return dashboards.find(d => d.id === id) || null;
+        return dashboards.find((dashboard) => dashboard.id === id) || null;
     }
 
     async saveDashboard(dashboard: Dashboard): Promise<void> {
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise((resolve) => setTimeout(resolve, 400));
         const dashboards = await this.readStorage();
-        
+
         dashboard.lastUpdateAt = new Date().toISOString();
-        
-        const existingIndex = dashboards.findIndex(d => d.id === dashboard.id);
+
+        const existingIndex = dashboards.findIndex((storedDashboard) => storedDashboard.id === dashboard.id);
         if (existingIndex >= 0) {
             dashboards[existingIndex] = dashboard;
         } else {
             dashboards.push(dashboard);
         }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboards));
+        localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(dashboards));
     }
 
     async createEmptyDashboard(name: string): Promise<Dashboard> {
@@ -114,20 +127,76 @@ class DashboardStorageService {
             name,
             status: 'draft',
             dashboardType: 'global',
+            aspect: DEFAULT_DASHBOARD_ASPECT,
+            cols: DEFAULT_COLS,
+            rows: DEFAULT_DASHBOARD_ROWS,
             isTemplate: false,
             version: 1,
             layout: [],
             widgets: [],
-            lastUpdateAt: new Date().toISOString()
+            lastUpdateAt: new Date().toISOString(),
         };
         await this.saveDashboard(newDashboard);
         return newDashboard;
     }
 
+    private materializeTemplate(template: Template, cols: number, rows: number) {
+        const idSuffix = Date.now().toString(36);
+        const presets = template.widgetPresets || [];
+        const layoutPreset = template.layoutPreset || [];
+
+        const widgets: WidgetConfig[] = presets.map((preset, index) => ({
+            id: `w-tpl-${idSuffix}-${index}`,
+            type: preset.type || 'kpi',
+            title: preset.title,
+            position: { x: 0, y: 0 },
+            size: preset.size || { w: 1, h: 1 },
+            binding: preset.binding,
+            thresholds: preset.thresholds,
+            styleVariant: preset.styleVariant,
+            displayOptions: preset.displayOptions,
+        }) as WidgetConfig);
+
+        const layout: WidgetLayout[] = layoutPreset.map((storedLayout, index) => ({
+            widgetId: widgets[index]?.id || `w-tpl-${idSuffix}-${index}`,
+            ...clampWidgetBounds({
+                x: storedLayout.x,
+                y: storedLayout.y,
+                w: storedLayout.w,
+                h: storedLayout.h,
+            }, cols, rows),
+        }));
+
+        return { widgets, layout };
+    }
+
     async deleteDashboard(id: string): Promise<void> {
         const dashboards = await this.readStorage();
-        const filtered = dashboards.filter(d => d.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        const filtered = dashboards.filter((dashboard) => dashboard.id !== id);
+        localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(filtered));
+    }
+
+    applyTemplate(dashboard: Dashboard, template: Template): Dashboard {
+        if (!isTemplateApplicable(template, dashboard)) {
+            throw new TemplateAspectMismatchError({
+                templateAspect: template.aspect,
+                dashboardAspect: dashboard.aspect,
+            });
+        }
+
+        const { widgets, layout } = this.materializeTemplate(template, dashboard.cols, dashboard.rows);
+
+        return {
+            ...dashboard,
+            widgets,
+            layout,
+            headerConfig: dashboard.headerConfig
+                ? {
+                    ...dashboard.headerConfig,
+                    widgetSlots: [],
+                }
+                : undefined,
+        };
     }
 
     async reorderDashboards(orderedIds: string[]): Promise<Dashboard[]> {
@@ -141,7 +210,7 @@ class DashboardStorageService {
         const missingDashboards = dashboards.filter((dashboard) => !orderedIds.includes(dashboard.id));
         const nextDashboards = [...reordered, ...missingDashboards];
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDashboards));
+        localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(nextDashboards));
         return nextDashboards;
     }
 
@@ -156,17 +225,15 @@ class DashboardStorageService {
         const idSuffix = Date.now().toString(36);
         const idMap = new Map<string, string>();
 
-        // Generar nuevos IDs para widgets
-        const newWidgets: WidgetConfig[] = original.widgets.map(w => {
-            const newId = `${w.id}-dup-${idSuffix}`;
-            idMap.set(w.id, newId);
-            return { ...w, id: newId };
+        const newWidgets: WidgetConfig[] = original.widgets.map((widget) => {
+            const newId = `${widget.id}-dup-${idSuffix}`;
+            idMap.set(widget.id, newId);
+            return { ...widget, id: newId };
         });
 
-        // Reasignar IDs en layout
-        const newLayout: WidgetLayout[] = original.layout.map(l => ({
-            ...l,
-            widgetId: idMap.get(l.widgetId) || l.widgetId,
+        const newLayout: WidgetLayout[] = original.layout.map((layout) => ({
+            ...layout,
+            widgetId: idMap.get(layout.widgetId) || layout.widgetId,
         }));
 
         const resolvedName = newName || `${original.name} (Copia)`;
@@ -198,37 +265,16 @@ class DashboardStorageService {
      */
     async createFromTemplate(template: Template, name: string): Promise<Dashboard> {
         const idSuffix = Date.now().toString(36);
-        const presets = template.widgetPresets || [];
-        const layoutPreset = template.layoutPreset || [];
-
-        // Cast explícito: los presets son Partial<WidgetConfig> y el type+displayOptions
-        // se preservan del template. La coherencia entre type y displayOptions es
-        // responsabilidad del template original — aquí solo se reconstruye.
-        const widgets: WidgetConfig[] = presets.map((preset, idx) => ({
-            id: `w-tpl-${idSuffix}-${idx}`,
-            type: preset.type || 'kpi',
-            title: preset.title,
-            position: { x: 0, y: 0 },
-            size: preset.size || { w: 1, h: 1 },
-            binding: preset.binding,
-            thresholds: preset.thresholds,
-            styleVariant: preset.styleVariant,
-            displayOptions: preset.displayOptions,
-        }) as WidgetConfig);
-
-        const layout: WidgetLayout[] = layoutPreset.map((l, idx) => ({
-            widgetId: widgets[idx]?.id || `w-tpl-${idSuffix}-${idx}`,
-            x: l.x,
-            y: l.y,
-            w: l.w,
-            h: l.h,
-        }));
+        const { widgets, layout } = this.materializeTemplate(template, template.cols, template.rows);
 
         const dashboard: Dashboard = {
             id: `dash-${idSuffix}`,
             name,
             description: `Creado desde template: ${template.name}`,
             dashboardType: template.dashboardType ?? 'equipment',
+            aspect: template.aspect,
+            cols: template.cols,
+            rows: template.rows,
             status: 'draft',
             isTemplate: false,
             version: 1,
@@ -254,6 +300,9 @@ class DashboardStorageService {
         dashboard.status = 'published';
         dashboard.version = (dashboard.version || 1) + 1;
         dashboard.publishedSnapshot = {
+            aspect: dashboard.aspect,
+            cols: dashboard.cols,
+            rows: dashboard.rows,
             widgets: JSON.parse(JSON.stringify(dashboard.widgets)),
             layout: JSON.parse(JSON.stringify(dashboard.layout)),
             headerConfig: dashboard.headerConfig
@@ -261,7 +310,7 @@ class DashboardStorageService {
                 : undefined,
             publishedAt: new Date().toISOString(),
         };
-        
+
         await this.saveDashboard(dashboard);
         return dashboard;
     }
@@ -275,6 +324,9 @@ class DashboardStorageService {
         const dashboard = await this.getDashboard(id);
         if (!dashboard?.publishedSnapshot) return dashboard ?? null;
 
+        dashboard.aspect = dashboard.publishedSnapshot.aspect;
+        dashboard.cols = dashboard.publishedSnapshot.cols;
+        dashboard.rows = dashboard.publishedSnapshot.rows;
         dashboard.widgets = JSON.parse(JSON.stringify(dashboard.publishedSnapshot.widgets));
         dashboard.layout = JSON.parse(JSON.stringify(dashboard.publishedSnapshot.layout));
         dashboard.headerConfig = dashboard.publishedSnapshot.headerConfig

@@ -1,70 +1,87 @@
-# Skill Registry — Interfaz-Laboratorio
+# Skill Registry
 
-Generated: 2026-04-01
-Project: Interfaz-Laboratorio
-Stack: React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS v4 + Zustand 5 + TanStack Query 5
-
----
+**Delegator use only.** Generated for Interfaz-Laboratorio on 2026-04-16.
 
 ## User Skills
 
-| Skill | Trigger | Source |
-|-------|---------|--------|
-| branch-pr | Creating a pull request, opening a PR, or preparing changes for review | user-level (`~/.config/opencode/skills/branch-pr/SKILL.md`) |
-| issue-creation | Creating a GitHub issue, reporting a bug, or requesting a feature | user-level (`~/.config/opencode/skills/issue-creation/SKILL.md`) |
-| go-testing | Writing Go tests, using teatest, or adding test coverage | user-level (`~/.config/opencode/skills/go-testing/SKILL.md`) |
-| judgment-day | User says "judgment day", "judgment-day", "review adversarial", "dual review", "doble review", "juzgar", or "que lo juzguen" | user-level (`~/.config/opencode/skills/judgment-day/SKILL.md`) |
-| skill-creator | User asks to create a new skill, add agent instructions, or document patterns for AI | user-level (`~/.config/opencode/skills/skill-creator/SKILL.md`) |
-| interfaz-widget | Creating a new widget, renderer, dashboard widget, or widget variant | project-level (`.agent/skills/interfaz-widget/SKILL.md`) |
-
-## Project Conventions
-
-### Convention Files
-- `AGENTS.md` — project operating rules, architecture, design-system constraints, and HMI read-only policy.
-
-### Referenced Project Docs
-- `Directrices/Directiva_maestra_v3.1.md` — visión, principios y restricciones fundacionales.
-- `Directrices/Arquitectura Técnica de Implementación HMI v1.3.md` — flujo service → adapter → domain → query/store → UI.
-- `Directrices/Especificación funcional_Modo Administrador.md` — builder/admin mode y persistencia mock.
-- `Directrices/UI_Style_Guide_Design_System_Base_v1.md` — tokens, theming y reglas visuales.
+| Trigger | Skill | Path |
+|---------|-------|------|
+| When creating a pull request, opening a PR, or preparing changes for review. | `branch-pr` | `C:\Users\Ariel\.config\opencode\skills\branch-pr\SKILL.md` |
+| When creating a GitHub issue, reporting a bug, or requesting a feature. | `issue-creation` | `C:\Users\Ariel\.config\opencode\skills\issue-creation\SKILL.md` |
+| When writing Go tests, using teatest, or adding test coverage. | `go-testing` | `C:\Users\Ariel\.config\opencode\skills\go-testing\SKILL.md` |
+| When user says "judgment day", "judgment-day", "review adversarial", "dual review", "doble review", "juzgar", or "que lo juzguen". | `judgment-day` | `C:\Users\Ariel\.config\opencode\skills\judgment-day\SKILL.md` |
+| When user asks to create a new skill, add agent instructions, or document patterns for AI. | `skill-creator` | `C:\Users\Ariel\.config\opencode\skills\skill-creator\SKILL.md` |
+| Creating a new widget, renderer, dashboard widget, or widget variant. | `interfaz-widget` | `D:\interfaz-laboratorio\.agent\skills\interfaz-widget\SKILL.md` |
 
 ## Compact Rules
 
-### Project Standards
-- HMI STRICTLY read-only: no POST/PUT/DELETE hacia sistemas de control, no setpoints, no actuadores, no botones operativos.
-- La app real vive en `hmi-app/`; la raíz contiene documentación y configuración.
-- Respetar el flujo: `services/` → `adapters/` → `domain/` → `queries/`/`store/` → UI.
-- Tipos de negocio SOLO en `hmi-app/src/domain/`; no duplicar tipos inline en componentes.
-- React Query para datos remotos; Zustand solo para estado UI del cliente.
-- Mantener separados `EquipmentStatus`, `ConnectionState` y `MetricStatus`.
-- NO hardcodear colores hex ni fuentes en componentes; usar tokens `@theme` de `hmi-app/src/index.css`.
-- NO aplicar parches ad-hoc/globales para problemas locales de layout; resolver en la capa responsable (layout, bloque interno o primitive).
-- NO hardcodear copy de estado cuando el contrato del widget permita `displayOptions` tipadas.
-- Solo Lucide React para íconos.
-- No modificar `Directrices/`; son documentos fuente.
-- Regla operativa explícita: NEVER build after changes.
-
 ### branch-pr
-- Cada PR debe estar ligado a un issue aprobado.
-- Seguir naming de branch y PR con resumen claro y trazable.
-- No push ni operaciones destructivas salvo pedido explícito.
+- Every PR MUST link an approved issue before review.
+- Use branch names `type/description` with conventional commit-compatible types.
+- Add exactly one `type:*` label to the PR.
+- Use the PR template with linked issue, summary, changes table, and test plan.
+- Do not skip automated checks; PR validation and shell-related checks must pass.
+- Never add `Co-Authored-By` trailers.
 
 ### issue-creation
-- Usar templates estructurados y flujo issue-first.
-- No abrir PR sin issue aprobado.
-
-### judgment-day
-- Resolver skills y estándares del proyecto antes de revisión adversarial.
-- Ejecutar doble review ciega solo cuando el usuario lo pida explícitamente.
-
-### skill-creator
-- Crear skills solo para patrones repetibles o flujos complejos.
-- Estructura esperada: `skills/{skill-name}/SKILL.md` con frontmatter y reglas.
-
-### interfaz-widget
-- Todo widget nuevo debe salir desde `glass-panel` + `WidgetHeader` + primitives compartidos de foco/hover.
-- `subtitle` pertenece al header; `subtext` pertenece al footer del widget.
-- Registrar renderers nuevos en `hmi-app/src/widgets/WidgetRenderer.tsx` y tipar `displayOptions` en `hmi-app/src/domain/admin.types.ts`.
+- Always search for duplicates before opening a new issue.
+- Use the correct GitHub issue template; blank issues are disabled.
+- New issues enter `status:needs-review`; PRs wait for `status:approved`.
+- Questions belong in Discussions, not Issues.
+- Bug reports need repro steps + expected vs actual behavior.
+- Feature requests must state the problem, proposed solution, and affected area.
 
 ### go-testing
-- Skill disponible en el entorno, pero no aplica al stack actual React/TypeScript salvo código Go futuro.
+- Prefer table-driven tests for pure logic and multiple cases.
+- Test Bubbletea state transitions via `Model.Update()` before broader flows.
+- Use `teatest` for interactive TUI flows and golden files for stable visual output.
+- Mock side effects behind interfaces; use `t.TempDir()` for file operations.
+- Cover both success and error paths explicitly.
+
+### judgment-day
+- Run only when the user explicitly asks for adversarial or dual review.
+- Resolve project skills from the registry BEFORE launching judges.
+- Use two blind parallel judges on the same target; never sequential review.
+- Synthesize confirmed vs suspect findings before asking to fix anything.
+- Re-judge only for confirmed critical issues after fixes.
+- If no registry exists, warn and proceed with generic review only.
+
+### skill-creator
+- Create a skill only for reusable patterns or complex workflows.
+- Follow `skills/{skill-name}/SKILL.md` structure with complete frontmatter.
+- Put templates/examples in `assets/`; local documentation pointers in `references/`.
+- Keep examples minimal and front-load critical patterns.
+- Register new skills in the project instruction index after creation.
+
+### interfaz-widget
+- Start every new widget from `glass-panel` and reuse shared focus/hover primitives.
+- Use `WidgetHeader`; `subtitle` stays in the header and `subtext` in the footer.
+- Register renderers in `hmi-app/src/widgets/WidgetRenderer.tsx`.
+- Type `displayOptions` in `hmi-app/src/domain/admin.types.ts`.
+- Use chart primitives (`ChartTooltip`, `ChartHoverLayer`, shared helpers) instead of ad-hoc chart behavior.
+- Never hardcode colors, fonts, or non-system hover/focus styles.
+
+## Project Conventions
+
+| File | Path | Notes |
+|------|------|-------|
+| `AGENTS.md` | `D:\interfaz-laboratorio\AGENTS.md` | Index + canonical convention source; includes Section 11 Testing |
+| `Directiva_maestra_v3.1.md` | `D:\interfaz-laboratorio\Directrices\Directiva_maestra_v3.1.md` | Referenced by `AGENTS.md` |
+| `Arquitectura Técnica de Implementación HMI v1.3.md` | `D:\interfaz-laboratorio\Directrices\Arquitectura Técnica de Implementación HMI v1.3.md` | Referenced by `AGENTS.md` |
+| `Especificación funcional_Modo Administrador.md` | `D:\interfaz-laboratorio\Directrices\Especificación funcional_Modo Administrador.md` | Referenced by `AGENTS.md` |
+| `UI_Style_Guide_Design_System_Base_v1.md` | `D:\interfaz-laboratorio\Directrices\UI_Style_Guide_Design_System_Base_v1.md` | Referenced by `AGENTS.md` |
+| `WIDGET_AUTHORING.md` | `D:\interfaz-laboratorio\hmi-app\src\widgets\WIDGET_AUTHORING.md` | Referenced by `AGENTS.md` |
+| `ADMIN_CONVENTIONS.md` | `D:\interfaz-laboratorio\hmi-app\src\components\admin\ADMIN_CONVENTIONS.md` | Referenced by `AGENTS.md` |
+
+### Project Standards
+- This HMI is STRICTLY read-only: no process-control writes, no setpoints, no actuators, no POST/PUT/DELETE to plant systems.
+- The real app lives in `hmi-app/`; the repo root mainly holds docs, config, and SDD artifacts.
+- Respect the data flow: `services/` → `adapters/` → `domain/` → `queries`/`store` → UI.
+- Business/domain types live only in `hmi-app/src/domain/`; do not duplicate them inline.
+- React Query owns async/server state; Zustand is only for client/UI state.
+- Keep `EquipmentStatus`, `ConnectionState`, and `MetricStatus` orthogonal.
+- Never hardcode colors, fonts, or content-dependent dimensions; use `@theme`, typed display options, and runtime measurement when needed.
+- Use `hmi-scrollbar` for every scrollable container and Lucide React for icons.
+- No ad-hoc layout patches; fix the responsible layer instead.
+- Never build after changes.
+- `AGENTS.md` Section 11 is authoritative for testing: co-located `*.test.ts(x)`, no `*.spec.*`, strict TS in tests, useful coverage over filler tests, and mandatory TDD for `utils`, `adapters`, `services`, `widgets/resolvers`, and bug fixes.

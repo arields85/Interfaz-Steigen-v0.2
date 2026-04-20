@@ -134,6 +134,8 @@
   /* Borde de selección de widgets en el canvas */
   --color-admin-selection-from: #60a5fa;
   --color-admin-selection-to: #927bec;
+  --color-canvas-grid-major: color-mix(in srgb, var(--color-admin-accent) 18%, transparent);
+  --color-canvas-grid-minor: color-mix(in srgb, var(--color-industrial-muted) 12%, transparent);
 
   /* Degradado base de métricas (KPI, barras, arcos sin colorizado dinámico) */
   /*--color-widget-gradient-from: #3b82f6;*/
@@ -162,6 +164,7 @@
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "IBMPlexMono", monospace;
   --font-chart: "IBMPlexMono", monospace;
+  --widget-spacing: 0.5rem;
 
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

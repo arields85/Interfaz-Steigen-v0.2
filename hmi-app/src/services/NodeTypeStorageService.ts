@@ -1,3 +1,5 @@
+import { NODE_TYPES_STORAGE_KEY } from '../utils/legacyStorageCleanup';
+
 export interface NodeTypeDefinition {
     key: string;
     label: string;
@@ -5,7 +7,7 @@ export interface NodeTypeDefinition {
     color: string;
 }
 
-const STORAGE_KEY = 'steigen_hmi_node_types_v1';
+const STORAGE_KEY = NODE_TYPES_STORAGE_KEY;
 
 export const DEFAULT_NODE_TYPES: NodeTypeDefinition[] = [
     { key: 'plant', label: 'Planta', icon: 'factory', color: 'text-accent-cyan' },

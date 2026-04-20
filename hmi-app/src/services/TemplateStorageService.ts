@@ -1,9 +1,7 @@
-import type { Template, WidgetConfig, WidgetLayout } from '../domain/admin.types';
-import type { Dashboard } from '../domain/admin.types';
+import type { Dashboard, Template, WidgetConfig, WidgetLayout } from '../domain/admin.types';
 import { mockTemplates } from '../mocks/template.mock';
+import { TEMPLATES_STORAGE_KEY } from '../utils/legacyStorageCleanup';
 import { dashboardStorage } from './DashboardStorageService';
-
-const STORAGE_KEY = 'steigen_hmi_templates_v1';
 
 // =============================================================================
 // TemplateStorageService
@@ -48,47 +46,47 @@ class TemplateStorageService {
                     ...template,
                     dashboardType: inferredDashboardType,
                 };
-            })
+            }),
         );
 
         if (didChange) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedTemplates));
+            localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(migratedTemplates));
         }
 
         return migratedTemplates;
     }
 
     private async initStorage(): Promise<void> {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
         if (!stored) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(mockTemplates));
+            localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(mockTemplates));
         }
     }
 
     private async readStorage(): Promise<Template[]> {
         await this.initStorage();
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
         const templates: Template[] = stored ? JSON.parse(stored) : [];
         return this.ensureDashboardType(templates);
     }
 
     /** Retorna todos los templates */
     async getTemplates(): Promise<Template[]> {
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
         return this.readStorage();
     }
 
     /** Retorna un template por ID */
     async getTemplate(id: string): Promise<Template | null> {
         const templates = await this.readStorage();
-        return templates.find(t => t.id === id) || null;
+        return templates.find((template) => template.id === id) || null;
     }
 
     /** Guarda o actualiza un template */
     async saveTemplate(template: Template): Promise<void> {
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
         const templates = await this.readStorage();
-        const idx = templates.findIndex(t => t.id === template.id);
+        const idx = templates.findIndex((storedTemplate) => storedTemplate.id === template.id);
 
         if (idx >= 0) {
             templates[idx] = template;
@@ -96,14 +94,14 @@ class TemplateStorageService {
             templates.push(template);
         }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
     }
 
     /** Elimina un template por ID */
     async deleteTemplate(id: string): Promise<void> {
         const templates = await this.readStorage();
-        const filtered = templates.filter(t => t.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        const filtered = templates.filter((template) => template.id !== id);
+        localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(filtered));
     }
 
     /**
@@ -115,24 +113,27 @@ class TemplateStorageService {
             id: `tpl-${Date.now().toString(36)}`,
             name: templateName,
             type: 'dashboard',
+            aspect: dashboard.aspect,
+            cols: dashboard.cols,
+            rows: dashboard.rows,
             dashboardType: dashboard.dashboardType,
             sourceDashboardId: dashboard.id,
             status: 'active',
-            widgetPresets: dashboard.widgets.map(w => ({
-                type: w.type,
-                title: w.title,
-                size: { ...w.size },
-                binding: w.binding ? { ...w.binding } : undefined,
-                thresholds: w.thresholds ? [...w.thresholds] : undefined,
-                styleVariant: w.styleVariant,
-                displayOptions: w.displayOptions ? { ...w.displayOptions } : undefined,
+            widgetPresets: dashboard.widgets.map((widget) => ({
+                type: widget.type,
+                title: widget.title,
+                size: { ...widget.size },
+                binding: widget.binding ? { ...widget.binding } : undefined,
+                thresholds: widget.thresholds ? [...widget.thresholds] : undefined,
+                styleVariant: widget.styleVariant,
+                displayOptions: widget.displayOptions ? { ...widget.displayOptions } : undefined,
             } as Partial<WidgetConfig>)),
-            layoutPreset: dashboard.layout.map((l, idx) => ({
-                widgetId: `preset-${idx}`,
-                x: l.x,
-                y: l.y,
-                w: l.w,
-                h: l.h,
+            layoutPreset: dashboard.layout.map((layout, index) => ({
+                widgetId: `preset-${index}`,
+                x: layout.x,
+                y: layout.y,
+                w: layout.w,
+                h: layout.h,
             } as WidgetLayout)),
         };
 

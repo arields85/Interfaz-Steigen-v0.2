@@ -1,7 +1,8 @@
 import type { HierarchyNode } from '../domain/admin.types';
 import { mockHierarchyNodes } from '../mocks/hierarchy.mock';
+import { HIERARCHY_STORAGE_KEY } from '../utils/legacyStorageCleanup';
 
-const STORAGE_KEY = 'steigen_hmi_hierarchy_v1';
+const STORAGE_KEY = HIERARCHY_STORAGE_KEY;
 
 // =============================================================================
 // HierarchyStorageService

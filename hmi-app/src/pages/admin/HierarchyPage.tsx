@@ -33,6 +33,7 @@ import AdminActionButton from '../../components/admin/AdminActionButton';
 import AdminSelect from '../../components/admin/AdminSelect';
 import AdminTag from '../../components/admin/AdminTag';
 import NodeTypeConfigDialog from '../../components/admin/NodeTypeConfigDialog';
+import { HIERARCHY_EXPANDED_STORAGE_KEY } from '../../utils/legacyStorageCleanup';
 
 // =============================================================================
 // HierarchyPage
@@ -258,10 +259,9 @@ export default function HierarchyPage() {
     const [showNodeTypeConfigDialog, setShowNodeTypeConfigDialog] = useState(false);
 
     // Estado expandido/colapsado del árbol — persistido en localStorage
-    const EXPANDED_STORAGE_KEY = 'steigen_hmi_hierarchy_expanded_v1';
     const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => {
         try {
-            const stored = localStorage.getItem(EXPANDED_STORAGE_KEY);
+            const stored = localStorage.getItem(HIERARCHY_EXPANDED_STORAGE_KEY);
             if (stored) return new Set(JSON.parse(stored) as string[]);
         } catch { /* ignorar datos corruptos */ }
         return new Set<string>();
@@ -275,7 +275,7 @@ export default function HierarchyPage() {
             } else {
                 next.add(nodeId);
             }
-            localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
+            localStorage.setItem(HIERARCHY_EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
             return next;
         });
     }, []);

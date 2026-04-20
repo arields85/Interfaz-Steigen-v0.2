@@ -9,6 +9,9 @@ import { ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
 // =============================================================================
 
 interface AdminNumberInputProps {
+    inputId?: string;
+    ariaLabel?: string;
+    ariaInvalid?: boolean;
     value: number | string;
     onChange: (value: string) => void;
     step?: number;
@@ -25,6 +28,9 @@ interface AdminNumberInputProps {
 }
 
 export default function AdminNumberInput({
+    inputId,
+    ariaLabel,
+    ariaInvalid = false,
     value,
     onChange,
     step = 1,
@@ -98,6 +104,9 @@ export default function AdminNumberInput({
                 </span>
             )}
             <input
+                id={inputId}
+                aria-label={ariaLabel}
+                aria-invalid={ariaInvalid}
                 type="text"
                 inputMode="decimal"
                 disabled={disabled}

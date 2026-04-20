@@ -94,6 +94,9 @@ export default function Dashboard() {
         if (!snap) return rawActiveDashboard;
         return {
             ...rawActiveDashboard,
+            aspect: snap.aspect,
+            cols: snap.cols,
+            rows: snap.rows,
             widgets: snap.widgets,
             layout: snap.layout,
             headerConfig: snap.headerConfig,
@@ -162,6 +165,8 @@ export default function Dashboard() {
                     equipmentMap={equipmentMap}
                     headerWidgetIds={headerWidgetIds}
                     hierarchyContext={hierarchyContext}
+                    cols={activeDashboard.cols}
+                    rows={activeDashboard.rows}
                 />
             </div>
         </div>
