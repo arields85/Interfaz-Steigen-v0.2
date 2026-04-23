@@ -27,22 +27,39 @@ const DEFAULTS = {
     starBrightness: 0.8,
     starTwinkle: 0.6,
     starSize: 0.95,
+    starParallax: 1.0,
     // Lensing (magnifying-glass distortion)
     lensShow: 1,
     lensMass: 0.08,
-    lensSize: 0.35,
-    lensOpacity: 1.0,
-    lensLag: 0.02,
+    lensSize: 0.27,
+    lensOpacity: 0.21,
+    lensAutoOpacity: 1,
+    lensAutoSpeed: 0.25,
+    lensDriftSpeed: 0.45,
     // Chromatic aberration
     chromShow: 1,
+    chromIntensity: 0.5,
     // Mouse nebula displacement (purple cloud reacting to cursor)
     nebMouseShow: 1,
-    nebMouseIntensity: 0.8,
-    nebMouseLag: 0.015,
+    nebMouseIntensity: 0.45,
+    nebMouseLag: 0.01,
+    // Cursor nebula
+    cursorNebShow: 1,
+    cursorNebIntensity: 0.76,
+    cursorNebRadius: 1.2,
+    cursorNebLag: 0.01,
     // Cursor halo
     haloShow: 1,
-    haloIntensity: 0.15,
-    haloLag: 0.02,
+    haloIntensity: 0.11,
+    haloLag: 0.21,
+    // Click ring
+    ringShow: 1,
+    ringIntensity: 0.3,
+    ringSpeed: 0.25,
+    ringWidth: 0.72,
+    ringLife: 1.0,
+    ringHue: 0.84,
+    ringSaturation: 1.0,
     // Vignette
     vigShow: 1,
 };
@@ -84,6 +101,7 @@ uniform float u_starDensity;
 uniform float u_starBrightness;
 uniform float u_starTwinkle;
 uniform float u_starSize;
+uniform float u_starParallax;
 
 // Lensing
 uniform float u_lensShow;
@@ -93,16 +111,33 @@ uniform float u_lensOpacity;
 
 // Chromatic aberration
 uniform float u_chromShow;
+uniform float u_chromIntensity;
 
 // Mouse nebula displacement
 uniform float u_nebMouseShow;
 uniform float u_nebMouseIntensity;
 uniform vec2  u_mouseNeb;
 
+// Cursor nebula
+uniform float u_cursorNebShow;
+uniform float u_cursorNebIntensity;
+uniform float u_cursorNebRadius;
+uniform vec2  u_mouseCursorNeb;
+
 // Cursor halo
 uniform float u_haloShow;
 uniform float u_haloIntensity;
 uniform vec2  u_mouseHalo;
+
+// Click ring
+uniform float u_ringShow;
+uniform float u_ringIntensity;
+uniform float u_ringSpeed;
+uniform float u_ringWidth;
+uniform float u_ringHue;
+uniform float u_ringLife;
+uniform float u_ringSaturation;
+uniform vec4  u_clicks[8];
 
 // Vignette
 uniform float u_vigShow;
@@ -141,7 +176,8 @@ vec3 stars(vec2 p, float density, float seed){
   float d = length(f - cp);
   float sz = 0.06 * u_starSize;
   float br = smoothstep(sz, 0.0, d);
-  float tw = mix(1.0, 0.6 + 0.4*sin(u_time*2.0 + s*40.0), u_starTwinkle);
+  float twinkleFreq = 1.5 + hash12(g + seed + 7.0) * 3.0;
+  float tw = mix(1.0, 0.6 + 0.4*sin(u_time * twinkleFreq + s*40.0), u_starTwinkle);
   float hue = hash12(g + seed + 3.0);
   vec3 c = mix(vec3(0.8,0.9,1.0), vec3(1.0,0.85,0.7), hue);
   return c * br * tw * smoothstep(0.0, 1.0, s) * u_starBrightness;
@@ -150,10 +186,35 @@ vec3 stars(vec2 p, float density, float seed){
 vec3 starfield(vec2 p){
   vec3 c = vec3(0.0);
   float dens = u_starDensity;
-  c += stars(p*9.0,  0.02*dens, 1.0) * 0.6;
-  c += stars(p*18.0, 0.015*dens, 2.0) * 0.9;
-  c += stars(p*36.0, 0.010*dens, 3.0) * 1.0;
+  c += stars(p*9.0 + vec2(u_time*0.001*u_starParallax, u_time*0.0005*u_starParallax), 0.02*dens, 1.0) * 0.5;
+  c += stars(p*18.0 + vec2(u_time*0.003*u_starParallax, u_time*0.002*u_starParallax), 0.015*dens, 2.0) * 0.8;
+  c += stars(p*36.0 + vec2(u_time*0.008*u_starParallax, u_time*0.005*u_starParallax), 0.010*dens, 3.0) * 1.0;
   return c * u_starShow;
+}
+
+vec3 ringPalette(float h){
+  vec3 base = vec3(1.0, 0.85, 0.55);
+  return hueShift(base, h);
+}
+
+vec3 clickRings(vec2 p){
+  if(u_ringShow < 0.5) return vec3(0.0);
+  float aspect = u_res.x / u_res.y;
+  vec3 acc = vec3(0.0);
+  vec3 col = ringPalette(u_ringHue);
+  float lum = dot(col, vec3(0.299,0.587,0.114));
+  col = mix(vec3(lum), col, u_ringSaturation);
+  float w = mix(20.0, 4.0, clamp(u_ringWidth, 0.0, 1.0));
+  for(int i=0;i<8;i++){
+    vec4 c = u_clicks[i];
+    if(c.w <= 0.0) continue;
+    vec2 cp = c.xy*2.0 - 1.0; cp.x *= aspect;
+    float dd = length(p - cp);
+    float r = c.z * u_ringSpeed;
+    float ring = exp(-abs(dd - r)*w) * exp(-c.z*(1.5 / max(u_ringLife, 0.2))) * c.w;
+    acc += col * ring * u_ringIntensity;
+  }
+  return acc;
 }
 
 vec3 ambientBG(vec2 p){
@@ -215,10 +276,24 @@ void main(){
       bg.g,
       0.12 + 0.9*smoothstep(0.35,0.75,bn)
     );
-    bg = mix(bg, lensCol, smoothstep(0.5, horizon*2.0, 1.0/(d+0.01)));
+    bg = mix(bg, lensCol, smoothstep(0.5, horizon*2.0, 1.0/(d+0.01)) * u_chromIntensity);
   }
 
   vec3 col = bg;
+
+  // Cursor nebula - organic purple cloud following cursor
+  if(u_cursorNebShow > 0.5){
+    vec2 cnP = u_mouseCursorNeb * 2.0 - 1.0;
+    cnP.x *= aspect;
+    float cnDist = length(p - cnP);
+    float cnFalloff = exp(-cnDist * (3.0 / max(u_cursorNebRadius, 0.1)));
+    float cnPattern = fbm(p * 1.5 + vec2(u_time * 0.08, u_time * 0.06));
+    vec3 cnColor = hueShift(vec3(0.35, 0.18, 0.55), u_nebHue);
+    col += cnColor * cnFalloff * cnPattern * u_cursorNebIntensity;
+  }
+
+  // Click rings
+  col += clickRings(p);
 
   // Cursor halo (uses separate u_mouseHalo position)
   vec2 haloP = u_mouseHalo*2.0-1.0;
@@ -289,15 +364,27 @@ const UNIFORM_MAP: Partial<Record<keyof Params, string>> = {
     starBrightness: 'u_starBrightness',
     starTwinkle: 'u_starTwinkle',
     starSize: 'u_starSize',
+    starParallax: 'u_starParallax',
     lensShow: 'u_lensShow',
     lensMass: 'u_lensMass',
     lensSize: 'u_lensSize',
     lensOpacity: 'u_lensOpacity',
     chromShow: 'u_chromShow',
+    chromIntensity: 'u_chromIntensity',
     nebMouseShow: 'u_nebMouseShow',
     nebMouseIntensity: 'u_nebMouseIntensity',
+    cursorNebShow: 'u_cursorNebShow',
+    cursorNebIntensity: 'u_cursorNebIntensity',
+    cursorNebRadius: 'u_cursorNebRadius',
     haloShow: 'u_haloShow',
     haloIntensity: 'u_haloIntensity',
+    ringShow: 'u_ringShow',
+    ringIntensity: 'u_ringIntensity',
+    ringSpeed: 'u_ringSpeed',
+    ringWidth: 'u_ringWidth',
+    ringLife: 'u_ringLife',
+    ringHue: 'u_ringHue',
+    ringSaturation: 'u_ringSaturation',
     vigShow: 'u_vigShow',
 };
 
@@ -343,6 +430,7 @@ const SECTIONS: SectionDef[] = [
             { key: 'starBrightness', label: 'Brightness', min: 0, max: 2.5, step: 0.05 },
             { key: 'starSize', label: 'Size', min: 0.3, max: 2.5, step: 0.05 },
             { key: 'starTwinkle', label: 'Twinkle', min: 0, max: 1, step: 0.02 },
+            { key: 'starParallax', label: 'Parallax Depth', min: 0, max: 3, step: 0.05 },
         ],
     },
     {
@@ -351,14 +439,18 @@ const SECTIONS: SectionDef[] = [
         controls: [
             { key: 'lensMass', label: 'Intensity', min: 0.01, max: 0.3, step: 0.005 },
             { key: 'lensSize', label: 'Size', min: 0.05, max: 1.0, step: 0.01 },
-            { key: 'lensOpacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
-            { key: 'lensLag', label: 'Follow Delay', min: 0.005, max: 0.3, step: 0.005 },
+            { key: 'lensOpacity', label: 'Max Opacity', min: 0, max: 1, step: 0.01 },
+            { key: 'lensAutoOpacity', label: 'Auto Breathing (0=Off 1=On)', min: 0, max: 1, step: 1 },
+            { key: 'lensAutoSpeed', label: 'Breathing Speed', min: 0.05, max: 2.0, step: 0.05 },
+            { key: 'lensDriftSpeed', label: 'Drift Speed', min: 0.1, max: 3.0, step: 0.05 },
         ],
     },
     {
         title: 'Chromatic Aberration',
         toggleKey: 'chromShow',
-        controls: [],
+        controls: [
+            { key: 'chromIntensity', label: 'Intensity', min: 0, max: 2, step: 0.02 },
+        ],
     },
     {
         title: 'Mouse Nebula',
@@ -369,11 +461,32 @@ const SECTIONS: SectionDef[] = [
         ],
     },
     {
+        title: 'Cursor Nebula',
+        toggleKey: 'cursorNebShow',
+        controls: [
+            { key: 'cursorNebIntensity', label: 'Intensity', min: 0, max: 1.5, step: 0.02 },
+            { key: 'cursorNebRadius', label: 'Radius', min: 0.5, max: 4.0, step: 0.1 },
+            { key: 'cursorNebLag', label: 'Follow Delay', min: 0.005, max: 0.3, step: 0.005 },
+        ],
+    },
+    {
         title: 'Cursor Halo',
         toggleKey: 'haloShow',
         controls: [
             { key: 'haloIntensity', label: 'Intensity', min: 0, max: 0.5, step: 0.01 },
             { key: 'haloLag', label: 'Follow Delay', min: 0.005, max: 0.3, step: 0.005 },
+        ],
+    },
+    {
+        title: 'Click Ring',
+        toggleKey: 'ringShow',
+        controls: [
+            { key: 'ringIntensity', label: 'Intensity', min: 0, max: 3.0, step: 0.05 },
+            { key: 'ringSpeed', label: 'Expansion Speed', min: 0.1, max: 3.5, step: 0.05 },
+            { key: 'ringWidth', label: 'Width', min: 0, max: 1, step: 0.02 },
+            { key: 'ringLife', label: 'Duration', min: 0.2, max: 3.0, step: 0.05 },
+            { key: 'ringHue', label: 'Color Hue', min: 0, max: 1, step: 0.01 },
+            { key: 'ringSaturation', label: 'Saturation', min: 0, max: 2, step: 0.02 },
         ],
     },
     {
@@ -474,8 +587,10 @@ export default function EventHorizonBackground() {
         const uTime = gl.getUniformLocation(prog, 'u_time');
         const uMouse = gl.getUniformLocation(prog, 'u_mouse');
         const uMouseNeb = gl.getUniformLocation(prog, 'u_mouseNeb');
+        const uMouseCursorNeb = gl.getUniformLocation(prog, 'u_mouseCursorNeb');
         const uMouseHalo = gl.getUniformLocation(prog, 'u_mouseHalo');
         const uPress = gl.getUniformLocation(prog, 'u_press');
+        const uClicks = gl.getUniformLocation(prog, 'u_clicks[0]');
 
         const paramUniforms: Partial<Record<keyof Params, WebGLUniformLocation | null>> = {};
         for (const key of Object.keys(UNIFORM_MAP) as (keyof Params)[]) {
@@ -483,17 +598,32 @@ export default function EventHorizonBackground() {
         }
 
         const mouse = { x: 0.5, y: 0.5 };
-        const smoothMouse = { x: 0.5, y: 0.5 };
         const smoothMouseNeb = { x: 0.5, y: 0.5 };
+        const smoothMouseCursorNeb = { x: 0.5, y: 0.5 };
         const smoothMouseHalo = { x: 0.5, y: 0.5 };
+        const clicks: { x: number; y: number; t: number; strength: number }[] = [];
         const startTime = performance.now();
         let rafId = 0;
+        let prevT = 0;
 
         const handleMouseMove = (e: MouseEvent) => {
             mouse.x = e.clientX / window.innerWidth;
             mouse.y = 1 - e.clientY / window.innerHeight;
         };
         window.addEventListener('pointermove', handleMouseMove);
+
+        const handleClick = (e: MouseEvent) => {
+            const target = e.target;
+            if (target instanceof HTMLElement && target.closest('[data-shader-panel]')) {
+                return;
+            }
+
+            const nx = e.clientX / window.innerWidth;
+            const ny = 1 - (e.clientY / window.innerHeight);
+            clicks.push({ x: nx, y: ny, t: 0, strength: 1 });
+            if (clicks.length > 8) clicks.shift();
+        };
+        window.addEventListener('pointerdown', handleClick);
 
         function resize() {
             const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -511,23 +641,46 @@ export default function EventHorizonBackground() {
             gl!.clear(gl!.COLOR_BUFFER_BIT);
             const t = (now - startTime) / 1000;
             const p = paramsRef.current;
-            // Lensing mouse (purple nebula distortion)
-            smoothMouse.x += (mouse.x - smoothMouse.x) * p.lensLag;
-            smoothMouse.y += (mouse.y - smoothMouse.y) * p.lensLag;
+            const lensSpeed = p.lensDriftSpeed;
+            const autoLensX = 0.5 + 0.35 * Math.sin(t * 0.1 * lensSpeed) * Math.cos(t * 0.07 * lensSpeed);
+            const autoLensY = 0.5 + 0.3 * Math.cos(t * 0.08 * lensSpeed) * Math.sin(t * 0.13 * lensSpeed);
             // Nebula drift mouse
             smoothMouseNeb.x += (mouse.x - smoothMouseNeb.x) * p.nebMouseLag;
             smoothMouseNeb.y += (mouse.y - smoothMouseNeb.y) * p.nebMouseLag;
+            // Cursor nebula mouse
+            smoothMouseCursorNeb.x += (mouse.x - smoothMouseCursorNeb.x) * p.cursorNebLag;
+            smoothMouseCursorNeb.y += (mouse.y - smoothMouseCursorNeb.y) * p.cursorNebLag;
             // Cursor halo mouse
             smoothMouseHalo.x += (mouse.x - smoothMouseHalo.x) * p.haloLag;
             smoothMouseHalo.y += (mouse.y - smoothMouseHalo.y) * p.haloLag;
 
+            // Update click rings
+            const dt = Math.min(0.05, t - (prevT || t));
+            for (const c of clicks) {
+                c.t += dt;
+                c.strength *= Math.pow(0.35, dt);
+            }
+            // Remove expired clicks
+            for (let i = clicks.length - 1; i >= 0; i--) {
+                if (clicks[i].t > 4.5 || clicks[i].strength < 0.02) clicks.splice(i, 1);
+            }
+
             gl!.useProgram(prog);
             if (uRes) gl!.uniform2f(uRes, canvas!.width, canvas!.height);
             if (uTime) gl!.uniform1f(uTime, t);
-            if (uMouse) gl!.uniform2f(uMouse, smoothMouse.x, smoothMouse.y);
+            if (uMouse) gl!.uniform2f(uMouse, autoLensX, autoLensY);
             if (uMouseNeb) gl!.uniform2f(uMouseNeb, smoothMouseNeb.x, smoothMouseNeb.y);
+            if (uMouseCursorNeb) gl!.uniform2f(uMouseCursorNeb, smoothMouseCursorNeb.x, smoothMouseCursorNeb.y);
             if (uMouseHalo) gl!.uniform2f(uMouseHalo, smoothMouseHalo.x, smoothMouseHalo.y);
             if (uPress) gl!.uniform1f(uPress, 0);
+
+            // Auto-breathing for lensing opacity
+            let effectiveLensOpacity = p.lensOpacity;
+            if (p.lensAutoOpacity > 0.5) {
+                const s = p.lensAutoSpeed;
+                const breath = 0.5 + 0.25 * Math.sin(t * s) + 0.15 * Math.sin(t * s * 1.7) + 0.1 * Math.sin(t * s * 0.6);
+                effectiveLensOpacity = p.lensOpacity * Math.max(0, Math.min(1, breath));
+            }
 
             // Push all params as uniforms
             for (const key of Object.keys(paramUniforms) as (keyof Params)[]) {
@@ -535,7 +688,24 @@ export default function EventHorizonBackground() {
                 if (loc) gl!.uniform1f(loc, p[key]);
             }
 
+            // Send click data
+            if (uClicks) {
+                const arr = new Float32Array(8 * 4);
+                for (let i = 0; i < clicks.length && i < 8; i++) {
+                    arr[i * 4 + 0] = clicks[i].x;
+                    arr[i * 4 + 1] = clicks[i].y;
+                    arr[i * 4 + 2] = clicks[i].t;
+                    arr[i * 4 + 3] = clicks[i].strength;
+                }
+                gl.uniform4fv(uClicks, arr);
+            }
+
+            // Override lensOpacity with computed breathing value
+            const uLensOpacityLoc = paramUniforms.lensOpacity;
+            if (uLensOpacityLoc) gl!.uniform1f(uLensOpacityLoc, effectiveLensOpacity);
+
             gl!.drawArrays(gl!.TRIANGLES, 0, 3);
+            prevT = t;
             rafId = requestAnimationFrame(frame);
         }
 
@@ -544,6 +714,7 @@ export default function EventHorizonBackground() {
         return () => {
             cancelAnimationFrame(rafId);
             window.removeEventListener('pointermove', handleMouseMove);
+            window.removeEventListener('pointerdown', handleClick);
         };
     }, []);
 
@@ -573,6 +744,7 @@ export default function EventHorizonBackground() {
             {/* Control panel */}
             {panelOpen && (
                 <div
+                    data-shader-panel
                     className="fixed bottom-14 left-4 z-50 w-72 max-h-[calc(100vh-120px)] overflow-y-auto hmi-scrollbar rounded-xl border border-industrial-border bg-industrial-surface/90 backdrop-blur-xl shadow-2xl"
                     style={{ pointerEvents: 'auto' }}
                 >
