@@ -155,7 +155,7 @@ function NodeDetailPanel({
                                 </div>
                             )}
                         </div>
-                        <p className="text-xs text-industrial-muted font-mono font-semibold flex items-center gap-2">
+                        <p className="text-xs text-industrial-muted font-mono font-semibold flex items-center gap-2" style={{ fontWeight: 'var(--font-weight-mono)' }}>
                             id: {node.id} 
                             <AdminTag label={resolveTypeLabel(node.type, nodeTypeLabels)} variant="muted" />
                         </p>

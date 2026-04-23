@@ -460,7 +460,7 @@ export default function DashboardManagerPage() {
                                                     </button>
                                                 )}
 
-                                                <p className="mt-0.5 text-[10px] font-mono font-semibold text-industrial-muted">
+                                                <p className="mt-0.5 text-[10px] font-mono font-semibold text-industrial-muted" style={{ fontWeight: 'var(--font-weight-mono)' }}>
                                                     {getWidgetCountLabel(widgetCount)} · {templateDashboardTypeLabel}
                                                 </p>
                                             </div>

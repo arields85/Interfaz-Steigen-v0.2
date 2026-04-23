@@ -98,8 +98,12 @@ export default function MetricCard({
 
             {/* Valor principal */}
             <div 
-                className={`mt-3 text-4xl font-black tracking-tighter flex items-end gap-1.5 ${isNoData ? 'text-slate-600' : ''}`}
-                style={!isNoData && styles.valueColor ? { color: styles.valueColor } : undefined}
+                className={`mt-3 text-4xl tracking-tighter flex items-end gap-1.5 ${isNoData ? 'text-slate-600' : ''}`}
+                style={{
+                    fontFamily: 'var(--font-widget-value)',
+                    fontWeight: 'var(--font-weight-widget-value)',
+                    ...(!isNoData && styles.valueColor ? { color: styles.valueColor } : {}),
+                }}
             >
                 {displayValue}
                 {unit && !isNoData && (

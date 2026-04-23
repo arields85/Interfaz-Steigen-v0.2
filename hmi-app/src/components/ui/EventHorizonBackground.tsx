@@ -2,69 +2,9 @@
 // EventHorizonBackground -- WebGL shader background + tweaks panel
 // All visual parameters are runtime-controllable via uniform floats.
 // =============================================================================
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { Settings, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Default parameter values (used for reset)
-// ---------------------------------------------------------------------------
-
-const DEFAULTS = {
-    // Nebula
-    nebShow: 1,
-    nebSpeed: 0.11,
-    nebIntensity: 0.5,
-    nebVariation: 0.14,
-    nebHue: 0.0,
-    nebContrast: 0.48,
-    nebDensity: 0.3,
-    nebSat: 0.5,
-    nebColorVar: 1.0,
-    nebColorShift: 1.0,
-    // Stars
-    starShow: 1,
-    starDensity: 1.1,
-    starBrightness: 0.8,
-    starTwinkle: 0.6,
-    starSize: 0.95,
-    starParallax: 1.0,
-    // Lensing (magnifying-glass distortion)
-    lensShow: 1,
-    lensMass: 0.08,
-    lensSize: 0.27,
-    lensOpacity: 0.21,
-    lensAutoOpacity: 1,
-    lensAutoSpeed: 0.25,
-    lensDriftSpeed: 0.45,
-    // Chromatic aberration
-    chromShow: 1,
-    chromIntensity: 0.5,
-    // Mouse nebula displacement (purple cloud reacting to cursor)
-    nebMouseShow: 1,
-    nebMouseIntensity: 0.45,
-    nebMouseLag: 0.01,
-    // Cursor nebula
-    cursorNebShow: 1,
-    cursorNebIntensity: 0.76,
-    cursorNebRadius: 1.2,
-    cursorNebLag: 0.01,
-    // Cursor halo
-    haloShow: 1,
-    haloIntensity: 0.11,
-    haloLag: 0.21,
-    // Click ring
-    ringShow: 1,
-    ringIntensity: 0.3,
-    ringSpeed: 0.25,
-    ringWidth: 0.72,
-    ringLife: 1.0,
-    ringHue: 0.84,
-    ringSaturation: 1.0,
-    // Vignette
-    vigShow: 1,
-};
-
-type Params = typeof DEFAULTS;
+import { useEffect, useRef } from 'react';
+import { useShaderParamsStore, UNIFORM_MAP } from '../../store/shaderParams.store';
+import type { ShaderParams } from '../../store/shaderParams.store';
 
 // ---------------------------------------------------------------------------
 // Shaders
@@ -345,210 +285,18 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string):
 }
 
 // ---------------------------------------------------------------------------
-// Uniform name mapping
-// ---------------------------------------------------------------------------
-
-const UNIFORM_MAP: Partial<Record<keyof Params, string>> = {
-    nebShow: 'u_nebShow',
-    nebSpeed: 'u_nebSpeed',
-    nebIntensity: 'u_nebIntensity',
-    nebVariation: 'u_nebVariation',
-    nebHue: 'u_nebHue',
-    nebContrast: 'u_nebContrast',
-    nebDensity: 'u_nebDensity',
-    nebSat: 'u_nebSat',
-    nebColorVar: 'u_nebColorVar',
-    nebColorShift: 'u_nebColorShift',
-    starShow: 'u_starShow',
-    starDensity: 'u_starDensity',
-    starBrightness: 'u_starBrightness',
-    starTwinkle: 'u_starTwinkle',
-    starSize: 'u_starSize',
-    starParallax: 'u_starParallax',
-    lensShow: 'u_lensShow',
-    lensMass: 'u_lensMass',
-    lensSize: 'u_lensSize',
-    lensOpacity: 'u_lensOpacity',
-    chromShow: 'u_chromShow',
-    chromIntensity: 'u_chromIntensity',
-    nebMouseShow: 'u_nebMouseShow',
-    nebMouseIntensity: 'u_nebMouseIntensity',
-    cursorNebShow: 'u_cursorNebShow',
-    cursorNebIntensity: 'u_cursorNebIntensity',
-    cursorNebRadius: 'u_cursorNebRadius',
-    haloShow: 'u_haloShow',
-    haloIntensity: 'u_haloIntensity',
-    ringShow: 'u_ringShow',
-    ringIntensity: 'u_ringIntensity',
-    ringSpeed: 'u_ringSpeed',
-    ringWidth: 'u_ringWidth',
-    ringLife: 'u_ringLife',
-    ringHue: 'u_ringHue',
-    ringSaturation: 'u_ringSaturation',
-    vigShow: 'u_vigShow',
-};
-
-// ---------------------------------------------------------------------------
-// Panel definition
-// ---------------------------------------------------------------------------
-
-type SectionDef = {
-    title: string;
-    toggleKey?: keyof Params;
-    controls: ControlDef[];
-};
-
-type ControlDef = {
-    key: keyof Params;
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-};
-
-const SECTIONS: SectionDef[] = [
-    {
-        title: 'Nebula',
-        toggleKey: 'nebShow',
-        controls: [
-            { key: 'nebSpeed', label: 'Speed', min: 0, max: 0.5, step: 0.005 },
-            { key: 'nebIntensity', label: 'Intensity', min: 0, max: 2, step: 0.02 },
-            { key: 'nebVariation', label: 'Variation', min: 0, max: 1, step: 0.02 },
-            { key: 'nebContrast', label: 'Contrast', min: 0, max: 1, step: 0.02 },
-            { key: 'nebDensity', label: 'Density', min: 0, max: 1, step: 0.01 },
-            { key: 'nebHue', label: 'Hue', min: 0, max: 1, step: 0.01 },
-            { key: 'nebSat', label: 'Saturation', min: 0, max: 2, step: 0.02 },
-            { key: 'nebColorVar', label: 'Color Variation', min: 0, max: 1, step: 0.02 },
-            { key: 'nebColorShift', label: 'Color Shift', min: 0, max: 1, step: 0.01 },
-        ],
-    },
-    {
-        title: 'Stars',
-        toggleKey: 'starShow',
-        controls: [
-            { key: 'starDensity', label: 'Density', min: 0, max: 3, step: 0.05 },
-            { key: 'starBrightness', label: 'Brightness', min: 0, max: 2.5, step: 0.05 },
-            { key: 'starSize', label: 'Size', min: 0.3, max: 2.5, step: 0.05 },
-            { key: 'starTwinkle', label: 'Twinkle', min: 0, max: 1, step: 0.02 },
-            { key: 'starParallax', label: 'Parallax Depth', min: 0, max: 3, step: 0.05 },
-        ],
-    },
-    {
-        title: 'Gravitational Lensing',
-        toggleKey: 'lensShow',
-        controls: [
-            { key: 'lensMass', label: 'Intensity', min: 0.01, max: 0.3, step: 0.005 },
-            { key: 'lensSize', label: 'Size', min: 0.05, max: 1.0, step: 0.01 },
-            { key: 'lensOpacity', label: 'Max Opacity', min: 0, max: 1, step: 0.01 },
-            { key: 'lensAutoOpacity', label: 'Auto Breathing (0=Off 1=On)', min: 0, max: 1, step: 1 },
-            { key: 'lensAutoSpeed', label: 'Breathing Speed', min: 0.05, max: 2.0, step: 0.05 },
-            { key: 'lensDriftSpeed', label: 'Drift Speed', min: 0.1, max: 3.0, step: 0.05 },
-        ],
-    },
-    {
-        title: 'Chromatic Aberration',
-        toggleKey: 'chromShow',
-        controls: [
-            { key: 'chromIntensity', label: 'Intensity', min: 0, max: 2, step: 0.02 },
-        ],
-    },
-    {
-        title: 'Mouse Nebula',
-        toggleKey: 'nebMouseShow',
-        controls: [
-            { key: 'nebMouseIntensity', label: 'Intensity', min: 0, max: 2.5, step: 0.05 },
-            { key: 'nebMouseLag', label: 'Follow Delay', min: 0.003, max: 0.2, step: 0.002 },
-        ],
-    },
-    {
-        title: 'Cursor Nebula',
-        toggleKey: 'cursorNebShow',
-        controls: [
-            { key: 'cursorNebIntensity', label: 'Intensity', min: 0, max: 1.5, step: 0.02 },
-            { key: 'cursorNebRadius', label: 'Radius', min: 0.5, max: 4.0, step: 0.1 },
-            { key: 'cursorNebLag', label: 'Follow Delay', min: 0.005, max: 0.3, step: 0.005 },
-        ],
-    },
-    {
-        title: 'Cursor Halo',
-        toggleKey: 'haloShow',
-        controls: [
-            { key: 'haloIntensity', label: 'Intensity', min: 0, max: 0.5, step: 0.01 },
-            { key: 'haloLag', label: 'Follow Delay', min: 0.005, max: 0.3, step: 0.005 },
-        ],
-    },
-    {
-        title: 'Click Ring',
-        toggleKey: 'ringShow',
-        controls: [
-            { key: 'ringIntensity', label: 'Intensity', min: 0, max: 3.0, step: 0.05 },
-            { key: 'ringSpeed', label: 'Expansion Speed', min: 0.1, max: 3.5, step: 0.05 },
-            { key: 'ringWidth', label: 'Width', min: 0, max: 1, step: 0.02 },
-            { key: 'ringLife', label: 'Duration', min: 0.2, max: 3.0, step: 0.05 },
-            { key: 'ringHue', label: 'Color Hue', min: 0, max: 1, step: 0.01 },
-            { key: 'ringSaturation', label: 'Saturation', min: 0, max: 2, step: 0.02 },
-        ],
-    },
-    {
-        title: 'Vignette',
-        toggleKey: 'vigShow',
-        controls: [],
-    },
-];
-
-// ---------------------------------------------------------------------------
-// Toggle Switch component
-// ---------------------------------------------------------------------------
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-    return (
-        <button
-            type="button"
-            onClick={() => onChange(!value)}
-            className={`relative w-8 h-[18px] rounded-full border transition-colors ${
-                value
-                    ? 'bg-accent-cyan/20 border-accent-cyan/50'
-                    : 'bg-white/8 border-white/10'
-            }`}
-        >
-            <span
-                className={`absolute top-[2px] left-[2px] w-3 h-3 rounded-full transition-all ${
-                    value
-                        ? 'translate-x-3.5 bg-accent-cyan shadow-[0_0_6px_rgba(34,211,238,0.6)]'
-                        : 'bg-industrial-muted'
-                }`}
-            />
-        </button>
-    );
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function EventHorizonBackground() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const paramsRef = useRef<Params>({ ...DEFAULTS });
-    const [params, setParams] = useState<Params>({ ...DEFAULTS });
-    const [panelOpen, setPanelOpen] = useState(false);
-    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    const params = useShaderParamsStore((s) => s.params);
+    const paramsRef = useRef<ShaderParams>(params);
 
     // Sync state to ref (ref is read in the frame loop without re-renders)
     useEffect(() => {
         paramsRef.current = params;
     }, [params]);
-
-    const updateParam = useCallback((key: keyof Params, value: number) => {
-        setParams(prev => ({ ...prev, [key]: value }));
-    }, []);
-
-    const resetAll = useCallback(() => {
-        setParams({ ...DEFAULTS });
-    }, []);
-
-    const toggleSection = useCallback((title: string) => {
-        setCollapsed(prev => ({ ...prev, [title]: !prev[title] }));
-    }, []);
 
     // WebGL setup
     useEffect(() => {
@@ -592,8 +340,8 @@ export default function EventHorizonBackground() {
         const uPress = gl.getUniformLocation(prog, 'u_press');
         const uClicks = gl.getUniformLocation(prog, 'u_clicks[0]');
 
-        const paramUniforms: Partial<Record<keyof Params, WebGLUniformLocation | null>> = {};
-        for (const key of Object.keys(UNIFORM_MAP) as (keyof Params)[]) {
+        const paramUniforms: Partial<Record<keyof ShaderParams, WebGLUniformLocation | null>> = {};
+        for (const key of Object.keys(UNIFORM_MAP) as (keyof ShaderParams)[]) {
             paramUniforms[key] = gl.getUniformLocation(prog, UNIFORM_MAP[key]);
         }
 
@@ -613,11 +361,6 @@ export default function EventHorizonBackground() {
         window.addEventListener('pointermove', handleMouseMove);
 
         const handleClick = (e: MouseEvent) => {
-            const target = e.target;
-            if (target instanceof HTMLElement && target.closest('[data-shader-panel]')) {
-                return;
-            }
-
             const nx = e.clientX / window.innerWidth;
             const ny = 1 - (e.clientY / window.innerHeight);
             clicks.push({ x: nx, y: ny, t: 0, strength: 1 });
@@ -683,7 +426,7 @@ export default function EventHorizonBackground() {
             }
 
             // Push all params as uniforms
-            for (const key of Object.keys(paramUniforms) as (keyof Params)[]) {
+            for (const key of Object.keys(paramUniforms) as (keyof ShaderParams)[]) {
                 const loc = paramUniforms[key];
                 if (loc) gl!.uniform1f(loc, p[key]);
             }
@@ -719,113 +462,11 @@ export default function EventHorizonBackground() {
     }, []);
 
     return (
-        <>
-            <canvas
-                ref={canvasRef}
-                className="fixed inset-0 w-full h-full"
-                style={{ zIndex: 0, pointerEvents: 'none' }}
-                aria-hidden="true"
-            />
-
-            {/* Toggle button */}
-            <button
-                type="button"
-                onClick={() => setPanelOpen(v => !v)}
-                className={`fixed bottom-4 left-4 z-50 w-9 h-9 rounded-lg grid place-items-center border transition-colors ${
-                    panelOpen
-                        ? 'bg-accent-cyan/15 border-accent-cyan/40 text-accent-cyan'
-                        : 'bg-industrial-surface/80 border-industrial-border text-industrial-muted hover:text-industrial-text'
-                }`}
-                title="Shader tweaks"
-            >
-                <Settings size={16} />
-            </button>
-
-            {/* Control panel */}
-            {panelOpen && (
-                <div
-                    data-shader-panel
-                    className="fixed bottom-14 left-4 z-50 w-72 max-h-[calc(100vh-120px)] overflow-y-auto hmi-scrollbar rounded-xl border border-industrial-border bg-industrial-surface/90 backdrop-blur-xl shadow-2xl"
-                    style={{ pointerEvents: 'auto' }}
-                >
-                    {/* Header */}
-                    <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-industrial-border bg-industrial-surface/95 backdrop-blur-sm rounded-t-xl">
-                        <span className="text-xs font-mono uppercase tracking-widest text-industrial-muted">
-                            Shader Tweaks
-                        </span>
-                        <button
-                            type="button"
-                            onClick={resetAll}
-                            className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-industrial-muted hover:text-accent-cyan transition-colors"
-                            title="Reset all to defaults"
-                        >
-                            <RotateCcw size={12} />
-                            Reset
-                        </button>
-                    </div>
-
-                    <div className="p-3 space-y-1">
-                        {SECTIONS.map(section => {
-                            const isCollapsed = collapsed[section.title];
-                            const isEnabled = section.toggleKey ? params[section.toggleKey] > 0.5 : true;
-
-                            return (
-                                <div key={section.title} className="rounded-lg">
-                                    {/* Section header */}
-                                    <div className="flex items-center gap-2 px-2 py-1.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleSection(section.title)}
-                                            className="text-industrial-muted hover:text-industrial-text transition-colors"
-                                        >
-                                            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                                        </button>
-                                        <span
-                                            className={`flex-1 text-xs font-mono uppercase tracking-wider cursor-pointer ${
-                                                isEnabled ? 'text-industrial-text' : 'text-industrial-muted'
-                                            }`}
-                                            onClick={() => toggleSection(section.title)}
-                                        >
-                                            {section.title}
-                                        </span>
-                                        {section.toggleKey && (
-                                            <Toggle
-                                                value={isEnabled}
-                                                onChange={v => updateParam(section.toggleKey!, v ? 1 : 0)}
-                                            />
-                                        )}
-                                    </div>
-
-                                    {/* Section body */}
-                                    {!isCollapsed && section.controls.length > 0 && (
-                                        <div className={`px-2 pb-2 space-y-2 ${!isEnabled ? 'opacity-30 pointer-events-none' : ''}`}>
-                                            {section.controls.map(ctrl => (
-                                                <div key={ctrl.key} className="space-y-0.5">
-                                                    <div className="flex justify-between text-[11px]">
-                                                        <span className="text-industrial-muted">{ctrl.label}</span>
-                                                        <span className="font-mono text-industrial-muted/70 tabular-nums">
-                                                            {params[ctrl.key].toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                    <input
-                                                        type="range"
-                                                        min={ctrl.min}
-                                                        max={ctrl.max}
-                                                        step={ctrl.step}
-                                                        value={params[ctrl.key]}
-                                                        onChange={e => updateParam(ctrl.key, parseFloat(e.target.value))}
-                                                        className="w-full h-1 appearance-none rounded-full bg-white/8 accent-accent-cyan cursor-pointer [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:bg-accent-cyan [&::-webkit-slider-thumb]:shadow-[0_0_6px_rgba(34,211,238,0.4)]"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-        </>
+        <canvas
+            ref={canvasRef}
+            className="fixed inset-0 w-full h-full"
+            style={{ zIndex: 0, pointerEvents: 'none' }}
+            aria-hidden="true"
+        />
     );
 }

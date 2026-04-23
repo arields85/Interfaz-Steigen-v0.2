@@ -215,7 +215,7 @@ export default function HeaderWidgetRenderer({
                                 }}
                                 aria-hidden="true"
                             />
-                            <span className="text-[11px] font-normal tracking-normal text-industrial-muted font-[family-name:var(--font-mono)] leading-none">{relativeTime || '—'}</span>
+                            <span className="text-[11px] font-normal tracking-normal text-industrial-muted font-[family-name:var(--font-mono)] leading-none" style={{ fontWeight: 'var(--font-weight-mono)' }}>{relativeTime || '—'}</span>
                         </div>
                     ) : null}
                 </div>
@@ -228,7 +228,7 @@ export default function HeaderWidgetRenderer({
             <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">
                 Widget no soportado en header
             </span>
-            <span className="text-[9px] font-mono text-industrial-muted/60">
+            <span className="text-[9px] font-mono text-industrial-muted/60" style={{ fontWeight: 'var(--font-weight-mono)' }}>
                 {widget.type}
             </span>
         </div>

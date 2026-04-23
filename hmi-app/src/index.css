@@ -25,6 +25,70 @@
 }
 
 @font-face {
+  font-family: "SpaceGrotesk";
+  src: url("./assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpaceGrotesk";
+  src: url("./assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpaceGrotesk";
+  src: url("./assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpaceGrotesk";
+  src: url("./assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono";
+  src: url("./assets/fonts/JetBrainsMono-Variable.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono";
+  src: url("./assets/fonts/JetBrainsMono-Variable.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono";
+  src: url("./assets/fonts/JetBrainsMono-Variable.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono";
+  src: url("./assets/fonts/JetBrainsMono-Variable.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "AtkinsonHyperlegible";
   src: url("./assets/fonts/AtkinsonHyperlegible-Regular.ttf") format("truetype");
   font-weight: normal;
@@ -104,6 +168,46 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Magistral";
+  src: url("./assets/fonts/Magistral-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Magistral";
+  src: url("./assets/fonts/Magistral-Book.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Magistral";
+  src: url("./assets/fonts/Magistral-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Magistral";
+  src: url("./assets/fonts/Magistral-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Magistral";
+  src: url("./assets/fonts/Magistral-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --color-industrial-bg: #05070a;
   --color-industrial-surface: #0e1117;
@@ -164,6 +268,13 @@
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "IBMPlexMono", monospace;
   --font-chart: "IBMPlexMono", monospace;
+  --font-dashboard-title: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-widget-value: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-weight-sans: 400;
+  --font-weight-mono: 400;
+  --font-weight-chart: 400;
+  --font-weight-dashboard-title: 900;
+  --font-weight-widget-value: 900;
   --widget-spacing: 0.5rem;
 
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -188,6 +299,7 @@
     background-color: var(--color-industrial-bg);
     color: var(--color-industrial-text);
     font-family: var(--font-sans);
+    font-weight: var(--font-weight-sans);
     letter-spacing: -0.01em;
   }
 

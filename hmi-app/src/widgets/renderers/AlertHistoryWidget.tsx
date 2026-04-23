@@ -319,7 +319,7 @@ function AlertEntryRow({ entry }, ref) {
                     />
                     <span
                         className="text-[9px] font-mono"
-                        style={{ color: 'var(--color-industrial-muted)' }}
+                        style={{ color: 'var(--color-industrial-muted)', fontWeight: 'var(--font-weight-mono)' }}
                     >
                         Valor: {typeof entry.value === 'number' && entry.value % 1 !== 0
                             ? entry.value.toFixed(2)

@@ -6,6 +6,7 @@ interface AdminDialogProps {
     onClose: () => void;
     children: ReactNode;
     actions: ReactNode;
+    maxWidth?: string;
 }
 
 export default function AdminDialog({
@@ -14,6 +15,7 @@ export default function AdminDialog({
     onClose,
     children,
     actions,
+    maxWidth = 'max-w-md',
 }: AdminDialogProps) {
     useEffect(() => {
         if (!open) return;
@@ -46,7 +48,7 @@ export default function AdminDialog({
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className="w-full max-w-md rounded-xl border border-white/10 bg-industrial-surface p-6 shadow-2xl"
+                className={`w-full ${maxWidth} rounded-xl border border-white/10 bg-industrial-surface p-6 shadow-2xl`}
             >
                 <h3 className="text-sm font-black uppercase tracking-widest text-white">{title}</h3>
                 <div className="mt-4 space-y-4">{children}</div>

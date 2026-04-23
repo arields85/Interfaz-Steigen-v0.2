@@ -212,7 +212,7 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-6xl font-black text-white leading-none tracking-tighter mb-1">{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                <span className="text-6xl text-white leading-none tracking-tighter mb-1" style={{ fontFamily: 'var(--font-widget-value)', fontWeight: 'var(--font-weight-widget-value)' }}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
                 {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
             </div>
         </div>
@@ -233,7 +233,7 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
     return (
         <div className="flex flex-col w-full h-full justify-center px-2">
             <div className="flex items-end gap-2 mb-3">
-                <span className="text-6xl font-black text-white leading-none tracking-tighter">{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                <span className="text-6xl text-white leading-none tracking-tighter" style={{ fontFamily: 'var(--font-widget-value)', fontWeight: 'var(--font-weight-widget-value)' }}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
                 {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
             </div>
             

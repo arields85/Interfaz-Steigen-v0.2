@@ -311,7 +311,7 @@ export default function NodeTypeConfigDialog({
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-widest text-white">{type.label || 'Nuevo tipo'}</p>
-                                            <p className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>key: {getDisplayKey(type, index)}</p>
+                                            <p className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>key: {getDisplayKey(type, index)}</p>
                                         </div>
                                     </div>
 
@@ -333,7 +333,7 @@ export default function NodeTypeConfigDialog({
                                             onBlur={() => handleLabelBlur(index)}
                                             className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
                                         />
-                                        <p className={`mt-1 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>
+                                        <p className={`mt-1 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>
                                             key: {getDisplayKey(type, index)}
                                         </p>
                                     </div>

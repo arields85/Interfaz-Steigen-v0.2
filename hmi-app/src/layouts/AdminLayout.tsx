@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, Settings } from 'lucide-react';
-import NodeRedSettingsDialog from '../components/admin/NodeRedSettingsDialog';
+import GlobalSettingsDialog from '../components/admin/GlobalSettingsDialog';
 import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation';
 
 // =============================================================================
@@ -49,9 +49,9 @@ export default function AdminLayout() {
 
                 <div className="flex items-center gap-4">
                     <button
-                        aria-label="Configurar Node-RED"
+                        aria-label="Configuracion general"
                         className="h-8 w-8 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
-                        title="Configurar Node-RED"
+                        title="Configuracion general"
                         type="button"
                         onClick={() => setIsNodeRedSettingsOpen(true)}
                     >
@@ -78,7 +78,7 @@ export default function AdminLayout() {
             </main>
 
             {isNodeRedSettingsOpen && (
-                <NodeRedSettingsDialog
+                <GlobalSettingsDialog
                     open={isNodeRedSettingsOpen}
                     onClose={() => setIsNodeRedSettingsOpen(false)}
                 />

@@ -193,7 +193,7 @@ export default function AlertsPage() {
                                     <p className="text-xs text-industrial-muted">{alert.description}</p>
                                 )}
                                 {alert.source && (
-                                    <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mt-1">
+                                    <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mt-1" style={{ fontWeight: 'var(--font-weight-mono)' }}>
                                         Fuente: {alert.source}
                                     </p>
                                 )}

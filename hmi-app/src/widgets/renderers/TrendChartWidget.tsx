@@ -246,8 +246,8 @@ function TrendChartSvg({
                             textAnchor="end"
                             fill={color}
                             fontSize={9}
-                            fontWeight={800}
                             fontFamily="var(--font-chart)"
+                            fontWeight="var(--font-weight-chart)"
                         >
                             {t.label || (t.severity === 'critical' ? 'CRIT' : 'WARN')}
                         </text>
@@ -316,7 +316,7 @@ function TrendChartSvg({
                             fill={TOKEN.muted}
                             fontSize={10}
                             fontFamily="var(--font-chart)"
-                            fontWeight={600}
+                            fontWeight="var(--font-weight-chart)"
                         >
                             {item.time}
                         </text>
@@ -334,7 +334,7 @@ function TrendChartSvg({
                     fill={TOKEN.muted}
                     fontSize={10}
                     fontFamily="var(--font-chart)"
-                    fontWeight={600}
+                    fontWeight="var(--font-weight-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>

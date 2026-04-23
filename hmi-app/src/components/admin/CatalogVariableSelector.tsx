@@ -80,7 +80,7 @@ export default function CatalogVariableSelector({
                     {selectedVariable ? (
                         <>
                             <span className="truncate">{selectedVariable.name}</span>
-                            <span className={`shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>
+                            <span className={`shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>
                                 {selectedVariable.unit}
                             </span>
                         </>

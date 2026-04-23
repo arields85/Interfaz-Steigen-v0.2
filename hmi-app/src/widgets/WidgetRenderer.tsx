@@ -159,7 +159,7 @@ function UnsupportedWidget({ type, title }: { type: string; title?: string }) {
             <span className="text-[9px] font-black uppercase tracking-widest text-industrial-muted">
                 Widget no implementado
             </span>
-            <span className="text-xs text-industrial-muted font-mono">
+            <span className="text-xs text-industrial-muted font-mono" style={{ fontWeight: 'var(--font-weight-mono)' }}>
                 type: {type}
             </span>
             {title && (

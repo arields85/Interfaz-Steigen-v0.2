@@ -344,7 +344,7 @@ function ProdHistoryBarsSvg({
                 fill={TOKEN.muted}
                 fontSize={9}
                 fontFamily="var(--font-chart)"
-                fontWeight={700}
+                fontWeight="var(--font-weight-chart)"
                 opacity={0.8}
             >
                 {productionUnit}
@@ -479,7 +479,7 @@ function ProdHistoryBarsSvg({
                             fill={TOKEN.muted}
                             fontSize={10}
                             fontFamily="var(--font-chart)"
-                            fontWeight={600}
+                            fontWeight="var(--font-weight-chart)"
                         >
                             {item.label}
                         </text>
@@ -497,7 +497,7 @@ function ProdHistoryBarsSvg({
                     fill={TOKEN.muted}
                     fontSize={10}
                     fontFamily="var(--font-chart)"
-                    fontWeight={600}
+                    fontWeight="var(--font-weight-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>
@@ -513,7 +513,7 @@ function ProdHistoryBarsSvg({
                     fill={TOKEN.muted}
                     fontSize={10}
                     fontFamily="var(--font-chart)"
-                    fontWeight={600}
+                    fontWeight="var(--font-weight-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>

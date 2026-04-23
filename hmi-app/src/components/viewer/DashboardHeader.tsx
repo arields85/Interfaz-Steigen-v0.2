@@ -207,14 +207,14 @@ export default function DashboardHeader({
         <div className="flex justify-between items-end gap-6 shrink-0">
             <div className="min-w-0 flex-1">
                 {isEditablePreview ? (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5" style={{ fontFamily: 'var(--font-dashboard-title)', fontWeight: 'var(--font-weight-dashboard-title)' }}>
                         <InlineEditableText
                             value={title}
                             placeholder="Título del header"
                             onCommit={(value) => onTitleChange?.(value)}
-                            className="text-5xl font-black tracking-tight text-industrial-text leading-none"
+                            className="text-5xl tracking-tight text-industrial-text leading-none"
                             emptyClassName="text-industrial-muted/60"
-                            inputClassName="w-full min-w-[20rem] bg-transparent text-5xl font-black tracking-tight text-industrial-text leading-none border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
+                            inputClassName="w-full min-w-[20rem] bg-transparent text-5xl tracking-tight text-industrial-text leading-none border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
                         />
                         <InlineEditableText
                             value={headerConfig?.subtitle}
@@ -229,7 +229,7 @@ export default function DashboardHeader({
                     </div>
                 ) : (
                     <>
-                        <h1 className="text-5xl font-black tracking-tight text-industrial-text mb-1 leading-none">
+                        <h1 className="text-5xl tracking-tight text-industrial-text mb-1 leading-none" style={{ fontFamily: 'var(--font-dashboard-title)', fontWeight: 'var(--font-weight-dashboard-title)' }}>
                             {title}
                         </h1>
                         {subtitle && (

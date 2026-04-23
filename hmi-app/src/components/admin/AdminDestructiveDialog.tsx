@@ -80,7 +80,7 @@ export default function AdminDestructiveDialog({
                             {affectedItems.map((item) => (
                                 <li key={item.id} className="flex items-center justify-between gap-3">
                                     <span className="truncate text-xs font-bold text-white">{item.name}</span>
-                                    <span className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>{item.id}</span>
+                                    <span className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>{item.id}</span>
                                 </li>
                             ))}
                         </ul>
