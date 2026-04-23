@@ -142,3 +142,4 @@ Consultá los documentos en `Directrices/` antes de tomar una decisión arquitec
 | [`Directrices/UI_Style_Guide_Design_System_Base_v1.md`](Directrices/UI_Style_Guide_Design_System_Base_v1.md) | Guía visual formal |
 | [`hmi-app/src/widgets/WIDGET_AUTHORING.md`](hmi-app/src/widgets/WIDGET_AUTHORING.md) | Cómo crear widgets nuevos |
 | [`hmi-app/src/components/admin/ADMIN_CONVENTIONS.md`](hmi-app/src/components/admin/ADMIN_CONVENTIONS.md) | Convenciones operativas del modo admin |
+| [`docs/SHADER_BACKGROUND.md`](docs/SHADER_BACKGROUND.md) | Arquitectura del fondo WebGL shader, efectos, compatibilidad, performance, gotchas |
