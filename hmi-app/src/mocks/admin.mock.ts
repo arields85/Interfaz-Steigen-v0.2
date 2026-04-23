@@ -99,7 +99,7 @@ export const mockDashboards: Dashboard[] = [
             },
             {
                 id: 'w-hdr-conn',
-                type: 'connection-indicator',
+                type: 'connection-status',
                 title: 'CONEXIÓN',
                 position: { x: 0, y: 0 },
                 size: { w: 1, h: 1 },

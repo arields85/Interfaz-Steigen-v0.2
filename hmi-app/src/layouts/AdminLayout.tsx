@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
+import NodeRedSettingsDialog from '../components/admin/NodeRedSettingsDialog';
 import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation';
 
 // =============================================================================
@@ -14,6 +16,7 @@ import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation'
 export default function AdminLayout() {
     const location = useLocation();
     const activeSectionKey = getAdminSectionByPath(location.pathname)?.key;
+    const [isNodeRedSettingsOpen, setIsNodeRedSettingsOpen] = useState(false);
 
     return (
         <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-industrial-bg font-sans text-industrial-text">
@@ -45,6 +48,15 @@ export default function AdminLayout() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    <button
+                        aria-label="Configurar Node-RED"
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
+                        title="Configurar Node-RED"
+                        type="button"
+                        onClick={() => setIsNodeRedSettingsOpen(true)}
+                    >
+                        <Settings size={14} />
+                    </button>
                     <span className="text-xs font-bold text-admin-accent/80 flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-admin-accent animate-pulse" />
                         SESIÓN ADMIN ACTIVA
@@ -64,6 +76,13 @@ export default function AdminLayout() {
             <main className="flex-1 min-h-0 overflow-hidden relative">
                 <Outlet />
             </main>
+
+            {isNodeRedSettingsOpen && (
+                <NodeRedSettingsDialog
+                    open={isNodeRedSettingsOpen}
+                    onClose={() => setIsNodeRedSettingsOpen(false)}
+                />
+            )}
             
         </div>
     );

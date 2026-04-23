@@ -1,56 +1,156 @@
-import { PlugZap, Unplug } from 'lucide-react';
+import { CircleHelp, Wifi, WifiOff, WifiSync, type LucideIcon } from 'lucide-react';
 import type { ConnectionStatusDisplayOptions, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
-import ConnectionStatusBadge from '../../components/ui/ConnectionStatusBadge';
-import WidgetCenteredContentLayout from '../../components/ui/WidgetCenteredContentLayout';
+import type { ContractMachine, ContractStatus, ConnectionHealth } from '../../domain/dataContract.types';
 import WidgetHeader from '../../components/ui/WidgetHeader';
 import {
-    normalizeSimulatedConnectionStatus,
-    resolveConnectionStatusLabel,
+    formatConnectionFreshness,
+    normalizeSimulatedToContractStatus,
+    resolveContractStatusLabel,
 } from '../../utils/connectionWidget';
+
+// =============================================================================
+// ConnectionStatusWidget
+// Widget unificado de estado de conexión con soporte para dos scopes:
+//
+//   scope = 'global'  → "¿La HMI está pudiendo hablar con la capa de datos?"
+//   scope = 'machine' → "¿La capa de datos está pudiendo leer esta máquina?"
+//
+// Consume datos del contrato oficial (connection + machines).
+// No calcula health — solo lee y renderiza.
+//
+// Estados visuales: online (verde), degradado (amarillo), offline (rojo), unknown (gris)
+//
+// Contrato oficial: docs/DATA_CONTRACT.md
+// =============================================================================
 
 interface ConnectionStatusWidgetProps {
     widget: WidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
+    connection?: ConnectionHealth;
     className?: string;
 }
+
+// --- Visual config por estado ---
+
+interface StatusVisualConfig {
+    icon: LucideIcon;
+    iconColor: string;
+    dotClass: string;
+}
+
+const STATUS_VISUAL: Record<ContractStatus, StatusVisualConfig> = {
+    online: {
+        icon: Wifi,
+        iconColor: 'var(--color-status-normal)',
+        dotClass: 'bg-status-normal animate-pulse-slow led-glow-green',
+    },
+    degradado: {
+        icon: WifiSync,
+        iconColor: 'var(--color-status-warning)',
+        dotClass: 'bg-status-warning animate-pulse-medium led-glow-amber',
+    },
+    offline: {
+        icon: WifiOff,
+        iconColor: 'var(--color-status-critical)',
+        dotClass: 'bg-status-critical animate-pulse-fast led-glow-red',
+    },
+    unknown: {
+        icon: CircleHelp,
+        iconColor: 'var(--color-industrial-muted)',
+        dotClass: 'bg-industrial-muted',
+    },
+};
+
+// --- Component ---
 
 export default function ConnectionStatusWidget({
     widget,
     equipmentMap,
+    machines,
+    connection,
     className,
 }: ConnectionStatusWidgetProps) {
-    const options = (widget.displayOptions as ConnectionStatusDisplayOptions | undefined);
-
+    const options = widget.displayOptions as ConnectionStatusDisplayOptions | undefined;
+    const scope = options?.scope ?? 'global';
+    const machineId = options?.machineId;
     const binding = widget.binding;
-    const isConnected = binding?.mode === 'simulated_value'
-        ? normalizeSimulatedConnectionStatus(binding.simulatedValue)
-        : (() => {
-            const assetId = binding?.assetId;
-            const equipment = assetId ? equipmentMap.get(assetId) : undefined;
-            return equipment?.connectionState === 'online';
-        })();
 
-    const statusLabel = resolveConnectionStatusLabel(isConnected, options);
-    const icon = isConnected ? PlugZap : Unplug;
-    const iconColor = isConnected ? 'var(--color-status-normal)' : 'var(--color-industrial-muted)';
+    // --- Resolve status + time ---
+
+    let status: ContractStatus = 'unknown';
+    let lastSuccess: string | null = null;
+    let ageMs: number | null = null;
+
+    if (binding?.mode === 'simulated_value') {
+        // Simulated mode — status from config value
+        status = normalizeSimulatedToContractStatus(binding.simulatedValue);
+    } else if (scope === 'machine') {
+        // Machine scope — find by unitId
+        if (machineId != null && machines) {
+            const machine = machines.find((m) => m.unitId === machineId);
+            if (machine) {
+                status = machine.status;
+                lastSuccess = machine.lastSuccess;
+                ageMs = machine.ageMs;
+            }
+        }
+    } else {
+        // Global scope (default)
+        if (connection) {
+            status = connection.globalStatus;
+            lastSuccess = connection.lastSuccess;
+            ageMs = connection.ageMs;
+        }
+    }
+
+    const visual = STATUS_VISUAL[status];
+    const label = resolveContractStatusLabel(status, options);
+    const Icon = visual.icon;
+
+    const showLastUpdate = options?.showLastUpdate !== false;
+    const relativeTime = formatConnectionFreshness(ageMs, lastSuccess);
+    const title = widget.title?.trim() ?? '';
+    const hasTitle = title.trim().length > 0;
 
     return (
-        <div className={`p-5 glass-panel group w-full h-full ${className ?? ''}`}>
-            <WidgetCenteredContentLayout
-                header={(
-                    <WidgetHeader
-                        title={widget.title ?? 'Estado'}
-                        icon={icon}
-                        iconColor={iconColor}
+        <div className={`glass-panel group flex h-full w-full flex-col p-5 ${className ?? ''}`}>
+            {hasTitle ? (
+                <WidgetHeader
+                    title={title}
+                    icon={visual.icon}
+                    iconPosition="centered"
+                    iconColor={visual.iconColor}
+                    iconTestId={`connection-status-icon-${status}`}
+                    alignment="none"
+                    className="w-full"
+                />
+            ) : null}
+
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+                {hasTitle ? null : (
+                    <Icon
+                        size={24}
+                        strokeWidth={2}
+                        className="shrink-0 mb-2"
+                        style={{ color: visual.iconColor }}
+                        data-testid={`connection-status-icon-${status}`}
+                        aria-hidden="true"
                     />
                 )}
-            >
-                <ConnectionStatusBadge
-                    isConnected={isConnected}
-                    label={statusLabel}
-                />
-            </WidgetCenteredContentLayout>
+
+                <span className="text-[10px] font-black uppercase tracking-normal text-industrial-muted">
+                    {label}
+                </span>
+
+                {showLastUpdate ? (
+                    <div className="mt-0.5 flex items-center justify-center gap-1.5">
+                        <span className={`h-2 w-2 shrink-0 rounded-full -translate-y-px ${visual.dotClass}`} aria-hidden="true" />
+                        <span className="text-[11px] font-normal tracking-normal text-industrial-muted font-[family-name:var(--font-mono)] leading-none">{relativeTime || '—'}</span>
+                    </div>
+                ) : null}
+            </div>
         </div>
     );
 }

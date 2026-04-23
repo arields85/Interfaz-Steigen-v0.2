@@ -1,4 +1,4 @@
-import { Activity, BarChart2, Gauge, History, LineChart, PlugZap, TrendingUp, Wifi } from 'lucide-react';
+import { Activity, BarChart2, Gauge, History, LineChart, PlugZap, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WidgetType } from '../../domain/admin.types';
 
@@ -16,10 +16,8 @@ const ACTIONS: RailAction[] = [
     { type: 'kpi', label: 'Indicador (KPI)', icon: Gauge },
     { type: 'metric-card', label: 'Tarjeta de Métrica', icon: BarChart2 },
     { type: 'trend-chart', label: 'Gráfico de Tendencia', icon: TrendingUp },
-    { type: 'oee-production-trend', label: 'OEE vs Producción', icon: LineChart },
     { type: 'prod-history', label: 'Producción Histórica', icon: LineChart },
     { type: 'status', label: 'Estado de Equipo', icon: Activity },
-    { type: 'connection-indicator', label: 'Indicador de Conexión', icon: Wifi },
     { type: 'connection-status', label: 'Estado de Conexión', icon: PlugZap },
     { type: 'alert-history', label: 'Histórico de Alertas', icon: History },
 ];

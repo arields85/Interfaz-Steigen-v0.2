@@ -130,6 +130,32 @@ export interface Dashboard {
     publishedSnapshot?: PublishedSnapshot;
 }
 
+/**
+ * Opciones de visualización unificadas para widgets de conexión.
+ *
+ * Soporta dos modos de alcance:
+ * - `scope: 'global'`  → estado global de conexión con la capa de datos
+ * - `scope: 'machine'` → estado de una máquina específica (requiere `machineId`)
+ *
+ * Labels personalizables por estado del contrato oficial.
+ * `showLastUpdate` controla la visibilidad del footer de tiempo relativo.
+ */
+export interface ConnectionStatusDisplayOptions {
+    scope?: 'global' | 'machine';
+    machineId?: number;
+    onlineText?: string;
+    degradadoText?: string;
+    offlineText?: string;
+    unknownText?: string;
+    showLastUpdate?: boolean;
+    /** @deprecated Legacy — usar onlineText/offlineText */
+    connectedText?: string;
+    /** @deprecated Legacy — usar onlineText/offlineText */
+    disconnectedText?: string;
+}
+
+
+
 export interface WidgetLayout {
     widgetId: string;
     x: number;
@@ -147,13 +173,11 @@ export type WidgetType =
     | 'badge'
     | 'sparkline'
     | 'trend-chart'
-    | 'oee-production-trend'
     | 'prod-history'
     | 'table'
     | 'alert-list'
     | 'alert-history'
     | 'text-summary'
-    | 'connection-indicator'
     | 'connection-status'
     | 'multi-metric'
     | 'ai-summary'
@@ -190,6 +214,10 @@ export interface WidgetBinding {
     lastKnownValueAllowed?: boolean;
     staleTimeout?: number;   // segundos antes de considerar el dato como stale
     simulatedValue?: number | string | boolean;
+    /** Node-RED machine unitId. Present when bindingVersion = 'node-red-v1'. */
+    machineId?: number;
+    /** Binding version discriminator. undefined = legacy, 'node-red-v1' = Node-RED. */
+    bindingVersion?: 'node-red-v1' | 'real-variable-v1';
 }
 
 export interface ThresholdRule {
@@ -283,39 +311,6 @@ export interface AlertHistoryDisplayOptions {
 }
 
 /**
- * Opciones de visualización para widgets de tipo 'connection-status'.
- *
- * - `connectedText`: copy mostrado cuando el estado resuelto es conectado.
- * - `disconnectedText`: copy mostrado cuando el estado resuelto es desconectado.
- */
-export interface ConnectionStatusDisplayOptions {
-    connectedText?: string;
-    disconnectedText?: string;
-}
-
-/**
- * Opciones de visualización para widgets de tipo 'connection-indicator'.
- *
- * Permite personalizar los labels de cada uno de los 5 estados de conexión
- * y controlar si se muestra el tiempo de última actualización.
- *
- * - `onlineText`:    label para estado 'online'    (default: 'Online')
- * - `degradedText`:  label para estado 'degraded'  (default: 'Degradado')
- * - `staleText`:     label para estado 'stale'     (default: 'Dato desactualizado')
- * - `offlineText`:   label para estado 'offline'   (default: 'Sin señal')
- * - `unknownText`:   label para estado 'unknown'   (default: 'Sin datos de conexión')
- * - `showLastUpdate`: si true, muestra el tiempo relativo de última actualización.
- */
-export interface ConnectionIndicatorDisplayOptions {
-    onlineText?: string;
-    degradedText?: string;
-    staleText?: string;
-    offlineText?: string;
-    unknownText?: string;
-    showLastUpdate?: boolean;
-}
-
-/**
  * Opciones de visualización para widgets de tipo 'status'.
  *
  * Permite personalizar el label visible para cada estado operativo del equipo.
@@ -328,26 +323,6 @@ export interface StatusDisplayOptions {
     offlineText?: string;
     maintenanceText?: string;
     unknownText?: string;
-}
-
-/**
- * Opciones de visualización para widgets de tipo 'oee-production-trend'.
- *
- * Replica visual del gráfico OEE vs Producción de la página Tendencias.
- * Dos series: OEE (%) en eje izquierdo y Volumen/Producción en eje derecho.
- *
- * - `oeeLabel`:         label para la serie OEE en la leyenda (default: 'OEE (%)')
- * - `productionLabel`:  label para la serie de producción (default: 'Volumen (k)')
- * - `chartTitle`:       sobreescribe el título del gráfico (default: 'TENDENCIA HISTÓRICA: OEE vs PRODUCCIÓN')
- * - `volumeChartMode`:  modo de visualización del volumen de producción:
- *                       - `'area'`  (default): área rellena, igual que OEE
- *                       - `'bars'`: barras con gradiente oscuro y tope luminoso (estilo industrial)
- */
-export interface OeeProductionTrendDisplayOptions {
-    oeeLabel?: string;
-    productionLabel?: string;
-    chartTitle?: string;
-    volumeChartMode?: 'area' | 'bars';
 }
 
 export type TemporalBucket = 'hour' | 'shift' | 'day' | 'month';
@@ -491,11 +466,6 @@ export interface TrendChartWidgetConfig extends WidgetConfigBase {
     displayOptions?: TrendChartDisplayOptions;
 }
 
-export interface OeeProductionTrendWidgetConfig extends WidgetConfigBase {
-    type: 'oee-production-trend';
-    displayOptions?: OeeProductionTrendDisplayOptions;
-}
-
 export interface ProdHistoryWidgetConfig extends WidgetConfigBase {
     type: 'prod-history';
     displayOptions?: ProdHistoryDisplayOptions;
@@ -511,11 +481,6 @@ export interface ConnectionStatusWidgetConfig extends WidgetConfigBase {
     displayOptions?: ConnectionStatusDisplayOptions;
 }
 
-export interface ConnectionIndicatorWidgetConfig extends WidgetConfigBase {
-    type: 'connection-indicator';
-    displayOptions?: ConnectionIndicatorDisplayOptions;
-}
-
 export interface StatusWidgetConfig extends WidgetConfigBase {
     type: 'status';
     displayOptions?: StatusDisplayOptions;
@@ -523,7 +488,7 @@ export interface StatusWidgetConfig extends WidgetConfigBase {
 
 /** Variante genérica para todos los tipos de widget sin displayOptions específicos. */
 export interface GenericWidgetConfig extends WidgetConfigBase {
-    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'oee-production-trend' | 'prod-history' | 'alert-history' | 'connection-status' | 'connection-indicator' | 'status'>;
+    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status'>;
     displayOptions?: BaseDisplayOptions;
 }
 
@@ -535,11 +500,9 @@ export type WidgetConfig =
     | KpiWidgetConfig
     | MetricCardWidgetConfig
     | TrendChartWidgetConfig
-    | OeeProductionTrendWidgetConfig
     | ProdHistoryWidgetConfig
     | AlertHistoryWidgetConfig
     | ConnectionStatusWidgetConfig
-    | ConnectionIndicatorWidgetConfig
     | StatusWidgetConfig
     | GenericWidgetConfig;
 

@@ -3,6 +3,7 @@ import { Copy, Trash2, ArrowUp, LayoutDashboard } from 'lucide-react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine, ConnectionHealth } from '../../domain/dataContract.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import GridSelectionFrame from '../ui/GridSelectionFrame';
 import WidgetHoverActions from '../ui/WidgetHoverActions';
@@ -28,6 +29,8 @@ interface BuilderCanvasProps {
     widgets: WidgetConfig[];
     layout: WidgetLayout[];
     equipmentMap: Map<string, EquipmentSummary>;
+    connection?: ConnectionHealth;
+    machines?: ContractMachine[];
     hierarchyContext?: HierarchyContext;
     onWidgetSelect?: (widgetId: string) => void;
     selectedWidgetId?: string;
@@ -129,6 +132,8 @@ export default function BuilderCanvas({
     widgets,
     layout,
     equipmentMap,
+    connection,
+    machines,
     hierarchyContext,
     onWidgetSelect,
     selectedWidgetId,
@@ -532,6 +537,8 @@ export default function BuilderCanvas({
                                     <WidgetRenderer
                                         widget={widget}
                                         equipmentMap={equipmentMap}
+                                        connection={connection}
+                                        machines={machines}
                                         isLoadingData={false}
                                         siblingWidgets={widgets}
                                         hierarchyContext={hierarchyContext}

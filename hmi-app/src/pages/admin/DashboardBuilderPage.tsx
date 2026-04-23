@@ -9,7 +9,7 @@ import { templateStorage } from '../../services/TemplateStorageService';
 import { variableCatalogStorage } from '../../services/VariableCatalogStorageService';
 import { mockEquipmentList } from '../../mocks/equipment.mock';
 import type { CatalogVariable } from '../../domain';
-import type { Dashboard, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, Template, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
+import type { Dashboard, DashboardAspect, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, Template, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import { getDashboardVisualStatus } from '../../domain/admin.types';
 import type { EquipmentSummary, MetricValue } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
@@ -37,10 +37,8 @@ import {
 } from '../../utils/headerWidgets';
 import { createDefaultStatusDisplayOptions } from '../../utils/statusWidget';
 import {
-    createDefaultConnectionIndicatorDisplayOptions,
     createDefaultConnectionStatusDisplayOptions,
 } from '../../utils/connectionWidget';
-import { ADMIN_CONTEXT_BAR_LABEL_CLS } from '../../components/admin/adminSidebarStyles';
 import { getAncestors } from '../../utils/hierarchyTree';
 import { loadNodeTypeLabels, resolveTypeLabel } from '../../utils/nodeTypeLabels';
 import { migrateLegacyBindings } from '../../utils/catalogMigration';
@@ -49,6 +47,7 @@ import { planDashboardBoundsChange } from '../../utils/dashboardBoundsSettings';
 import { DEFAULT_COLS, DEFAULT_ROWS, isTemplateApplicable } from '../../utils/gridConfig';
 import { useUIStore } from '../../store/ui.store';
 import { buildTemplateAspectMismatchMessage, TemplateAspectMismatchError } from '../../utils/templateAspectMismatch';
+import { useDataOverview } from '../../queries/useDataOverview';
 
 // =============================================================================
 // DashboardBuilderPage
@@ -79,7 +78,7 @@ export default function DashboardBuilderPage() {
     const [dialogMessage, setDialogMessage] = useState<string | null>(null);
     const [variableDeletionState, setVariableDeletionState] = useState<VariableDeletionState | null>(null);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [builderViewport, setBuilderViewport] = useState({ width: 0, height: 0 });
+    const [, setBuilderViewport] = useState({ width: 0, height: 0 });
     const [pendingBoundsChange, setPendingBoundsChange] = useState<PendingBoundsChange | null>(null);
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
     const [, setNodeTypeLabelsVersion] = useState(0);
@@ -87,6 +86,13 @@ export default function DashboardBuilderPage() {
 
     const isGridVisible = useUIStore((state) => state.isGridVisible);
     const toggleGrid = useUIStore((state) => state.toggleGrid);
+    const {
+        connection,
+        machines,
+        isLoading: dataLoading,
+        isError: dataError,
+        isEnabled: dataEnabled,
+    } = useDataOverview();
 
     useEffect(() => {
         void loadNodeTypeLabels().then(() => {
@@ -695,7 +701,7 @@ export default function DashboardBuilderPage() {
             };
         };
 
-        const handleAssignWidgetToHeader = (widgetId: string, targetWidgetId?: string) => {
+        const handleAssignWidgetToHeader = (widgetId: string) => {
             const widget = draft.widgets.find(item => item.id === widgetId);
 
             if (!widget || !isHeaderCompatibleWidget(widget)) {
@@ -708,21 +714,15 @@ export default function DashboardBuilderPage() {
                 return;
             }
 
-            const targetIndex = targetWidgetId
-                ? currentSlots.findIndex(slot => slot.widgetId === targetWidgetId)
-                : -1;
+            const targetColumn = getFirstFreeHeaderSlot(new Set(currentSlots.map((slot, index) => slot.column ?? index)));
 
-            const nextSlots = [...currentSlots];
-
-            if (targetIndex >= 0) {
-                nextSlots.splice(targetIndex, 0, { widgetId });
-            } else {
-                nextSlots.push({ widgetId });
+            if (targetColumn === null) {
+                return;
             }
 
             handleUpdateHeaderConfig({
                 ...(draft.headerConfig ?? {}),
-                widgetSlots: nextSlots,
+                widgetSlots: [...currentSlots, { widgetId, column: targetColumn }],
             });
 
             setSelectedWidgetId(widgetId);
@@ -750,36 +750,34 @@ export default function DashboardBuilderPage() {
             });
         };
 
-        const handleReorderHeaderWidget = (widgetId: string, targetWidgetId?: string) => {
+        const handleMoveHeaderWidget = (widgetId: string, targetColumn: number) => {
             const currentSlots = draft.headerConfig?.widgetSlots ?? [];
-            const sourceSlot = currentSlots.find(slot => slot.widgetId === widgetId);
 
-            if (!sourceSlot) {
-                handleAssignWidgetToHeader(widgetId, targetWidgetId);
-                return;
-            }
+            const movingSlot = currentSlots.find(slot => slot.widgetId === widgetId);
+            if (!movingSlot) return;
 
-            if (!targetWidgetId) {
-                return;
-            }
+            const sourceColumn = movingSlot.column ?? currentSlots.indexOf(movingSlot);
+            if (sourceColumn === targetColumn) return;
 
-            const targetSlot = currentSlots.find(slot => slot.widgetId === targetWidgetId);
-            if (!targetSlot) return;
+            const occupyingSlot = currentSlots.find((slot) => (
+                (slot.column ?? currentSlots.indexOf(slot)) === targetColumn
+            ));
 
-            const sourceIdx = currentSlots.indexOf(sourceSlot);
-            const targetIdx = currentSlots.indexOf(targetSlot);
-            const sourceCol = sourceSlot.column ?? sourceIdx;
-            const targetCol = targetSlot.column ?? targetIdx;
+            const newSlots = currentSlots.map((slot) => {
+                if (slot.widgetId === widgetId) {
+                    return { ...slot, column: targetColumn };
+                }
 
-            const nextSlots = currentSlots.map(slot => {
-                if (slot.widgetId === widgetId) return { ...slot, column: targetCol };
-                if (slot.widgetId === targetWidgetId) return { ...slot, column: sourceCol };
+                if (occupyingSlot && slot.widgetId === occupyingSlot.widgetId) {
+                    return { ...slot, column: sourceColumn };
+                }
+
                 return slot;
             });
 
             handleUpdateHeaderConfig({
                 ...(draft.headerConfig ?? {}),
-                widgetSlots: nextSlots,
+                widgetSlots: newSlots,
             });
         };
 
@@ -875,10 +873,10 @@ export default function DashboardBuilderPage() {
                         ? {
                             id: newId,
                             type,
-                            title: 'Estado',
+                            title: 'Estado Conexión',
                             position: { x: 0, y: 0 },
                             size: { w: defaultWidth, h: defaultHeight },
-                            binding: { mode: 'simulated_value', simulatedValue: 1 },
+                            binding: { mode: 'simulated_value', simulatedValue: 'online' },
                             displayOptions: createDefaultConnectionStatusDisplayOptions(),
                         }
                         : type === 'status'
@@ -894,20 +892,7 @@ export default function DashboardBuilderPage() {
                                 },
                                 displayOptions: createDefaultStatusDisplayOptions(),
                             }
-                            : type === 'connection-indicator'
-                                ? {
-                                    id: newId,
-                                    type,
-                                    title: 'Conexión',
-                                    position: { x: 0, y: 0 },
-                                    size: { w: defaultWidth, h: defaultHeight },
-                                    binding: {
-                                        mode: 'simulated_value',
-                                        simulatedValue: 'online',
-                                    },
-                                    displayOptions: createDefaultConnectionIndicatorDisplayOptions(),
-                                }
-                                : {
+                            : {
                                     id: newId,
                                     type,
                                     title: `Nuevo ${type.replace('-', ' ')}`,
@@ -936,7 +921,7 @@ export default function DashboardBuilderPage() {
         };
 
         const handleAddHeaderWidgetFromSlot = (type: WidgetType, slotIndex: number) => {
-            if (type !== 'status' && type !== 'connection-indicator' && type !== 'connection-status') return;
+            if (type !== 'status' && type !== 'connection-status') return;
 
             const currentSlots = draft.headerConfig?.widgetSlots ?? [];
             if (currentSlots.length >= HEADER_WIDGET_SLOT_COUNT) return;
@@ -976,7 +961,7 @@ export default function DashboardBuilderPage() {
                             mode: 'simulated_value',
                             simulatedValue: 'online',
                         },
-                        displayOptions: createDefaultConnectionIndicatorDisplayOptions(),
+                        displayOptions: createDefaultConnectionStatusDisplayOptions(),
                     };
 
             setDraft(prev => {
@@ -1001,10 +986,30 @@ export default function DashboardBuilderPage() {
             if (!widget || !isHeaderCompatibleWidget(widget)) return;
 
             const currentSlots = draft.headerConfig?.widgetSlots ?? [];
-            if (currentSlots.some(slot => slot.widgetId === widgetId) || currentSlots.length >= HEADER_WIDGET_SLOT_COUNT) return;
+            const currentSlot = currentSlots.find(slot => slot.widgetId === widgetId);
+            const slotTakenByAnotherWidget = currentSlots.some((slot, index) => (
+                (slot.column ?? index) === slotIndex && slot.widgetId !== widgetId
+            ));
+
+            if (slotTakenByAnotherWidget) return;
+            if (!currentSlot && currentSlots.length >= HEADER_WIDGET_SLOT_COUNT) return;
 
             setIsHeaderDropActive(false);
             setDraggedWidget(null);
+
+            if (currentSlot) {
+                handleUpdateHeaderConfig({
+                    ...(draft.headerConfig ?? {}),
+                    widgetSlots: currentSlots.map((slot) => (
+                        slot.widgetId === widgetId
+                            ? { ...slot, column: slotIndex }
+                            : slot
+                    )),
+                });
+
+                setSelectedWidgetId(widgetId);
+                return;
+            }
 
             handleUpdateHeaderConfig({
                 ...(draft.headerConfig ?? {}),
@@ -1204,7 +1209,7 @@ export default function DashboardBuilderPage() {
                     ...nextDashboard,
                     widgets: nextDashboard.widgets.map((widget) => {
                         const currentCatalogVariableId = widget.binding?.catalogVariableId;
-                        if (!currentCatalogVariableId || !stagedIdMap.has(currentCatalogVariableId)) {
+                        if (!widget.binding || !currentCatalogVariableId || !stagedIdMap.has(currentCatalogVariableId)) {
                             return widget;
                         }
 
@@ -1364,6 +1369,11 @@ export default function DashboardBuilderPage() {
                 onUpdateWidget={handleUpdateWidget}
                 onUpdateLayout={handleUpdateLayout}
                 equipmentMap={equipmentMap}
+                machines={machines}
+                connection={connection}
+                dataLoading={dataLoading}
+                dataError={dataError}
+                dataEnabled={dataEnabled}
                 catalogVariables={allCatalogVariables}
                 usedCatalogVariableIds={usedCatalogVariableIds}
                 onCreateVariable={handleCreateVariable}
@@ -1382,6 +1392,8 @@ export default function DashboardBuilderPage() {
                             mode="preview"
                             dashboard={draft}
                             equipmentMap={equipmentMap}
+                            connection={connection}
+                            machines={machines}
                             hierarchyContext={hierarchyContext}
                             onTitleChange={handleHeaderTitleChange}
                             onSubtitleChange={handleHeaderSubtitleChange}
@@ -1395,7 +1407,7 @@ export default function DashboardBuilderPage() {
                             onHeaderDrop={handleHeaderDrop}
                             onRemoveHeaderWidget={handleRemoveWidgetFromHeader}
                             onDeleteHeaderWidget={handleDeleteWidget}
-                            onReorderHeaderWidget={handleReorderHeaderWidget}
+                            onMoveHeaderWidget={handleMoveHeaderWidget}
                             selectedWidgetId={selectedWidgetId}
                             onSelectHeaderWidget={setSelectedWidgetId}
                             isHeaderDropActive={isHeaderDropActive}
@@ -1414,6 +1426,8 @@ export default function DashboardBuilderPage() {
                             layout={draft.layout}
                             widgets={draft.widgets}
                             equipmentMap={equipmentMap}
+                            connection={connection}
+                            machines={machines}
                             hierarchyContext={hierarchyContext}
                             cols={draft.cols}
                             rows={draft.rows}

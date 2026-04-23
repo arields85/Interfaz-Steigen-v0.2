@@ -3,6 +3,7 @@ import { Folder, FolderOpen, Plus, Square, Trash2 } from 'lucide-react';
 import type { NodeTypeDefinition } from '../../services/NodeTypeStorageService';
 import { AVAILABLE_NODE_ICONS, DEFAULT_ICON_KEY, NODE_TYPE_COLOR_OPTIONS } from '../../utils/nodeTypeIcons';
 import {
+    ADMIN_SIDEBAR_HINT_CLS,
     ADMIN_SIDEBAR_INPUT_CLS,
     ADMIN_SIDEBAR_LABEL_CLS,
 } from './adminSidebarStyles';
@@ -310,7 +311,7 @@ export default function NodeTypeConfigDialog({
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-widest text-white">{type.label || 'Nuevo tipo'}</p>
-                                            <p className="font-mono text-[10px] text-industrial-muted">key: {getDisplayKey(type, index)}</p>
+                                            <p className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>key: {getDisplayKey(type, index)}</p>
                                         </div>
                                     </div>
 
@@ -332,7 +333,7 @@ export default function NodeTypeConfigDialog({
                                             onBlur={() => handleLabelBlur(index)}
                                             className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
                                         />
-                                        <p className="mt-1 font-mono text-[10px] text-industrial-muted">
+                                        <p className={`mt-1 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>
                                             key: {getDisplayKey(type, index)}
                                         </p>
                                     </div>

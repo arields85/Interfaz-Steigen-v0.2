@@ -2,6 +2,7 @@ import { Edit2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import type { Dashboard, WidgetType } from '../../domain/admin.types';
+import type { ConnectionHealth, ContractMachine } from '../../domain/dataContract.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import { getDashboardHeaderSubtitle, getDashboardHeaderTitle } from '../../utils/dashboardHeader';
@@ -110,6 +111,8 @@ interface DashboardHeaderViewerProps {
     mode?: 'viewer';
     dashboard: Dashboard;
     equipmentMap: Map<string, EquipmentSummary>;
+    connection?: ConnectionHealth;
+    machines?: ContractMachine[];
     onTitleChange?: never;
     onSubtitleChange?: never;
     onHeaderDragEnter?: never;
@@ -118,7 +121,7 @@ interface DashboardHeaderViewerProps {
     onHeaderDrop?: never;
     onRemoveHeaderWidget?: never;
     onDeleteHeaderWidget?: never;
-    onReorderHeaderWidget?: never;
+    onMoveHeaderWidget?: never;
     selectedWidgetId?: never;
     onSelectHeaderWidget?: never;
     isHeaderDropActive?: never;
@@ -132,6 +135,8 @@ interface DashboardHeaderPreviewProps {
     mode: 'preview';
     dashboard: Dashboard;
     equipmentMap: Map<string, EquipmentSummary>;
+    connection?: ConnectionHealth;
+    machines?: ContractMachine[];
     onTitleChange?: (value: string) => void;
     onSubtitleChange?: (value: string) => void;
     onHeaderDragEnter?: (event: DragEvent<HTMLDivElement>) => void;
@@ -140,7 +145,7 @@ interface DashboardHeaderPreviewProps {
     onHeaderDrop?: (event: DragEvent<HTMLDivElement>) => void;
     onRemoveHeaderWidget?: (widgetId: string) => void;
     onDeleteHeaderWidget?: (widgetId: string) => void;
-    onReorderHeaderWidget?: (widgetId: string, targetWidgetId?: string) => void;
+    onMoveHeaderWidget?: (widgetId: string, targetColumn: number) => void;
     selectedWidgetId?: string;
     onSelectHeaderWidget?: (widgetId: string) => void;
     isHeaderDropActive?: boolean;
@@ -158,6 +163,8 @@ export default function DashboardHeader({
     mode = 'viewer',
     dashboard,
     equipmentMap,
+    connection,
+    machines,
     onTitleChange,
     onSubtitleChange,
     onHeaderDragEnter,
@@ -166,7 +173,7 @@ export default function DashboardHeader({
     onHeaderDrop,
     onRemoveHeaderWidget,
     onDeleteHeaderWidget,
-    onReorderHeaderWidget,
+    onMoveHeaderWidget,
     selectedWidgetId,
     onSelectHeaderWidget,
     isHeaderDropActive,
@@ -241,10 +248,12 @@ export default function DashboardHeader({
                         widgets={headerWidgets}
                         widgetColumnMap={widgetColumnMap}
                         equipmentMap={equipmentMap}
+                        connection={connection}
+                        machines={machines}
                         mode={isPreview ? 'preview' : 'viewer'}
                         selectedWidgetId={selectedWidgetId}
                         onWidgetSelect={onSelectHeaderWidget}
-                        onReorderWidget={onReorderHeaderWidget}
+                        onMoveWidget={onMoveHeaderWidget}
                         onRemoveWidget={onRemoveHeaderWidget}
                         onDeleteWidget={onDeleteHeaderWidget}
                         onHeaderDragEnter={onHeaderDragEnter}

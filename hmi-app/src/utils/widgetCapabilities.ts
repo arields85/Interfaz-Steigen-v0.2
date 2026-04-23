@@ -18,10 +18,8 @@ const WIDGET_CAPABILITIES: Partial<Record<WidgetType, WidgetCapabilities>> = {
     'kpi': { catalogVariable: false, hierarchy: false },
     'trend-chart': { catalogVariable: false, hierarchy: false },
     'connection-status': { catalogVariable: false, hierarchy: false },
-    'connection-indicator': { catalogVariable: false, hierarchy: false },
     'status': { catalogVariable: false, hierarchy: false },
     'alert-history': { catalogVariable: false, hierarchy: false },
-    'oee-production-trend': { catalogVariable: false, hierarchy: false },
     'prod-history': { catalogVariable: false, hierarchy: false },
 };
 

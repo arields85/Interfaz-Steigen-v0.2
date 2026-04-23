@@ -1,5 +1,6 @@
 import type { MetricCardWidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import MetricCard from '../../components/ui/MetricCard';
 import ConnectionBadge from '../../components/ui/ConnectionBadge';
 import { resolveBinding } from '../resolvers/bindingResolver';
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 interface MetricWidgetProps {
     widget: MetricCardWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
     isLoadingData?: boolean;
     className?: string;
     hierarchyContext?: HierarchyContext;
@@ -43,6 +45,7 @@ interface MetricWidgetProps {
 export default function MetricWidget({
     widget,
     equipmentMap,
+    machines,
     isLoadingData = false,
     className,
     hierarchyContext,
@@ -52,8 +55,8 @@ export default function MetricWidget({
     }
 
     const resolved = widget.hierarchyMode && hierarchyContext
-        ? resolveHierarchyBinding(widget, hierarchyContext, equipmentMap)
-        : resolveBinding(widget, equipmentMap);
+        ? resolveHierarchyBinding(widget, hierarchyContext, equipmentMap, machines)
+        : resolveBinding(widget, equipmentMap, machines);
     const cardStatus = toCardStatus(resolved.status);
 
     // --- Construcción del subtext (footer) ---

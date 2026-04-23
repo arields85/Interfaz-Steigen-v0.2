@@ -2,8 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Dashboard from './Dashboard';
 import { makeDashboard } from '../test/fixtures/dashboard.fixture';
+import type { ConnectionHealth, ContractMachine } from '../domain/dataContract.types';
 
-const { dashboardStorageMock, hierarchyStorageMock, dashboardViewerMock } = vi.hoisted(() => ({
+const { dashboardStorageMock, hierarchyStorageMock, dashboardViewerMock, dashboardHeaderMock, useDataOverviewMock } = vi.hoisted(() => ({
     dashboardStorageMock: {
         getDashboards: vi.fn(),
     },
@@ -11,6 +12,8 @@ const { dashboardStorageMock, hierarchyStorageMock, dashboardViewerMock } = vi.h
         getNodes: vi.fn(),
     },
     dashboardViewerMock: vi.fn(),
+    dashboardHeaderMock: vi.fn(),
+    useDataOverviewMock: vi.fn(),
 }));
 
 vi.mock('../services/DashboardStorageService', () => ({
@@ -22,7 +25,10 @@ vi.mock('../services/HierarchyStorageService', () => ({
 }));
 
 vi.mock('../components/viewer/DashboardHeader', () => ({
-    default: () => <div data-testid="dashboard-header-title">Header title</div>,
+    default: (props: Record<string, unknown>) => {
+        dashboardHeaderMock(props);
+        return <div data-testid="dashboard-header-title">Header title</div>;
+    },
 }));
 
 vi.mock('../components/viewer/DashboardViewer', () => ({
@@ -32,11 +38,24 @@ vi.mock('../components/viewer/DashboardViewer', () => ({
     },
 }));
 
+vi.mock('../queries/useDataOverview', () => ({
+    useDataOverview: useDataOverviewMock,
+}));
+
 describe('Dashboard page layout', () => {
     beforeEach(() => {
         const dashboard = makeDashboard({ status: 'published', publishedSnapshot: undefined });
         dashboardStorageMock.getDashboards.mockResolvedValue([dashboard]);
         hierarchyStorageMock.getNodes.mockResolvedValue([]);
+        useDataOverviewMock.mockReturnValue({
+            connection: { globalStatus: 'unknown', lastSuccess: null, ageMs: null },
+            machines: [],
+            isLoading: false,
+            isError: false,
+            error: null,
+            dataUpdatedAt: 0,
+            isEnabled: true,
+        });
     });
 
     afterEach(() => {
@@ -89,6 +108,80 @@ describe('Dashboard page layout', () => {
             expect.objectContaining({
                 cols: 30,
                 rows: 12,
+            }),
+        );
+    });
+
+    it('passes contract machines to the viewer pipeline', async () => {
+        const machines: ContractMachine[] = [{
+            unitId: 101,
+            name: 'Extrusora 101',
+            status: 'online',
+            lastSuccess: '2026-04-21T13:00:00.000Z',
+            ageMs: 0,
+            values: {
+                temperature: { value: 88, unit: '°C', timestamp: '2026-04-21T13:00:00.000Z' },
+            },
+        }];
+
+        useDataOverviewMock.mockReturnValue({
+            connection: { globalStatus: 'online', lastSuccess: '2026-04-21T13:00:00.000Z', ageMs: 0 },
+            machines,
+            isLoading: false,
+            isError: false,
+            error: null,
+            dataUpdatedAt: 123,
+            isEnabled: true,
+        });
+
+        render(<Dashboard />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('dashboard-viewer-root')).toBeInTheDocument();
+        });
+
+        expect(dashboardViewerMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                machines,
+            }),
+        );
+    });
+
+    it('passes contract connection and machines to the header pipeline', async () => {
+        const connection: ConnectionHealth = {
+            globalStatus: 'degradado',
+            lastSuccess: '2026-04-21T13:00:00.000Z',
+            ageMs: 5000,
+        };
+        const machines: ContractMachine[] = [{
+            unitId: 101,
+            name: 'Extrusora 101',
+            status: 'offline',
+            lastSuccess: '2026-04-21T13:00:00.000Z',
+            ageMs: null,
+            values: {},
+        }];
+
+        useDataOverviewMock.mockReturnValue({
+            connection,
+            machines,
+            isLoading: false,
+            isError: false,
+            error: null,
+            dataUpdatedAt: 123,
+            isEnabled: true,
+        });
+
+        render(<Dashboard />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('dashboard-header-title')).toBeInTheDocument();
+        });
+
+        expect(dashboardHeaderMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                connection,
+                machines,
             }),
         );
     });

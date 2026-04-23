@@ -54,6 +54,8 @@ Estado separado: TanStack Query para datos del servidor, Zustand para UI del cli
 
 Ver detalle completo, tree de archivos y reglas de capas: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+Integración de datos en tiempo real: la HMI consume un contrato JSON estable, no una tecnología concreta. Health, timestamps y normalización se resuelven fuera de la HMI. Ver contrato oficial, estados, resolución y fallbacks: [`docs/DATA_CONTRACT.md`](docs/DATA_CONTRACT.md).
+
 ---
 
 ## 5. Convenciones de Código
@@ -133,6 +135,7 @@ Consultá los documentos en `Directrices/` antes de tomar una decisión arquitec
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Convenciones TS, anti-parches, anti-hardcode dimensional |
 | [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) | Tokens, fuentes, Tailwind v4, Regla de Oro |
 | [`docs/TESTING.md`](docs/TESTING.md) | Stack de testing, coverage, TDD, mocks, fixtures |
+| [`docs/DATA_CONTRACT.md`](docs/DATA_CONTRACT.md) | Contrato JSON estable de integración de datos en tiempo real, estados oficiales, resolución, fallbacks |
 | [`Directrices/Directiva_maestra_v3.1.md`](Directrices/Directiva_maestra_v3.1.md) | Directiva maestra: visión, principios, restricciones globales |
 | [`Directrices/Arquitectura Técnica de Implementación HMI v1.3.md`](Directrices/Arquitectura%20Técnica%20de%20Implementación%20HMI%20v1.3.md) | Arquitectura técnica formal |
 | [`Directrices/Especificación funcional_Modo Administrador.md`](Directrices/Especificación%20funcional_Modo%20Administrador.md) | Spec funcional del modo administrador |

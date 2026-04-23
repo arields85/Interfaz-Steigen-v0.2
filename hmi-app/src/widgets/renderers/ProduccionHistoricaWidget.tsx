@@ -31,6 +31,7 @@ import {
 import ChartTooltip from '../../components/ui/ChartTooltip';
 import type { ChartTooltipSeries } from '../../components/ui/ChartTooltip';
 import ChartHoverLayer from '../../components/ui/ChartHoverLayer';
+import WidgetSegmentedControl from '../../components/ui/WidgetSegmentedControl';
 import { smoothPath, buildAreaPath, formatTick, clamp, round2, computeVisibleLabelIndices, type Point } from '../../utils/chartHelpers';
 
 // Resolución de ícono del header por nombre declarado en `displayOptions.icon`.
@@ -287,6 +288,7 @@ function ProdHistoryBarsSvg({
     const prodAreaGradientId = `prod-area-grad-${widgetId}`;
     const oeeGradientId = `oee-grad-${widgetId}`;
     const oeeClipId = `oee-clip-${widgetId}`;
+    const prodGlowId = `prod-glow-${widgetId}`;
     const oeeGlowId = `oee-glow-${widgetId}`;
 
     return (
@@ -297,16 +299,23 @@ function ProdHistoryBarsSvg({
                     <stop offset="100%" stopColor={TOKEN.production} stopOpacity={0.10} />
                 </linearGradient>
                 <linearGradient id={prodAreaGradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={TOKEN.production} stopOpacity={0.30} />
-                    <stop offset="100%" stopColor={TOKEN.production} stopOpacity={0} />
+                    <stop offset="5%" stopColor={TOKEN.production} stopOpacity={0.30} />
+                    <stop offset="95%" stopColor={TOKEN.production} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id={oeeGradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={TOKEN.oee} stopOpacity={0.30} />
-                    <stop offset="100%" stopColor={TOKEN.oee} stopOpacity={0} />
+                    <stop offset="5%" stopColor={TOKEN.oee} stopOpacity={0.30} />
+                    <stop offset="95%" stopColor={TOKEN.oee} stopOpacity={0} />
                 </linearGradient>
                 <clipPath id={oeeClipId}>
                     <rect x={margin.left} y={margin.top} width={plotWidth} height={plotHeight} />
                 </clipPath>
+                <filter id={prodGlowId} x="-20%" y="-50%" width="140%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
                 <filter id={oeeGlowId} x="-20%" y="-50%" width="140%" height="200%">
                     <feGaussianBlur stdDeviation="3" result="blur" />
                     <feMerge>
@@ -371,6 +380,16 @@ function ProdHistoryBarsSvg({
                 : productionAreaPath.length > 0 && (
                     <path d={productionAreaPath} fill={`url(#${prodAreaGradientId})`} />
                 )}
+
+            {productionMode === 'area' && productionPath.length > 0 && (
+                <path
+                    d={productionPath}
+                    stroke={TOKEN.production}
+                    strokeWidth={2.5}
+                    fill="none"
+                    filter={`url(#${prodGlowId})`}
+                />
+            )}
 
             {showOee && oeePath.length > 0 && (
                 <path
@@ -652,35 +671,23 @@ export default function ProdHistoryWidget({
         <div className={`glass-panel group relative w-full h-full p-5 flex flex-col ${className ?? ''}`}>
             {/* Widget-local controls overlay — positioned absolutely relative to the
                 glass-panel container. Separate layer from the WidgetHeader. */}
-            <div className="absolute right-5 top-5 z-10 flex flex-col items-end gap-2">
-                <div className="glass-panel flex items-center gap-1 p-1">
-                    {GROUPING_OPTIONS.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setBucket(option.value)}
-                            className={`rounded-2xl px-2.5 py-1 text-[10px] font-black uppercase tracking-widest transition-colors ${bucket === option.value
-                                ? 'border border-accent-cyan/20 bg-accent-cyan/10 text-accent-cyan'
-                                : 'text-industrial-muted hover:text-industrial-text'
-                                }`}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-
+            <WidgetSegmentedControl
+                options={GROUPING_OPTIONS}
+                value={bucket}
+                onChange={setBucket}
+            >
                 <button
                     type="button"
                     onClick={() => setShowOee((current) => !current)}
                     className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-widest transition-colors ${showOee
-                        ? 'border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan'
+                        ? 'border-admin-accent/30 bg-admin-accent/10 text-admin-accent'
                         : 'border-industrial-border text-industrial-muted hover:text-industrial-text'
                         }`}
                 >
                     {showOee ? <Eye size={12} /> : <EyeOff size={12} />}
                     OEE
                 </button>
-            </div>
+            </WidgetSegmentedControl>
 
             <WidgetHeader
                 title={chartTitle}

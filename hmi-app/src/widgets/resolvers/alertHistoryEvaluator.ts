@@ -1,5 +1,6 @@
 import type { ThresholdRule, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import type { AlertHistoryEntry } from '../../domain/alertHistory.types';
 import type { MetricStatus } from '../../domain/widget.types';
 import { resolveBinding } from './bindingResolver';
@@ -101,6 +102,7 @@ export function evaluateDashboardWidgets(
     dashboardId: string,
     widgets: WidgetConfig[],
     equipmentMap: Map<string, EquipmentSummary>,
+    machines?: ContractMachine[],
 ): EvaluationResult {
     // Solo evaluamos widgets que tengan thresholds definidos y no sean
     // el propio widget de histórico (evitar auto-referencia)
@@ -115,7 +117,7 @@ export function evaluateDashboardWidgets(
     const newEntries: AlertHistoryEntry[] = [];
 
     for (const widget of evaluableWidgets) {
-        const resolved = resolveBinding(widget, equipmentMap);
+        const resolved = resolveBinding(widget, equipmentMap, machines);
 
         // Solo registrar cambios de estado para valores con dato real
         // (ignorar no-data/error durante evaluación de histórico)

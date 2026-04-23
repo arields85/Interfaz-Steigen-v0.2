@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Lock, Plus, Trash2, X } from 'lucide-react';
 import type { CatalogVariable } from '../../domain';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
-import { ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
+import { ADMIN_SIDEBAR_HINT_CLS, ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
 
 interface CatalogVariableSelectorProps {
     variables: CatalogVariable[];
@@ -80,7 +80,7 @@ export default function CatalogVariableSelector({
                     {selectedVariable ? (
                         <>
                             <span className="truncate">{selectedVariable.name}</span>
-                            <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-industrial-muted">
+                            <span className={`shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>
                                 {selectedVariable.unit}
                             </span>
                         </>

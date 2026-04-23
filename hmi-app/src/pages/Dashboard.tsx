@@ -7,6 +7,7 @@ import DashboardViewer from '../components/viewer/DashboardViewer';
 import DashboardHeader from '../components/viewer/DashboardHeader';
 import { mockEquipmentList } from '../mocks/equipment.mock';
 import type { EquipmentSummary } from '../domain/equipment.types';
+import { useDataOverview } from '../queries/useDataOverview';
 import type { HierarchyContext } from '../widgets/resolvers/hierarchyResolver';
 
 // =============================================================================
@@ -27,6 +28,7 @@ export default function Dashboard() {
     const [allNodes, setAllNodes] = useState<HierarchyNode[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
+    const { connection, machines } = useDataOverview();
 
     // Mapeo de equipos simulado (para resolver bindings)
     const equipmentMap = useMemo(() => {
@@ -154,6 +156,8 @@ export default function Dashboard() {
             <DashboardHeader
                 dashboard={activeDashboard}
                 equipmentMap={equipmentMap}
+                connection={connection}
+                machines={machines}
                 hierarchyContext={hierarchyContext}
             />
 
@@ -163,6 +167,8 @@ export default function Dashboard() {
                     widgets={activeDashboard.widgets}
                     layout={activeDashboard.layout}
                     equipmentMap={equipmentMap}
+                    machines={machines}
+                    connection={connection}
                     headerWidgetIds={headerWidgetIds}
                     hierarchyContext={hierarchyContext}
                     cols={activeDashboard.cols}

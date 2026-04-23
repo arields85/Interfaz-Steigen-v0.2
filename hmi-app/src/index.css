@@ -167,6 +167,8 @@
   --widget-spacing: 0.5rem;
 
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-pulse-medium: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* ── Scrollbar delgado y discreto para paneles scrolleables ───────────────
@@ -347,6 +349,21 @@
 
   .neon-violet-glow {
     filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+  }
+
+  .led-glow-green {
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-status-normal) 90%, transparent),
+      0 0 12px color-mix(in srgb, var(--color-status-normal) 50%, transparent);
+  }
+
+  .led-glow-amber {
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-status-warning) 90%, transparent),
+      0 0 12px color-mix(in srgb, var(--color-status-warning) 55%, transparent);
+  }
+
+  .led-glow-red {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-status-critical) 95%, transparent),
+      0 0 16px color-mix(in srgb, var(--color-status-critical) 60%, transparent);
   }
 
   .charcoal-gradient {

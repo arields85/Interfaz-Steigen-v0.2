@@ -27,6 +27,22 @@ describe('DashboardStorageService', () => {
         expect(localStorage.getItem(DASHBOARDS_STORAGE_KEY)).not.toBeNull();
     });
 
+    it('seeds header connection widgets using connection-status type', async () => {
+        const dashboardsPromise = dashboardStorage.getDashboards();
+
+        await vi.advanceTimersByTimeAsync(300);
+        const dashboards = await dashboardsPromise;
+
+        const seededConnectionWidget = dashboards
+            .flatMap(dashboard => dashboard.widgets)
+            .find(widget => widget.id === 'w-hdr-conn');
+
+        expect(seededConnectionWidget).toEqual(expect.objectContaining({
+            id: 'w-hdr-conn',
+            type: 'connection-status',
+        }));
+    });
+
     it('creates empty dashboards with aspect 16:9, cols 20, and rows 12 by default', async () => {
         const dashboardPromise = dashboardStorage.createEmptyDashboard('Nuevo dashboard');
 

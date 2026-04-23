@@ -48,7 +48,7 @@ export interface WidgetHeaderProps {
      * El slot `trailing` siempre se renderiza al EXTREMO OPUESTO del ícono, para
      * mantener coherencia visual: info estructural a un lado, contenido accesorio al otro.
      */
-    iconPosition?: 'left' | 'right';
+    iconPosition?: 'left' | 'right' | 'centered';
     /**
      * Color CSS del ícono y del subtítulo de header.
      * Usar variables semánticas del sistema:
@@ -73,6 +73,8 @@ export interface WidgetHeaderProps {
     trailing?: ReactNode;
     /** Clases adicionales para el contenedor del header */
     className?: string;
+    /** Test id opcional para el ícono */
+    iconTestId?: string;
     /**
      * Alineación vertical semántica del bloque de header.
      * - `standard` (default): offset óptico canónico del sistema.
@@ -89,24 +91,42 @@ export default function WidgetHeader({
     subtitle,
     trailing,
     className = '',
+    iconTestId,
     alignment = 'standard',
 }: WidgetHeaderProps) {
     const hasSubtitle = Boolean(subtitle);
     const alignmentClassName = alignment === 'standard' ? '-translate-y-1' : '';
+    const centered = iconPosition === 'centered';
     const iconOnLeft = iconPosition === 'left';
     const iconNode = Icon ? (
         <Icon
             size={24}
             strokeWidth={2}
-            className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+            className={centered
+                ? 'shrink-0 opacity-100'
+                : 'shrink-0 opacity-70 group-hover:opacity-100 transition-opacity'}
             style={{ color: iconColor }}
+            data-testid={iconTestId}
         />
     ) : null;
     const titleNode = (
-        <span className="min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors">
+        <span className={centered
+            ? 'min-w-0 text-center text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors'
+            : 'min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors'}>
             {title}
         </span>
     );
+
+    if (centered) {
+        const hasTitle = title.trim().length > 0;
+
+        return (
+            <div className={`flex flex-col items-center gap-2 ${className}`}>
+                {hasTitle ? titleNode : null}
+                {iconNode}
+            </div>
+        );
+    }
 
     return (
         <div className={`grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto] gap-y-0 ${alignmentClassName} ${className}`}>

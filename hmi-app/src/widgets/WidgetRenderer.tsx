@@ -1,14 +1,13 @@
 import type { WidgetConfig } from '../domain/admin.types';
 import type { EquipmentSummary } from '../domain/equipment.types';
+import type { ContractMachine, ConnectionHealth } from '../domain/dataContract.types';
 import type { HierarchyContext } from './resolvers/hierarchyResolver';
 import MetricWidget from './renderers/MetricWidget';
 import StatusWidget from './renderers/StatusWidget';
-import ConnectionWidget from './renderers/ConnectionWidget';
 import ConnectionStatusWidget from './renderers/ConnectionStatusWidget';
 import TrendChartWidget from './renderers/TrendChartWidget';
 import KpiWidget from './renderers/KpiWidget';
 import AlertHistoryWidget from './renderers/AlertHistoryWidget';
-import OeeProductionTrendWidget from './renderers/OeeProductionTrendWidget';
 import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
 
 // =============================================================================
@@ -21,10 +20,8 @@ import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
 // Tipos soportados:
 //   'metric-card', 'kpi'        → MetricWidget / KpiWidget
 //   'status'                    → StatusWidget
-//   'connection-indicator'      → ConnectionWidget
 //   'connection-status'         → ConnectionStatusWidget
 //   'trend-chart'               → TrendChartWidget
-//   'oee-production-trend'      → OeeProductionTrendWidget
 //   'prod-history'              → ProdHistoryWidget
 //   'alert-history'             → AlertHistoryWidget
 //
@@ -37,6 +34,8 @@ import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
 interface WidgetRendererProps {
     widget: WidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
+    connection?: ConnectionHealth;
     isLoadingData?: boolean;
     className?: string;
     /**
@@ -56,6 +55,8 @@ interface WidgetRendererProps {
 export default function WidgetRenderer({
     widget,
     equipmentMap,
+    machines,
+    connection,
     isLoadingData = false,
     className,
     siblingWidgets,
@@ -67,6 +68,7 @@ export default function WidgetRenderer({
                 <MetricWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
+                    machines={machines}
                     isLoadingData={isLoadingData}
                     className={className}
                     hierarchyContext={hierarchyContext}
@@ -78,6 +80,7 @@ export default function WidgetRenderer({
                 <KpiWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
+                    machines={machines}
                     isLoadingData={isLoadingData}
                     className={className}
                 />
@@ -92,20 +95,13 @@ export default function WidgetRenderer({
                 />
             );
 
-        case 'connection-indicator':
-            return (
-                <ConnectionWidget
-                    widget={widget}
-                    equipmentMap={equipmentMap}
-                    className={className}
-                />
-            );
-
         case 'connection-status':
             return (
                 <ConnectionStatusWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
+                    machines={machines}
+                    connection={connection}
                     className={className}
                 />
             );
@@ -115,16 +111,7 @@ export default function WidgetRenderer({
                 <TrendChartWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
-                    isLoadingData={isLoadingData}
-                    className={className}
-                />
-            );
-
-        case 'oee-production-trend':
-            return (
-                <OeeProductionTrendWidget
-                    widget={widget}
-                    equipmentMap={equipmentMap}
+                    machines={machines}
                     isLoadingData={isLoadingData}
                     className={className}
                 />
@@ -145,6 +132,7 @@ export default function WidgetRenderer({
                 <AlertHistoryWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
+                    machines={machines}
                     siblingWidgets={siblingWidgets}
                     className={className}
                 />

@@ -10,3 +10,5 @@ export { default as LoadingSkeleton } from './LoadingSkeleton';
 export { default as WidgetHeader } from './WidgetHeader';
 export type { WidgetHeaderProps } from './WidgetHeader';
 export { default as WidgetCenteredContentLayout } from './WidgetCenteredContentLayout';
+export { default as WidgetSegmentedControl } from './WidgetSegmentedControl';
+export type { SegmentedOption, WidgetSegmentedControlProps } from './WidgetSegmentedControl';

@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import type { DragEvent, KeyboardEvent, ReactNode, RefObject } from 'react';
-import { ArrowDown, Plus, Trash2, Activity, Wifi, PlugZap } from 'lucide-react';
+import { ArrowDown, ChevronLeft, ChevronRight, Plus, Trash2, Activity, Wifi } from 'lucide-react';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
 import type { WidgetConfig, WidgetType } from '../../domain/admin.types';
+import type { ConnectionHealth, ContractMachine } from '../../domain/dataContract.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import HeaderSelectionFrame from '../ui/HeaderSelectionFrame';
@@ -11,7 +12,6 @@ import {
     HEADER_WIDGET_DRAG_MIME,
     HEADER_WIDGET_SLOT_COUNT,
     parseHeaderWidgetDragPayload,
-    serializeHeaderWidgetDragPayload,
 } from '../../utils/headerWidgets';
 import HeaderWidgetRenderer from './HeaderWidgetRenderer';
 
@@ -36,16 +36,10 @@ const HEADER_SLOT_OPTIONS: HeaderSlotMenuOption[] = [
         icon: <Activity size={13} />,
     },
     {
-        type: 'connection-indicator',
-        label: 'Indicador de conexión',
+        type: 'connection-status',
+        label: 'Estado de conexión',
         description: 'Muestra el estado del enlace de datos',
         icon: <Wifi size={13} />,
-    },
-    {
-        type: 'connection-status',
-        label: 'Estado conectado/desconectado',
-        description: 'Muestra estado binario de conectividad',
-        icon: <PlugZap size={13} />,
     },
 ];
 
@@ -183,10 +177,12 @@ interface HeaderWidgetCanvasProps {
      *  Cuando está presente, cada widget se renderiza en su columna exacta con grid-column. */
     widgetColumnMap?: Map<string, number>;
     equipmentMap: Map<string, EquipmentSummary>;
+    connection?: ConnectionHealth;
+    machines?: ContractMachine[];
     mode?: 'viewer' | 'preview';
     selectedWidgetId?: string;
     onWidgetSelect?: (widgetId: string) => void;
-    onReorderWidget?: (widgetId: string, targetWidgetId?: string) => void;
+    onMoveWidget?: (widgetId: string, targetColumn: number) => void;
     onRemoveWidget?: (widgetId: string) => void;
     onDeleteWidget?: (widgetId: string) => void;
     onHeaderDragEnter?: (event: DragEvent<HTMLDivElement>) => void;
@@ -208,10 +204,12 @@ export default function HeaderWidgetCanvas({
     widgets,
     widgetColumnMap,
     equipmentMap,
+    connection,
+    machines,
     mode = 'viewer',
     selectedWidgetId,
     onWidgetSelect,
-    onReorderWidget,
+    onMoveWidget,
     onRemoveWidget,
     onDeleteWidget,
     onHeaderDragEnter,
@@ -228,6 +226,7 @@ export default function HeaderWidgetCanvas({
     const isPreview = mode === 'preview';
     // Debe mantenerse sincronizado con `.glass-panel { border-radius: 1.5rem }` en hmi-app/src/index.css
     const widgetCornerRadius = '1.5rem';
+    const emptySlotWidth = '72px';
 
     // Construir un mapa columna → widget para el renderizado explícito por columna.
     // Si existe widgetColumnMap usamos sus valores; si no, fallback al índice del array.
@@ -238,12 +237,9 @@ export default function HeaderWidgetCanvas({
     });
 
     const emptySlotCount = Math.max(HEADER_WIDGET_SLOT_COUNT - widgets.length, 0);
-    const showAvailableSlotAffordance = isPreview && canDropHeaderWidget && emptySlotCount > 0;
-    const [draggedHeaderWidgetId, setDraggedHeaderWidgetId] = useState<string | null>(null);
-    const [dropTargetWidgetId, setDropTargetWidgetId] = useState<string | null>(null);
-    const [isCanvasDropTarget, setIsCanvasDropTarget] = useState(false);
     // Índice del slot vacío que está siendo el drop target activo (para resalte individual)
     const [activeEmptySlotIndex, setActiveEmptySlotIndex] = useState<number | null>(null);
+    const showAvailableSlotAffordance = isPreview && canDropHeaderWidget && emptySlotCount > 0;
 
     const getDragPayload = (event: DragEvent<HTMLDivElement>) => {
         const rawPayload = event.dataTransfer.getData(HEADER_WIDGET_DRAG_MIME);
@@ -263,16 +259,6 @@ export default function HeaderWidgetCanvas({
     };
 
     const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
-        const payload = getDragPayload(event);
-
-        if (payload?.source === 'header-canvas') {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-            setDropTargetWidgetId(null);
-            setIsCanvasDropTarget(true);
-            return;
-        }
-
         onHeaderDragOver?.(event);
     };
 
@@ -285,75 +271,52 @@ export default function HeaderWidgetCanvas({
     };
 
     const handleCanvasDrop = (event: DragEvent<HTMLDivElement>) => {
-        const payload = getDragPayload(event);
-
-        if (payload?.source === 'header-canvas') {
-            event.preventDefault();
-            onReorderWidget?.(payload.widgetId);
-            setDraggedHeaderWidgetId(null);
-            setDropTargetWidgetId(null);
-            setIsCanvasDropTarget(false);
-            return;
-        }
-
         onHeaderDrop?.(event);
-        setDropTargetWidgetId(null);
-        setIsCanvasDropTarget(false);
     };
 
-    const handleWidgetDragStart = (event: DragEvent<HTMLDivElement>, widget: WidgetConfig) => {
-        if (!isPreview) {
-            return;
-        }
+    const renderWidgetSurface = (widget: WidgetConfig) => {
+        const hasDisplayTitle = !(widget.type === 'connection-status' && !widget.title?.trim());
 
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', widget.id);
-        event.dataTransfer.setData(
-            HEADER_WIDGET_DRAG_MIME,
-            serializeHeaderWidgetDragPayload({
-                widgetId: widget.id,
-                widgetType: widget.type,
-                source: 'header-canvas',
-            }),
+        return (
+            <div
+                data-header-widget-surface="true"
+                role="button"
+                tabIndex={0}
+                aria-label={resolveDisplayTitle(widget)}
+                draggable={false}
+                onClick={() => onWidgetSelect?.(widget.id)}
+                onKeyDown={(event) => handleSelectByKeyboard(event, widget.id)}
+                className="glass-panel relative flex h-full min-h-18 w-full flex-col px-3 py-2 text-left transition-all focus:outline-none md:w-auto"
+                style={{
+                    borderRadius: widgetCornerRadius,
+                    borderColor: 'color-mix(in srgb, var(--color-industrial-border) 85%, transparent)',
+                    boxShadow: 'none',
+                    transform: 'scale(1)',
+                }}
+            >
+                <div className="flex flex-1 flex-col justify-center gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                        {hasDisplayTitle ? (
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-industrial-muted">
+                                    {resolveDisplayTitle(widget)}
+                                </p>
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div className={hasDisplayTitle ? 'border-t border-white/6 pt-1' : ''}>
+                        <HeaderWidgetRenderer
+                            widget={widget}
+                            equipmentMap={equipmentMap}
+                            connection={connection}
+                            machines={machines}
+                            align="start"
+                        />
+                    </div>
+                </div>
+            </div>
         );
-
-        setDraggedHeaderWidgetId(widget.id);
-    };
-
-    const handleWidgetDragOver = (event: DragEvent<HTMLDivElement>, targetWidgetId: string) => {
-        const payload = getDragPayload(event);
-
-        if (!payload) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.dataTransfer.dropEffect = 'move';
-        setIsCanvasDropTarget(false);
-        setDropTargetWidgetId(targetWidgetId);
-    };
-
-    const handleWidgetDrop = (event: DragEvent<HTMLDivElement>, targetWidgetId: string) => {
-        const payload = getDragPayload(event);
-
-        if (!payload) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        onReorderWidget?.(payload.widgetId, targetWidgetId);
-        setDraggedHeaderWidgetId(null);
-        setDropTargetWidgetId(null);
-        setIsCanvasDropTarget(false);
-    };
-
-    const handleWidgetDragEnd = () => {
-        setDraggedHeaderWidgetId(null);
-        setDropTargetWidgetId(null);
-        setIsCanvasDropTarget(false);
-        setActiveEmptySlotIndex(null);
     };
 
     // ── Handlers para slots vacíos como drop targets reales ──────────────────
@@ -366,14 +329,15 @@ export default function HeaderWidgetCanvas({
         event: DragEvent<HTMLDivElement>,
         realSlotIndex: number,
     ) => {
-        // Solo procesar drags compatibles (desde el grid del builder)
-        if (!canDropHeaderWidget) return;
+        const payload = getDragPayload(event);
+
+        if (!canDropHeaderWidget && payload?.source !== 'header-canvas') return;
+        if (payload?.source === 'header-canvas') return;
 
         event.preventDefault();
         event.stopPropagation();
         event.dataTransfer.dropEffect = 'move';
         setActiveEmptySlotIndex(realSlotIndex);
-        setIsCanvasDropTarget(false);
     }, [canDropHeaderWidget]);
 
     const handleEmptySlotDragLeave = useCallback((
@@ -392,23 +356,15 @@ export default function HeaderWidgetCanvas({
         event.preventDefault();
         event.stopPropagation();
         setActiveEmptySlotIndex(null);
-        setIsCanvasDropTarget(false);
 
         // Intentar extraer el payload del drag (puede venir del grid del builder)
         const rawPayload = event.dataTransfer.getData(HEADER_WIDGET_DRAG_MIME);
         const payload = rawPayload ? parseHeaderWidgetDragPayload(rawPayload) : null;
 
-        if (!payload) return;
+        if (!payload || payload.source === 'header-canvas') return;
 
-        if (payload.source === 'header-canvas') {
-            // Reordenar dentro del header: el target es el "after last widget" → append no aplica.
-            // Para reordenar a un slot vacío usamos el índice del slot directamente.
-            onReorderWidget?.(payload.widgetId, undefined);
-        } else {
-            // Viene del grid del builder: asignar al slot exacto
-            onDropWidgetAtSlot?.(payload.widgetId, realSlotIndex);
-        }
-    }, [onReorderWidget, onDropWidgetAtSlot]);
+        onDropWidgetAtSlot?.(payload.widgetId, realSlotIndex);
+    }, [onDropWidgetAtSlot]);
 
     return (
         <div
@@ -427,27 +383,32 @@ export default function HeaderWidgetCanvas({
             onDragLeave={handleCanvasDragLeave}
             onDrop={handleCanvasDrop}
         >
-            {/* ── Grid de 3 columnas fijas ────────────────────────────────────────
-                Iteramos SIEMPRE las 3 columnas en orden.
-                Cada columna es o un widget ocupado o un slot vacío.
-                Esto garantiza que el widget del slot[2] esté visualmente en la
-                tercera columna, independientemente de cuántos otros slots existan.
-            ── */}
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
+            {/* ── Layout de slots del header ──────────────────────────────────────
+                Iteramos SIEMPRE los 3 slots en orden.
+                En desktop usamos flex con `order` explícito para preservar la
+                columna lógica de cada slot, pero sin forzar tracks de igual ancho.
+                Así los widgets ocupan solo su contenido y los slots vacíos se
+                mantienen compactos con ancho fijo.
+             ── */}
+            <div className="flex flex-col items-end gap-2.5 md:flex-row md:flex-wrap md:justify-end">
                 {Array.from({ length: HEADER_WIDGET_SLOT_COUNT }, (_, colIndex) => {
                     const widget = columnToWidget.get(colIndex);
 
                     if (widget) {
                         // ── Columna ocupada: renderizar widget ──────────────
                         const isSelected = selectedWidgetId === widget.id;
-                        const isDropTarget = dropTargetWidgetId === widget.id;
-                        const isDragging = draggedHeaderWidgetId === widget.id;
 
                         return (
                             <div
                                 key={widget.id}
-                                className="group relative min-w-0"
-                                style={{ borderRadius: widgetCornerRadius }}
+                                className="group relative min-w-0 w-full md:w-auto md:max-w-full md:flex-none"
+                                style={{
+                                    borderRadius: widgetCornerRadius,
+                                    order: colIndex,
+                                }}
+                                data-header-drop-kind="widget"
+                                data-widget-id={widget.id}
+                                data-testid={`header-widget-slot-${widget.id}`}
                             >
                                 <HeaderSelectionFrame
                                     isSelected={isSelected}
@@ -457,6 +418,16 @@ export default function HeaderWidgetCanvas({
                                 {isPreview && (
                                     <WidgetHoverActions
                                         actions={[
+                                            ...(colIndex > 0 ? [{
+                                                label: 'Mover a la izquierda',
+                                                icon: ChevronLeft,
+                                                onClick: () => onMoveWidget?.(widget.id, colIndex - 1),
+                                            }] : []),
+                                            ...(colIndex < HEADER_WIDGET_SLOT_COUNT - 1 ? [{
+                                                label: 'Mover a la derecha',
+                                                icon: ChevronRight,
+                                                onClick: () => onMoveWidget?.(widget.id, colIndex + 1),
+                                            }] : []),
                                             {
                                                 label: 'Devolver widget al grid',
                                                 icon: ArrowDown,
@@ -471,45 +442,8 @@ export default function HeaderWidgetCanvas({
                                     />
                                 )}
 
-                                <div
-                                    role="button"
-                                    tabIndex={0}
-                                    draggable={isPreview}
-                                    onClick={() => onWidgetSelect?.(widget.id)}
-                                    onKeyDown={(event) => handleSelectByKeyboard(event, widget.id)}
-                                    onDragStart={(event) => handleWidgetDragStart(event, widget)}
-                                    onDragOver={(event) => handleWidgetDragOver(event, widget.id)}
-                                    onDrop={(event) => handleWidgetDrop(event, widget.id)}
-                                    onDragEnd={handleWidgetDragEnd}
-                                    className="glass-panel relative flex h-full min-h-18 w-full flex-col px-3 py-2 text-left transition-all focus:outline-none"
-                                    style={{
-                                        borderRadius: widgetCornerRadius,
-                                        borderColor: isDropTarget
-                                            ? 'color-mix(in srgb, var(--color-admin-accent) 55%, transparent)'
-                                            : 'color-mix(in srgb, var(--color-industrial-border) 85%, transparent)',
-                                        boxShadow: isDropTarget
-                                            ? '0 0 0 1px color-mix(in srgb, var(--color-admin-accent) 16%, transparent), 0 0 18px color-mix(in srgb, var(--color-admin-accent) 10%, transparent)'
-                                            : 'none',
-                                        opacity: isDragging ? 0.45 : 1,
-                                    }}
-                                >
-                                    <div className="flex flex-1 flex-col justify-center gap-1">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-industrial-muted">
-                                                    {resolveDisplayTitle(widget)}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="border-t border-white/6 pt-1">
-                                            <HeaderWidgetRenderer
-                                                widget={widget}
-                                                equipmentMap={equipmentMap}
-                                                align="start"
-                                            />
-                                        </div>
-                                    </div>
+                                <div>
+                                    {renderWidgetSurface(widget)}
                                 </div>
                             </div>
                         );
@@ -518,7 +452,18 @@ export default function HeaderWidgetCanvas({
                     // ── Columna vacía: renderizar slot drop target / botón + ──
                     // Solo visible en modo preview. En viewer, columnas vacías no
                     // se renderizan para no mostrar huecos visuales.
-                    if (!isPreview) return null;
+                    if (!isPreview) {
+                        return (
+                            <div
+                                key={`header-viewer-slot-spacer-${colIndex}`}
+                                aria-hidden="true"
+                                data-header-slot-spacer="true"
+                                data-slot-index={colIndex}
+                                className="hidden md:block md:flex-none"
+                                style={{ minHeight: '72px', width: emptySlotWidth, minWidth: emptySlotWidth, order: colIndex }}
+                            />
+                        );
+                    }
 
                     const isThisSlotDropTarget = activeEmptySlotIndex === colIndex;
                     const slotHighlight = showAvailableSlotAffordance;
@@ -527,6 +472,10 @@ export default function HeaderWidgetCanvas({
                     return (
                         <div
                             key={`header-empty-slot-${colIndex}`}
+                            data-testid={`header-empty-slot-${colIndex}`}
+                            data-header-drop-kind="empty-slot"
+                            data-slot-index={colIndex}
+                            data-drop-active={isThisSlotDropTarget ? 'true' : 'false'}
                             className="relative flex items-center justify-center rounded-xl border border-dashed transition-all"
                             onDragOver={(e) => handleEmptySlotDragOver(e, colIndex)}
                             onDragLeave={handleEmptySlotDragLeave}
@@ -535,7 +484,10 @@ export default function HeaderWidgetCanvas({
                                 // Misma geometría base que el widget real del header:
                                 // min-h-18 (72px) + px-3 py-2 internos.
                                 minHeight: '72px',
+                                width: emptySlotWidth,
+                                minWidth: emptySlotWidth,
                                 borderRadius: widgetCornerRadius,
+                                order: colIndex,
                                 borderColor: isThisSlotDropTarget
                                     ? 'color-mix(in srgb, var(--color-admin-accent) 80%, transparent)'
                                     : slotHighlight
@@ -556,7 +508,7 @@ export default function HeaderWidgetCanvas({
                                         ? `0 0 0 1px color-mix(in srgb, var(--color-admin-accent) ${slotActive ? '16%' : '10%'}, transparent),
                                             0 0 ${slotActive ? '24px' : '16px'} color-mix(in srgb, var(--color-admin-accent) ${slotActive ? '16%' : '10%'}, transparent)`
                                         : 'none',
-                                opacity: isCanvasDropTarget && !isThisSlotDropTarget ? 0.9 : 1,
+                                opacity: 1,
                                 transform: isThisSlotDropTarget ? 'scale(1.02)' : 'scale(1)',
                             }}
                         >

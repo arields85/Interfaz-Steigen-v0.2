@@ -1,5 +1,6 @@
 import type { WidgetConfig, WidgetBinding } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import type { ResolvedBinding, MetricStatus } from '../../domain/widget.types';
 import { evaluateThresholds } from './thresholdEvaluator';
 
@@ -27,6 +28,7 @@ type EquipmentMap = Map<string, EquipmentSummary>;
 export function resolveBinding(
     widget: WidgetConfig,
     equipmentMap: EquipmentMap,
+    machines?: ContractMachine[],
 ): ResolvedBinding {
     const binding = widget.binding;
 
@@ -59,7 +61,7 @@ export function resolveBinding(
     // -------------------------------------------------------------------------
     // CASO 3: Real variable — dato del dominio vía equipmentMap
     // -------------------------------------------------------------------------
-    return resolveReal(binding, equipmentMap, widget);
+    return resolveReal(binding, equipmentMap, widget, machines);
 }
 
 // -----------------------------------------------------------------------------
@@ -94,7 +96,19 @@ function resolveReal(
     binding: WidgetBinding,
     equipmentMap: EquipmentMap,
     widget: WidgetConfig,
+    machines?: ContractMachine[],
 ): ResolvedBinding {
+    // Acepta ambos bindingVersion durante la transición:
+    // - 'node-red-v1' (legacy, dashboards existentes)
+    // - 'real-variable-v1' (contrato oficial)
+    const isContractBinding =
+        binding.bindingVersion === 'real-variable-v1' ||
+        binding.bindingVersion === 'node-red-v1';
+
+    if (isContractBinding && machines) {
+        return resolveContractMachine(binding, machines, widget);
+    }
+
     // Sin assetId → no se puede resolver
     if (!binding.assetId) {
         return noDataResult();
@@ -170,6 +184,39 @@ function resolveReal(
     };
 }
 
+function resolveContractMachine(
+    binding: WidgetBinding,
+    machines: ContractMachine[],
+    widget: WidgetConfig,
+): ResolvedBinding {
+    const machine = binding.machineId !== undefined
+        ? machines.find((candidate) => candidate.unitId === binding.machineId)
+        : undefined;
+
+    if (!machine) {
+        return noDataRealResult();
+    }
+
+    // Resolver variable por variableKey dentro de values (Record<string, ContractMetricValue>)
+    const variable = binding.variableKey
+        ? machine.values[binding.variableKey]
+        : undefined;
+
+    if (!variable || variable.value === null) {
+        return noDataRealResult();
+    }
+
+    const numericValue = typeof variable.value === 'number' ? variable.value : null;
+
+    return {
+        value: variable.value,
+        unit: variable.unit ?? binding.unit,
+        status: evaluateThresholds(numericValue, widget.thresholds),
+        source: 'real',
+        lastUpdateAt: variable.timestamp ?? undefined,
+    };
+}
+
 /**
  * Busca una métrica por variableKey en primaryMetrics del equipo.
  * Si variableKey no está definido, devuelve la primera métrica disponible.
@@ -197,6 +244,10 @@ function findMetric(
 
 function noDataResult(): ResolvedBinding {
     return { value: null, status: 'no-data', source: 'error' };
+}
+
+function noDataRealResult(): ResolvedBinding {
+    return { value: null, status: 'no-data', source: 'real' };
 }
 
 function errorResult(): ResolvedBinding {

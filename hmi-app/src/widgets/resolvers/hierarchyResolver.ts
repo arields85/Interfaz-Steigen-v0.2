@@ -1,5 +1,6 @@
 import type { AggregationMode, Dashboard, HierarchyNode, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import type { ResolvedBinding } from '../../domain/widget.types';
 import { resolveBinding } from './bindingResolver';
 
@@ -45,6 +46,7 @@ export function resolveHierarchyBinding(
     widget: WidgetConfig,
     hierarchyContext: HierarchyContext,
     equipmentMap: Map<string, EquipmentSummary>,
+    machines?: ContractMachine[],
 ): ResolvedBinding {
     const { allNodes, allDashboards, currentNodeId } = hierarchyContext;
 
@@ -95,7 +97,7 @@ export function resolveHierarchyBinding(
             if (childWidget.binding?.catalogVariableId !== targetCatalogVariableId) continue;
 
             // Resolver el valor del widget hijo
-            const resolved = resolveBinding(childWidget, equipmentMap);
+            const resolved = resolveBinding(childWidget, equipmentMap, machines);
 
             // Solo agregar valores numéricos válidos
             if (typeof resolved.value === 'number' && resolved.status !== 'no-data') {

@@ -1,5 +1,6 @@
 import type { KpiWidgetConfig, ThresholdRule } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
 import WidgetHeader from '../../components/ui/WidgetHeader';
@@ -20,11 +21,12 @@ const ICON_MAP: Record<string, LucideIcon> = {
 interface KpiWidgetProps {
     widget: KpiWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
     isLoadingData?: boolean;
     className?: string;
 }
 
-export default function KpiWidget({ widget, equipmentMap, isLoadingData, className }: KpiWidgetProps) {
+export default function KpiWidget({ widget, equipmentMap, machines, isLoadingData, className }: KpiWidgetProps) {
     if (isLoadingData) {
         return (
             <div className={`p-5 rounded-3xl bg-industrial-surface border border-industrial-border animate-pulse ${className ?? ''}`}>
@@ -34,13 +36,18 @@ export default function KpiWidget({ widget, equipmentMap, isLoadingData, classNa
         );
     }
 
-    const resolved = resolveBinding(widget, equipmentMap);
+    const resolved = resolveBinding(widget, equipmentMap, machines);
     
-    const numericValue = typeof resolved.value === 'number' 
-        ? resolved.value 
-        : typeof resolved.value === 'string' 
-            ? parseFloat(resolved.value) || 0 
-            : 0;
+    const numericValue = resolved.value == null
+        ? null
+        : typeof resolved.value === 'number'
+            ? resolved.value
+            : typeof resolved.value === 'string'
+                ? (() => {
+                    const parsed = parseFloat(resolved.value);
+                    return Number.isNaN(parsed) ? 0 : parsed;
+                })()
+                : 0;
 
     const opts = widget.displayOptions;
     const mode = opts?.kpiMode ?? 'circular';
@@ -69,7 +76,7 @@ export default function KpiWidget({ widget, equipmentMap, isLoadingData, classNa
 
     // Color de ícono y subtítulo de header: variable CSS según estado
     const isDynamic = !!opts?.dynamicColor;
-    const dynamicMode = isDynamic ? getDynamicColors(numericValue, widget.thresholds) : null;
+    const dynamicMode = isDynamic && numericValue !== null ? getDynamicColors(numericValue, widget.thresholds) : null;
     const iconColor = isPendingIconSelection || isInvalidConfiguredIcon
         ? 'var(--color-industrial-muted)'
         : dynamicMode
@@ -142,8 +149,9 @@ function getDynamicColors(value: number, thresholds?: ThresholdRule[]) {
     };
 }
 
-function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: number, min: number, max: number, unit?: string, dynamicColor?: boolean, thresholds?: ThresholdRule[] }) {
-    const clamp = Math.min(Math.max(value, min), max);
+function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: number | null, min: number, max: number, unit?: string, dynamicColor?: boolean, thresholds?: ThresholdRule[] }) {
+    const safeValue = value ?? min;
+    const clamp = Math.min(Math.max(safeValue, min), max);
     const range = max - min;
     const percentage = range === 0 ? 0 : ((clamp - min) / range) * 100;
     
@@ -151,7 +159,7 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-    const dynamicMode = dynamicColor ? getDynamicColors(value, thresholds) : null;
+    const dynamicMode = dynamicColor && value !== null ? getDynamicColors(value, thresholds) : null;
     const strokeColor = dynamicMode ? dynamicMode.svgColor : 'url(#kpi-gradient)';
     const glowShadow = dynamicMode ? `drop-shadow(0 0 15px ${dynamicMode.glow})` : 'drop-shadow(0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent))';
 
@@ -204,19 +212,20 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-6xl font-black text-white leading-none tracking-tighter mb-1">{value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
+                <span className="text-6xl font-black text-white leading-none tracking-tighter mb-1">{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
             </div>
         </div>
     );
 }
 
-function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: number, min: number, max: number, unit?: string, dynamicColor?: boolean, thresholds?: ThresholdRule[] }) {
-    const clamp = Math.min(Math.max(value, min), max);
+function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: number | null, min: number, max: number, unit?: string, dynamicColor?: boolean, thresholds?: ThresholdRule[] }) {
+    const safeValue = value ?? min;
+    const clamp = Math.min(Math.max(safeValue, min), max);
     const range = max - min;
     const percentage = range === 0 ? 0 : ((clamp - min) / range) * 100;
 
-    const dynamicMode = dynamicColor ? getDynamicColors(value, thresholds) : null;
+    const dynamicMode = dynamicColor && value !== null ? getDynamicColors(value, thresholds) : null;
     const backgroundStyle = dynamicMode 
         ? { background: dynamicMode.cssColor, boxShadow: `0 0 15px ${dynamicMode.glow}` }
         : { background: `linear-gradient(90deg, var(--color-widget-gradient-from), var(--color-widget-gradient-to))`, boxShadow: '0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent)' };
@@ -224,8 +233,8 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
     return (
         <div className="flex flex-col w-full h-full justify-center px-2">
             <div className="flex items-end gap-2 mb-3">
-                <span className="text-6xl font-black text-white leading-none tracking-tighter">{value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
+                <span className="text-6xl font-black text-white leading-none tracking-tighter">{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
             </div>
             
             <div className="h-2 w-full bg-white/5 rounded-full relative">

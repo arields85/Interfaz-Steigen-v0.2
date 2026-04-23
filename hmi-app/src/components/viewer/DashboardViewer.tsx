@@ -1,6 +1,7 @@
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine, ConnectionHealth } from '../../domain/dataContract.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import { useCanvasReference } from '../../utils/useCanvasReference';
 import { DEFAULT_COLS, DEFAULT_ROWS, getGridTemplateStyle } from '../../utils/gridConfig';
@@ -9,6 +10,8 @@ interface DashboardViewerProps {
     widgets: WidgetConfig[];
     layout: WidgetLayout[];
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
+    connection?: ConnectionHealth;
     /**
      * IDs de widgets asignados al header del dashboard.
      * Estos widgets son EXCLUSIVOS del header y se omiten del grid.
@@ -40,6 +43,8 @@ export default function DashboardViewer({
     widgets, 
     layout, 
     equipmentMap,
+    machines,
+    connection,
     headerWidgetIds,
     hierarchyContext,
     cols = DEFAULT_COLS,
@@ -95,6 +100,8 @@ export default function DashboardViewer({
                                 <WidgetRenderer 
                                     widget={widget} 
                                     equipmentMap={equipmentMap} 
+                                    machines={machines}
+                                    connection={connection}
                                     isLoadingData={false} 
                                     siblingWidgets={widgets}
                                     hierarchyContext={hierarchyContext}

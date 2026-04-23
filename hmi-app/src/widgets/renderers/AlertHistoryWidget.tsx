@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, forwardRef } from 'react';
 import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, Trash2, type LucideIcon } from 'lucide-react';
 import type { AlertHistoryWidgetConfig, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import type { AlertHistoryEntry } from '../../domain/alertHistory.types';
 import { alertHistoryStorage } from '../../services/AlertHistoryStorageService';
 import { evaluateDashboardWidgets } from '../resolvers/alertHistoryEvaluator';
@@ -31,6 +32,7 @@ import WidgetHeader from '../../components/ui/WidgetHeader';
 interface AlertHistoryWidgetProps {
     widget: AlertHistoryWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines?: ContractMachine[];
     /** Lista de todos los widgets del mismo dashboard (para evaluar hermanos). */
     siblingWidgets?: WidgetConfig[];
     className?: string;
@@ -57,6 +59,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 export default function AlertHistoryWidget({
     widget,
     equipmentMap,
+    machines,
     siblingWidgets = [],
     className,
 }: AlertHistoryWidgetProps) {
@@ -118,9 +121,9 @@ export default function AlertHistoryWidget({
             return;
         }
 
-        evaluateDashboardWidgets(dashboardId, siblingWidgets, equipmentMap);
+        evaluateDashboardWidgets(dashboardId, siblingWidgets, equipmentMap, machines);
         refreshState();
-    }, [dashboardId, siblingWidgets, equipmentMap, refreshState]);
+    }, [dashboardId, siblingWidgets, equipmentMap, machines, refreshState]);
 
     // Evaluación inicial al montar + polling
     useEffect(() => {

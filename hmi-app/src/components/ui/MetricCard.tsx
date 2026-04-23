@@ -83,7 +83,7 @@ export default function MetricCard({
         );
     }
 
-    const displayValue = value === null || value === undefined ? '—' : value;
+    const displayValue = value === null || value === undefined ? '--' : value;
     const isNoData = value === null || value === undefined;
 
     return (

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Settings2, Database, Zap, Sliders, Tag, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, MousePointerClick, TrendingUp, BarChart2, AreaChart, Lock } from 'lucide-react';
-import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, ConnectionIndicatorDisplayOptions, StatusDisplayOptions, OeeProductionTrendDisplayOptions, ProdHistoryDisplayOptions } from '../../domain/admin.types';
+import { Settings2, Database, Zap, Sliders, Tag, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, MousePointerClick, TrendingUp, BarChart2, AreaChart, Lock, Loader2 } from 'lucide-react';
+import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, StatusDisplayOptions, ProdHistoryDisplayOptions } from '../../domain/admin.types';
 import type { CatalogVariable } from '../../domain';
-import type { ConnectionState, EquipmentSummary } from '../../domain/equipment.types';
+import type { EquipmentSummary } from '../../domain/equipment.types';
+import type { ContractMachine } from '../../domain/dataContract.types';
 import AdminSelect from './AdminSelect';
 import AdminNumberInput from './AdminNumberInput';
 import AdminEmptyState from './AdminEmptyState';
@@ -13,14 +14,7 @@ import {
     EQUIPMENT_STATUS_VALUES,
     normalizeSimulatedEquipmentStatus,
 } from '../../utils/statusWidget';
-import {
-    CONNECTION_INDICATOR_TEXT_OPTION_KEY,
-    CONNECTION_STATE_VALUES,
-    DEFAULT_CONNECTION_INDICATOR_LABELS,
-    DEFAULT_CONNECTION_STATUS_LABELS,
-    normalizeSimulatedConnectionState,
-    normalizeSimulatedConnectionStatus,
-} from '../../utils/connectionWidget';
+import { DEFAULT_CONTRACT_STATUS_LABELS } from '../../utils/connectionWidget';
 import {
     ADMIN_SIDEBAR_INPUT_CLS,
     ADMIN_SIDEBAR_LABEL_CLS,
@@ -47,6 +41,10 @@ interface PropertyDockProps {
     selectedWidget?: WidgetConfig;
     selectedLayout?: WidgetLayout;
     equipmentMap: Map<string, EquipmentSummary>;
+    machines: ContractMachine[];
+    dataLoading?: boolean;
+    dataError?: boolean;
+    dataEnabled?: boolean;
     catalogVariables: CatalogVariable[];
     usedCatalogVariableIds: string[];
     onCreateVariable: (name: string, unit: string) => void;
@@ -80,33 +78,21 @@ const CONNECTION_STATUS_TEXT_FIELDS: Array<{
     label: string;
     placeholder: string;
 }> = [
-    { key: 'connectedText', label: 'Conectado', placeholder: DEFAULT_CONNECTION_STATUS_LABELS.connected },
-    { key: 'disconnectedText', label: 'Descon.', placeholder: DEFAULT_CONNECTION_STATUS_LABELS.disconnected },
+    { key: 'onlineText', label: 'Online', placeholder: DEFAULT_CONTRACT_STATUS_LABELS.online },
+    { key: 'degradadoText', label: 'Degradado', placeholder: DEFAULT_CONTRACT_STATUS_LABELS.degradado },
+    { key: 'offlineText', label: 'Offline', placeholder: DEFAULT_CONTRACT_STATUS_LABELS.offline },
+    { key: 'unknownText', label: 'Unknown', placeholder: DEFAULT_CONTRACT_STATUS_LABELS.unknown },
 ];
-
-const CONNECTION_FIELD_LABELS: Record<ConnectionState, string> = {
-    online: 'Online',
-    degraded: 'Degradado',
-    stale: 'Stale',
-    offline: 'Offline',
-    unknown: 'Unknown',
-};
-
-const CONNECTION_INDICATOR_TEXT_FIELDS: Array<{
-    key: Exclude<keyof ConnectionIndicatorDisplayOptions, 'showLastUpdate'>;
-    label: string;
-    placeholder: string;
-}> = CONNECTION_STATE_VALUES.map(state => ({
-    key: CONNECTION_INDICATOR_TEXT_OPTION_KEY[state],
-    label: CONNECTION_FIELD_LABELS[state],
-    placeholder: DEFAULT_CONNECTION_INDICATOR_LABELS[state],
-}));
 
 export default function PropertyDock(props: PropertyDockProps) {
     const {
         selectedWidget,
         selectedLayout,
         equipmentMap,
+        machines,
+        dataLoading = false,
+        dataError = false,
+        dataEnabled = false,
         catalogVariables,
         usedCatalogVariableIds,
         onCreateVariable,
@@ -169,11 +155,19 @@ export default function PropertyDock(props: PropertyDockProps) {
         });
     };
 
-    const handleAssetChange = (assetId: string) => {
+    const handleMachineChange = (machineId: string) => {
         if (!selectedWidget) return;
+
+        const parsedMachineId = machineId === '' ? undefined : Number(machineId);
+
         onUpdateWidget({
             ...selectedWidget,
-            binding: { ...binding, assetId, variableKey: undefined }
+            binding: {
+                ...binding,
+                machineId: parsedMachineId,
+                variableKey: undefined,
+                bindingVersion: 'node-red-v1',
+            },
         });
     };
 
@@ -181,7 +175,12 @@ export default function PropertyDock(props: PropertyDockProps) {
         if (!selectedWidget) return;
         onUpdateWidget({
             ...selectedWidget,
-            binding: { ...binding, variableKey }
+            binding: {
+                ...binding,
+                machineId: binding.machineId,
+                variableKey,
+                bindingVersion: 'node-red-v1',
+            }
         });
     };
 
@@ -211,6 +210,81 @@ export default function PropertyDock(props: PropertyDockProps) {
         });
     };
 
+    const handleConnectionScopeChange = (scope: 'global' | 'machine') => {
+        if (!selectedWidget || (selectedWidget.type !== 'connection-status')) {
+            return;
+        }
+
+        const currentOptions = (selectedWidget.displayOptions ?? {}) as ConnectionStatusDisplayOptions;
+        const nextOptions: ConnectionStatusDisplayOptions = {
+            ...currentOptions,
+            scope,
+        };
+
+        if (scope === 'global') {
+            delete nextOptions.machineId;
+        }
+
+        onUpdateWidget({
+            ...selectedWidget,
+            displayOptions: nextOptions,
+        });
+    };
+
+    const handleConnectionMachineDisplayChange = (machineId: string) => {
+        if (!selectedWidget || (selectedWidget.type !== 'connection-status')) {
+            return;
+        }
+
+        const currentOptions = (selectedWidget.displayOptions ?? {}) as ConnectionStatusDisplayOptions;
+
+        onUpdateWidget({
+            ...selectedWidget,
+            displayOptions: {
+                ...currentOptions,
+                scope: 'machine',
+                machineId: machineId === '' ? undefined : Number(machineId),
+            },
+        });
+    };
+
+    const handleConnectionOriginChange = (origin: 'simulated_value' | 'global' | 'machine') => {
+        if (!selectedWidget || selectedWidget.type !== 'connection-status') {
+            return;
+        }
+
+        const currentOptions = (selectedWidget.displayOptions ?? {}) as ConnectionStatusDisplayOptions;
+
+        if (origin === 'simulated_value') {
+            onUpdateWidget({
+                ...selectedWidget,
+                binding: {
+                    ...binding,
+                    mode: 'simulated_value',
+                },
+            });
+            return;
+        }
+
+        const nextOptions: ConnectionStatusDisplayOptions = {
+            ...currentOptions,
+            scope: origin,
+        };
+
+        if (origin === 'global') {
+            delete nextOptions.machineId;
+        }
+
+        onUpdateWidget({
+            ...selectedWidget,
+            binding: {
+                ...binding,
+                mode: 'real_variable',
+            },
+            displayOptions: nextOptions,
+        });
+    };
+
     const handleUpdateThreshold = (index: number, value: number) => {
         if (!selectedWidget) return;
         const newThresholds = [...thresholds];
@@ -220,8 +294,18 @@ export default function PropertyDock(props: PropertyDockProps) {
 
 
     const selectedAsset = binding.assetId ? equipmentMap.get(binding.assetId) : undefined;
+    const selectedMachine = binding.machineId != null
+        ? machines.find((machine) => machine.unitId === binding.machineId)
+        : undefined;
+    const isConnectionWidget = selectedWidget?.type === 'connection-status';
+    const connectionDisplayOptions = isConnectionWidget
+        ? (selectedWidget?.displayOptions as ConnectionStatusDisplayOptions | undefined)
+        : undefined;
+    const connectionScope = connectionDisplayOptions?.scope ?? 'global';
+    const connectionOrigin = isConnectionWidget
+        ? (binding.mode === 'simulated_value' ? 'simulated_value' : connectionScope)
+        : binding.mode;
     const isKpi = selectedWidget?.type === 'kpi';
-    const isMetricCard = selectedWidget?.type === 'metric-card';
     const widgetType = selectedWidget?.type ?? '';
     const hasCatalogSupport = supportsCatalogVariable(widgetType);
     const hasHierarchySupport = supportsHierarchy(widgetType);
@@ -246,13 +330,12 @@ export default function PropertyDock(props: PropertyDockProps) {
     })();
     const shouldShowGeneralIconField = selectedWidget
         && selectedWidget.type !== 'connection-status'
-        && selectedWidget.type !== 'connection-indicator'
-        && selectedWidget.type !== 'status'
-        && selectedWidget.type !== 'oee-production-trend';
+        
+        && selectedWidget.type !== 'status';
     const genericDataUnitField = selectedWidget
         && selectedWidget.type !== 'alert-history'
-        && selectedWidget.type !== 'oee-production-trend'
         && selectedWidget.type !== 'prod-history'
+        && selectedWidget.type !== 'connection-status'
         ? (() => {
             const PRESET_UNITS = ['°C', '°F', 'RPM', '%', 'bar', 'psi', 'kW', 'A', 'V', 'Hz', 'mm', 'kg', 'L/min', 'm³/h', 'N', 'kN'];
             const currentUnit = selectedWidget?.binding?.unit || '';
@@ -430,18 +513,6 @@ export default function PropertyDock(props: PropertyDockProps) {
                                     />
                                 </DockFieldRow>
                             )}
-                            {selectedWidget.type === 'oee-production-trend' && (
-                                <DockFieldRow label="Volumen">
-                                    <AdminSelect
-                                        value={(selectedWidget.displayOptions as OeeProductionTrendDisplayOptions | undefined)?.volumeChartMode ?? 'area'}
-                                        onChange={val => handleDisplayOptionChange('volumeChartMode', val)}
-                                        options={[
-                                            { value: 'area', label: 'Área', icon: <AreaChart size={12} /> },
-                                            { value: 'bars', label: 'Barras', icon: <BarChart2 size={12} /> },
-                                        ]}
-                                    />
-                                </DockFieldRow>
-                            )}
                             {selectedWidget.type === 'prod-history' && (
                                 <>
                                     <DockFieldRow label="Producción">
@@ -505,52 +576,6 @@ export default function PropertyDock(props: PropertyDockProps) {
                                 </>
                             )}
 
-                            {selectedWidget.type === 'connection-status' && (
-                                <>
-                                    {CONNECTION_STATUS_TEXT_FIELDS.map(({ key, label, placeholder }) => (
-                                        <DockFieldRow key={key} label={label}>
-                                            <input
-                                                type="text"
-                                                className={INPUT_CLS}
-                                                value={(selectedWidget.displayOptions as ConnectionStatusDisplayOptions | undefined)?.[key] || ''}
-                                                onChange={e => handleDisplayOptionChange(key, e.target.value)}
-                                                placeholder={placeholder}
-                                            />
-                                        </DockFieldRow>
-                                    ))}
-                                </>
-                            )}
-
-                            {selectedWidget.type === 'connection-indicator' && (
-                                <>
-                                    {CONNECTION_INDICATOR_TEXT_FIELDS.map(({ key, label, placeholder }) => (
-                                        <DockFieldRow key={key} label={label}>
-                                            <input
-                                                type="text"
-                                                className={INPUT_CLS}
-                                                value={(selectedWidget.displayOptions as ConnectionIndicatorDisplayOptions | undefined)?.[key] || ''}
-                                                onChange={e => handleDisplayOptionChange(key, e.target.value)}
-                                                placeholder={placeholder}
-                                            />
-                                        </DockFieldRow>
-                                    ))}
-                                    <label className="flex items-center gap-2 cursor-pointer group mt-1">
-                                        <div className="relative flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={(selectedWidget.displayOptions as ConnectionIndicatorDisplayOptions | undefined)?.showLastUpdate !== false}
-                                                onChange={e => handleDisplayOptionChange('showLastUpdate', e.target.checked)}
-                                            />
-                                            <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
-                                        </div>
-                                        <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
-                                            Mostrar Tiempo
-                                        </span>
-                                    </label>
-                                </>
-                            )}
-
                             {selectedWidget.type === 'status' && (
                                 <>
                                     {STATUS_TEXT_FIELDS.map(({ key, label, placeholder }) => (
@@ -568,8 +593,8 @@ export default function PropertyDock(props: PropertyDockProps) {
                             )}
                         </DockSection>
 
-                        {/* ─── DATOS — no aplica para alert-history, oee-production-trend ni prod-history (datos mock propios) ─── */}
-                        {selectedWidget.type !== 'alert-history' && selectedWidget.type !== 'oee-production-trend' && selectedWidget.type !== 'prod-history' && (
+                        {/* ─── DATOS — no aplica para alert-history ni prod-history (datos mock propios) ─── */}
+                        {selectedWidget.type !== 'alert-history' && selectedWidget.type !== 'prod-history' && (
                             <DockSection icon={<Database size={11} />} title="Datos">
                                 {hasHierarchySupport && (
                                     <DockFieldRow label="Fuente">
@@ -641,48 +666,51 @@ export default function PropertyDock(props: PropertyDockProps) {
                                         </DockFieldRow>
                                     </>
                                 )}
-
+                                
                                 <>
                                         <DockFieldRow label="Origen">
-                                            <AdminSelect
-                                                value={binding.mode}
-                                                disabled={isBindingSourceDisabled}
-                                                onChange={val => handleModeChange(val as WidgetBinding['mode'])}
-                                                options={[
-                                                    { value: 'simulated_value', label: 'Simulado' },
-                                                    { value: 'real_variable', label: 'Variable Real' },
-                                                ]}
-                                            />
+                                            {isConnectionWidget ? (
+                                                <AdminSelect
+                                                    value={connectionOrigin}
+                                                    disabled={isBindingSourceDisabled}
+                                                    onChange={val => handleConnectionOriginChange(val as 'simulated_value' | 'global' | 'machine')}
+                                                    options={[
+                                                        { value: 'simulated_value', label: 'Simulado' },
+                                                        { value: 'global', label: 'Global' },
+                                                        { value: 'machine', label: 'Por Máquina' },
+                                                    ]}
+                                                />
+                                            ) : (
+                                                <AdminSelect
+                                                    value={binding.mode}
+                                                    disabled={isBindingSourceDisabled}
+                                                    onChange={val => handleModeChange(val as WidgetBinding['mode'])}
+                                                    options={[
+                                                        { value: 'simulated_value', label: 'Simulado' },
+                                                        { value: 'real_variable', label: 'Variable Real' },
+                                                    ]}
+                                                />
+                                            )}
                                         </DockFieldRow>
 
                                         {binding.mode === 'simulated_value' && (
                                             <DockFieldRow label="Valor">
-                                                {selectedWidget.type === 'connection-status' ? (
+                                                {isConnectionWidget ? (
                                                     <AdminSelect
                                                         disabled={isBindingSourceDisabled}
                                                         value={(() => {
-                                                            return normalizeSimulatedConnectionStatus(binding.simulatedValue)
-                                                                ? 'connected'
-                                                                : 'disconnected';
+                                                            const raw = typeof binding.simulatedValue === 'string'
+                                                                ? binding.simulatedValue.trim().toLowerCase()
+                                                                : '';
+                                                            const valid = ['online', 'degradado', 'offline', 'unknown'];
+                                                            if (valid.includes(raw)) return raw;
+                                                            if (raw === 'degraded' || raw === 'stale') return 'degradado';
+                                                            if (raw === '1' || raw === 'true' || raw === 'connected') return 'online';
+                                                            if (raw === '0' || raw === 'false' || raw === 'disconnected') return 'offline';
+                                                            if (typeof binding.simulatedValue === 'number') return binding.simulatedValue === 1 ? 'online' : 'offline';
+                                                            if (typeof binding.simulatedValue === 'boolean') return binding.simulatedValue ? 'online' : 'offline';
+                                                            return 'unknown';
                                                         })()}
-                                                        onChange={val => {
-                                                            onUpdateWidget({
-                                                                ...selectedWidget,
-                                                                binding: {
-                                                                    ...binding,
-                                                                    simulatedValue: val === 'connected' ? 1 : 0,
-                                                                }
-                                                            });
-                                                        }}
-                                                        options={[
-                                                            { value: 'connected', label: 'Conectado' },
-                                                            { value: 'disconnected', label: 'Desconectado' },
-                                                        ]}
-                                                    />
-                                                ) : selectedWidget.type === 'connection-indicator' ? (
-                                                    <AdminSelect
-                                                        disabled={isBindingSourceDisabled}
-                                                        value={normalizeSimulatedConnectionState(binding.simulatedValue)}
                                                         onChange={val => {
                                                             onUpdateWidget({
                                                                 ...selectedWidget,
@@ -692,10 +720,12 @@ export default function PropertyDock(props: PropertyDockProps) {
                                                                 }
                                                             });
                                                         }}
-                                                        options={CONNECTION_STATE_VALUES.map(state => ({
-                                                            value: state,
-                                                            label: DEFAULT_CONNECTION_INDICATOR_LABELS[state],
-                                                        }))}
+                                                        options={[
+                                                            { value: 'online', label: 'Online' },
+                                                            { value: 'degradado', label: 'Degradado' },
+                                                            { value: 'offline', label: 'Sin señal' },
+                                                            { value: 'unknown', label: 'Sin datos' },
+                                                        ]}
                                                     />
                                                 ) : selectedWidget.type === 'status' ? (
                                                     <AdminSelect
@@ -730,35 +760,135 @@ export default function PropertyDock(props: PropertyDockProps) {
 
                                         {binding.mode === 'real_variable' && (
                                             <>
-                                                <DockFieldRow label="Equipo">
-                                                    <AdminSelect
-                                                        disabled={isBindingSourceDisabled}
-                                                        value={binding.assetId || ''}
-                                                        onChange={val => handleAssetChange(val)}
-                                                        placeholder="Seleccione..."
-                                                        options={Array.from(equipmentMap.values()).map(eq => ({
-                                                            value: eq.id,
-                                                            label: eq.name,
-                                                        }))}
-                                                    />
-                                                </DockFieldRow>
-                                                {selectedAsset && selectedWidget.type !== 'connection-status' && selectedWidget.type !== 'connection-indicator' && selectedWidget.type !== 'status' && (
+                                                {(!isConnectionWidget || connectionScope === 'machine' || connectionScope === 'global') && (
+                                                    <DockFieldRow label="Equipo">
+                                                        {isConnectionWidget && connectionScope === 'global' ? (
+                                                            <AdminSelect
+                                                                disabled
+                                                                value=""
+                                                                onChange={() => undefined}
+                                                                placeholder="Todos los equipos"
+                                                                options={[]}
+                                                            />
+                                                        ) : dataLoading ? (
+                                                            <div className={`${INPUT_CLS} flex items-center gap-2 text-industrial-muted`}>
+                                                                <Loader2 size={12} className="animate-spin" />
+                                                                <span>Cargando equipos...</span>
+                                                            </div>
+                                                        ) : dataError ? (
+                                                            <div className={`${INPUT_CLS} flex items-center text-status-critical`}>
+                                                                Error cargando equipos
+                                                            </div>
+                                                        ) : !dataEnabled ? (
+                                                            <div className={`${INPUT_CLS} flex items-center text-industrial-muted`}>
+                                                                No configurado
+                                                            </div>
+                                                        ) : machines.length === 0 ? (
+                                                            <AdminSelect
+                                                                disabled
+                                                                value=""
+                                                                onChange={() => undefined}
+                                                                placeholder="Sin equipos"
+                                                                options={[]}
+                                                            />
+                                                        ) : isConnectionWidget ? (
+                                                            <AdminSelect
+                                                                disabled={isBindingSourceDisabled}
+                                                                value={connectionDisplayOptions?.machineId != null ? String(connectionDisplayOptions.machineId) : ''}
+                                                                onChange={handleConnectionMachineDisplayChange}
+                                                                placeholder="Seleccione..."
+                                                                options={machines.map(machine => ({
+                                                                    value: String(machine.unitId),
+                                                                    label: machine.name,
+                                                                }))}
+                                                            />
+                                                        ) : (
+                                                            <AdminSelect
+                                                                disabled={isBindingSourceDisabled}
+                                                                value={binding.machineId != null ? String(binding.machineId) : ''}
+                                                                onChange={handleMachineChange}
+                                                                placeholder="Seleccione..."
+                                                                options={machines.map(machine => ({
+                                                                    value: String(machine.unitId),
+                                                                    label: machine.name,
+                                                                }))}
+                                                            />
+                                                        )}
+                                                    </DockFieldRow>
+                                                )}
+                                                {selectedWidget.type !== 'connection-status' && selectedWidget.type !== 'status' && (
                                                     <DockFieldRow label="Variable">
-                                                        <AdminSelect
-                                                            disabled={isBindingSourceDisabled}
-                                                            value={binding.variableKey || ''}
-                                                            onChange={val => handleVariableChange(val)}
-                                                            placeholder="Seleccione..."
-                                                            options={selectedAsset.primaryMetrics.map(m => ({
-                                                                value: m.label,
-                                                                label: m.label,
-                                                            }))}
-                                                        />
+                                                        {dataLoading ? (
+                                                            <div className={`${INPUT_CLS} flex items-center gap-2 text-industrial-muted`}>
+                                                                <Loader2 size={12} className="animate-spin" />
+                                                                <span>Cargando equipos...</span>
+                                                            </div>
+                                                        ) : dataError ? (
+                                                            <div className={`${INPUT_CLS} flex items-center text-status-critical`}>
+                                                                Error cargando equipos
+                                                            </div>
+                                                        ) : !dataEnabled ? (
+                                                            <div className={`${INPUT_CLS} flex items-center text-industrial-muted`}>
+                                                                No configurado
+                                                            </div>
+                                                        ) : machines.length === 0 ? (
+                                                            <AdminSelect
+                                                                disabled
+                                                                value=""
+                                                                onChange={() => undefined}
+                                                                placeholder="Sin variables"
+                                                                options={[]}
+                                                            />
+                                                        ) : (
+                                                            <AdminSelect
+                                                                disabled={isBindingSourceDisabled || !selectedMachine}
+                                                                value={binding.variableKey || ''}
+                                                                onChange={handleVariableChange}
+                                                                placeholder="Seleccione..."
+                                                                options={Object.entries(selectedMachine?.values ?? {}).map(([key, variable]) => ({
+                                                                    value: key,
+                                                                    label: key + (variable.unit ? ` (${variable.unit})` : ''),
+                                                                }))}
+                                                            />
+                                                        )}
                                                     </DockFieldRow>
                                                 )}
                                             </>
                                         )}
+
+                                        {isConnectionWidget && (
+                                            <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                                <div className="relative flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={connectionDisplayOptions?.showLastUpdate !== false}
+                                                        onChange={e => handleDisplayOptionChange('showLastUpdate', e.target.checked)}
+                                                    />
+                                                    <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                                    Mostrar Tiempo
+                                                </span>
+                                            </label>
+                                        )}
                                 </>
+                            </DockSection>
+                        )}
+
+                        {isConnectionWidget && (
+                            <DockSection icon={<Settings size={11} />} title="Textos" defaultOpen={false}>
+                                {CONNECTION_STATUS_TEXT_FIELDS.map(({ key, label, placeholder }) => (
+                                    <DockFieldRow key={key} label={label}>
+                                        <input
+                                            type="text"
+                                            className={INPUT_CLS}
+                                            value={connectionDisplayOptions?.[key] || ''}
+                                            onChange={e => handleDisplayOptionChange(key, e.target.value)}
+                                            placeholder={placeholder}
+                                        />
+                                    </DockFieldRow>
+                                ))}
                             </DockSection>
                         )}
 

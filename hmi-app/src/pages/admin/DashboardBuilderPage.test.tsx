@@ -6,6 +6,8 @@ import DashboardBuilderPage from './DashboardBuilderPage';
 import { makeDashboard, makeLayout, makeWidget } from '../../test/fixtures/dashboard.fixture';
 import { useUIStore } from '../../store/ui.store';
 import { buildTemplateAspectMismatchMessage } from '../../utils/templateAspectMismatch';
+import type { ConnectionHealth, ContractMachine } from '../../domain/dataContract.types';
+import { HEADER_WIDGET_DRAG_MIME } from '../../utils/headerWidgets';
 
 type ResizeObserverCallback = (entries: ResizeObserverEntry[], observer: ResizeObserver) => void;
 
@@ -19,6 +21,9 @@ const {
     loadNodeTypeLabelsMock,
     resolveTypeLabelMock,
     migrateLegacyBindingsMock,
+    useDataOverviewMock,
+    propertyDockMock,
+    dashboardHeaderMock,
 } = vi.hoisted(() => ({
     mockNavigate: vi.fn(),
     dashboardStorageMock: {
@@ -43,13 +48,19 @@ const {
     loadNodeTypeLabelsMock: vi.fn(),
     resolveTypeLabelMock: vi.fn((type: string) => type),
     migrateLegacyBindingsMock: vi.fn(),
+    useDataOverviewMock: vi.fn(),
+    propertyDockMock: vi.fn(),
+    dashboardHeaderMock: vi.fn(),
 }));
 
 class MockResizeObserver implements ResizeObserver {
     public readonly boxOptions = '';
     private readonly observedElements = new Set<Element>();
+    private readonly callback: ResizeObserverCallback;
 
-    public constructor(private readonly callback: ResizeObserverCallback) {}
+    public constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+    }
 
     public observe(target: Element): void {
         this.observedElements.add(target);
@@ -182,17 +193,20 @@ vi.mock('../../components/admin/AdminWorkspaceLayout', () => ({
         contextBarPanel,
         contextBar,
         rail,
+        sidePanel,
         children,
     }: {
         contextBarPanel?: ReactNode;
         contextBar: ReactNode;
         rail?: ReactNode;
+        sidePanel?: ReactNode;
         children: ReactNode;
     }) => (
         <div>
             <div data-testid="context-bar-panel">{contextBarPanel}</div>
             <div data-testid="context-bar">{contextBar}</div>
             <div data-testid="workspace-rail">{rail}</div>
+            <div data-testid="workspace-side-panel">{sidePanel}</div>
             <div data-testid="workspace-content">{children}</div>
         </div>
     ),
@@ -212,22 +226,37 @@ vi.mock('../../components/admin/WidgetCatalogRail', () => ({
 }));
 
 vi.mock('../../components/admin/PropertyDock', () => ({
-    default: () => <div data-testid="property-dock" />,
+    default: (props: unknown) => {
+        propertyDockMock(props);
+        return <div data-testid="property-dock" />;
+    },
+}));
+
+vi.mock('../../queries/useDataOverview', () => ({
+    useDataOverview: () => useDataOverviewMock(),
 }));
 
 vi.mock('../../components/viewer/DashboardHeader', () => ({
     default: ({
         dashboard,
         onAddHeaderWidget,
+        ...props
     }: {
         dashboard: { headerConfig?: { widgetSlots?: Array<{ widgetId: string; column?: number }> } };
         onAddHeaderWidget?: (type: 'status', slotIndex: number) => void;
+        connection?: ConnectionHealth;
+        machines?: ContractMachine[];
     }) => (
-        <div data-testid="dashboard-header" data-header-slot-count={dashboard.headerConfig?.widgetSlots?.length ?? 0}>
-            <button type="button" onClick={() => onAddHeaderWidget?.('status', 0)}>
-                Agregar widget header
-            </button>
-        </div>
+        (() => {
+            dashboardHeaderMock({ dashboard, onAddHeaderWidget, ...props });
+            return (
+                <div data-testid="dashboard-header" data-header-slot-count={dashboard.headerConfig?.widgetSlots?.length ?? 0}>
+                    <button type="button" onClick={() => onAddHeaderWidget?.('status', 0)}>
+                        Agregar widget header
+                    </button>
+                </div>
+            );
+        })()
     ),
 }));
 
@@ -260,6 +289,17 @@ describe('DashboardBuilderPage', () => {
         localStorage.clear();
         useUIStore.setState(useUIStore.getInitialState());
         templateStorageMock.getTemplates.mockReset();
+        useDataOverviewMock.mockReset();
+        useDataOverviewMock.mockReturnValue({
+            connection: { globalStatus: 'unknown', lastSuccess: null, ageMs: null },
+            machines: [],
+            isLoading: false,
+            isError: false,
+            error: null,
+            dataUpdatedAt: 0,
+            isEnabled: true,
+        });
+        propertyDockMock.mockReset();
         vi.stubGlobal('ResizeObserver', MockResizeObserver);
         vi.stubGlobal('requestAnimationFrame', ((callback: FrameRequestCallback) => {
             callback(0);
@@ -273,6 +313,45 @@ describe('DashboardBuilderPage', () => {
         useUIStore.setState(useUIStore.getInitialState());
         vi.clearAllMocks();
         vi.unstubAllGlobals();
+    });
+
+    it('passes contract connection and machines to the preview header', async () => {
+        const connection: ConnectionHealth = {
+            globalStatus: 'degradado',
+            lastSuccess: '2026-04-21T13:00:00.000Z',
+            ageMs: 5000,
+        };
+        const machines: ContractMachine[] = [{
+            unitId: 101,
+            name: 'Extrusora 101',
+            status: 'online',
+            lastSuccess: '2026-04-21T13:00:00.000Z',
+            ageMs: 0,
+            values: {},
+        }];
+
+        useDataOverviewMock.mockReturnValue({
+            connection,
+            machines,
+            isLoading: false,
+            isError: false,
+            error: null,
+            dataUpdatedAt: 0,
+            isEnabled: true,
+        });
+
+        await renderBuilderPage();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        });
+
+        expect(dashboardHeaderMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                connection,
+                machines,
+            }),
+        );
     });
 
     it('toggles the persisted grid preference and opens/closes the settings panel from the context bar', async () => {
@@ -342,6 +421,151 @@ describe('DashboardBuilderPage', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('dashboard-header')).toHaveAttribute('data-header-slot-count', '1');
+        });
+    });
+
+    it('moves an existing header widget to the exact empty slot column when requested by the header canvas', async () => {
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            widgets: [
+                makeWidget({ id: 'widget-status-a', type: 'status', title: 'Estado A' }),
+                makeWidget({ id: 'widget-status-b', type: 'status', title: 'Estado B' }),
+            ],
+            headerConfig: {
+                title: 'Demo',
+                widgetSlots: [
+                    { widgetId: 'widget-status-a', column: 0 },
+                    { widgetId: 'widget-status-b', column: 1 },
+                ],
+            },
+        }));
+
+        await waitFor(() => {
+            expect(dashboardHeaderMock).toHaveBeenCalled();
+        });
+
+        const latestHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+            onDropWidgetAtSlot?: (widgetId: string, slotIndex: number) => void;
+        };
+
+        latestHeaderProps.onDropWidgetAtSlot?.('widget-status-a', 2);
+
+        await waitFor(() => {
+            const rerenderedHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+                dashboard: { headerConfig?: { widgetSlots?: Array<{ widgetId: string; column?: number }> } };
+            };
+
+            expect(rerenderedHeaderProps.dashboard.headerConfig?.widgetSlots).toEqual([
+                { widgetId: 'widget-status-a', column: 2 },
+                { widgetId: 'widget-status-b', column: 1 },
+            ]);
+        });
+    });
+
+    it('persists the first free header column when a builder-grid drop lands on the header canvas', async () => {
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            widgets: [
+                makeWidget({ id: 'widget-status-a', type: 'status', title: 'Estado A' }),
+                makeWidget({ id: 'widget-status-b', type: 'status', title: 'Estado B' }),
+            ],
+            headerConfig: {
+                title: 'Demo',
+                widgetSlots: [{ widgetId: 'widget-status-a', column: 1 }],
+            },
+        }));
+
+        await waitFor(() => {
+            expect(dashboardHeaderMock).toHaveBeenCalled();
+        });
+
+        const latestHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+            onHeaderDrop?: (event: DragEvent<HTMLDivElement>) => void;
+        };
+
+        await act(async () => {
+            latestHeaderProps.onHeaderDrop?.({
+                preventDefault: vi.fn(),
+                dataTransfer: {
+                    getData: vi.fn((type: string) => (
+                        type === HEADER_WIDGET_DRAG_MIME
+                            ? JSON.stringify({ widgetId: 'widget-status-b', widgetType: 'status', source: 'builder-grid' })
+                            : ''
+                    )),
+                },
+            } as unknown as DragEvent<HTMLDivElement>);
+        });
+
+        await waitFor(() => {
+            const rerenderedHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+                dashboard: { headerConfig?: { widgetSlots?: Array<{ widgetId: string; column?: number }> } };
+            };
+
+            expect(rerenderedHeaderProps.dashboard.headerConfig?.widgetSlots).toEqual([
+                { widgetId: 'widget-status-a', column: 1 },
+                { widgetId: 'widget-status-b', column: 0 },
+            ]);
+        });
+    });
+
+    it('swaps header widget columns when the header canvas requests an arrow move', async () => {
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            widgets: [
+                makeWidget({ id: 'widget-status-a', type: 'status', title: 'Estado A' }),
+                makeWidget({ id: 'widget-status-b', type: 'status', title: 'Estado B' }),
+            ],
+            headerConfig: {
+                title: 'Demo',
+                widgetSlots: [
+                    { widgetId: 'widget-status-a', column: 0 },
+                    { widgetId: 'widget-status-b', column: 1 },
+                ],
+            },
+        }));
+
+        await waitFor(() => {
+            expect(dashboardHeaderMock).toHaveBeenCalled();
+        });
+
+        const latestHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+            onMoveHeaderWidget?: (widgetId: string, targetColumn: number) => void;
+        };
+
+        await act(async () => {
+            latestHeaderProps.onMoveHeaderWidget?.('widget-status-a', 1);
+        });
+
+        await waitFor(() => {
+            const rerenderedHeaderProps = dashboardHeaderMock.mock.calls.at(-1)?.[0] as {
+                dashboard: { headerConfig?: { widgetSlots?: Array<{ widgetId: string; column?: number }> } };
+            };
+
+            expect(rerenderedHeaderProps.dashboard.headerConfig?.widgetSlots).toEqual([
+                { widgetId: 'widget-status-a', column: 1 },
+                { widgetId: 'widget-status-b', column: 0 },
+            ]);
+        });
+    });
+
+    it('passes Node-RED overview props to PropertyDock', async () => {
+        useDataOverviewMock.mockReturnValue({
+            connection: { globalStatus: 'online', lastSuccess: '2026-04-21T13:00:00.000Z', ageMs: 0 },
+            machines: [{ unitId: 101, name: 'Extrusora 101', status: 'online', lastSuccess: '2026-04-21T13:00:00.000Z', ageMs: 0, values: {} }],
+            isLoading: true,
+            isError: true,
+            error: new Error('boom'),
+            dataUpdatedAt: 123,
+            isEnabled: true,
+        });
+
+        await renderBuilderPage();
+
+        expect(propertyDockMock).toHaveBeenCalled();
+        expect(propertyDockMock.mock.calls.at(-1)?.[0]).toMatchObject({
+            machines: [{ unitId: 101, name: 'Extrusora 101', status: 'online', lastSuccess: '2026-04-21T13:00:00.000Z', ageMs: 0, values: {} }],
+            dataLoading: true,
+            dataError: true,
         });
     });
 
