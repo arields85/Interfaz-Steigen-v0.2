@@ -14,6 +14,7 @@ interface RailAction {
 
 const ACTIONS: RailAction[] = [
     { type: 'kpi', label: 'Indicador (KPI)', icon: Gauge },
+    { type: 'machine-activity', label: 'Actividad de Máquina', icon: Activity },
     { type: 'metric-card', label: 'Tarjeta de Métrica', icon: BarChart2 },
     { type: 'trend-chart', label: 'Gráfico de Tendencia', icon: TrendingUp },
     { type: 'prod-history', label: 'Producción Histórica', icon: LineChart },

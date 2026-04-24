@@ -3,6 +3,7 @@ import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import GaugeDisplay from '../../components/ui/GaugeDisplay';
 import WidgetHeader from '../../components/ui/WidgetHeader';
 import WidgetCenteredContentLayout from '../../components/ui/WidgetCenteredContentLayout';
 
@@ -53,9 +54,18 @@ export default function KpiWidget({ widget, equipmentMap, machines, isLoadingDat
     const mode = opts?.kpiMode ?? 'circular';
     const min = opts?.min ?? 0;
     const max = opts?.max ?? 100;
+    const isSimulatedBinding = widget.binding?.mode === 'simulated_value';
+    const bindingUnit = widget.binding?.unit?.trim() ?? '';
+    const resolvedUnit = resolved.unit?.trim() ?? '';
+    const customUnit = opts?.unit?.trim() ?? '';
+    const simulatedUnit = bindingUnit || customUnit;
+    const liveUnit = isSimulatedBinding
+        ? simulatedUnit
+        : (resolvedUnit || bindingUnit);
 
-    // Si la unidad no está en binding, tomar la predeterminada del widget (compatibilidad)
-    const unit = resolved.unit ?? widget.binding?.unit ?? '';
+    const unit = opts?.unitOverride
+        ? (isSimulatedBinding ? simulatedUnit : customUnit)
+        : liveUnit;
     const iconSetting = opts?.icon;
     const isPendingIconSelection = iconSetting === undefined;
     const isNoIconSelection = iconSetting === null;
@@ -149,68 +159,58 @@ function getDynamicColors(value: number, thresholds?: ThresholdRule[]) {
     };
 }
 
+function getGaugeVisuals(value: number | null, dynamicColor?: boolean, thresholds?: ThresholdRule[]) {
+    const dynamicMode = dynamicColor && value !== null ? getDynamicColors(value, thresholds) : null;
+
+    if (dynamicMode) {
+        if (dynamicMode.svgColor === 'url(#kpi-critical-gradient)') {
+            return {
+                color: {
+                    primary: dynamicMode.glow,
+                    gradient: ['var(--color-dynamic-critical-from)', 'var(--color-dynamic-critical-to)'] as [string, string],
+                },
+            };
+        }
+
+        if (dynamicMode.svgColor === 'url(#kpi-warning-gradient)') {
+            return {
+                color: {
+                    primary: dynamicMode.glow,
+                    gradient: ['var(--color-dynamic-warning-from)', 'var(--color-dynamic-warning-to)'] as [string, string],
+                },
+            };
+        }
+
+        return {
+            color: {
+                primary: dynamicMode.glow,
+                gradient: ['var(--color-dynamic-normal-from)', 'var(--color-dynamic-normal-to)'] as [string, string],
+            },
+        };
+    }
+
+    return {
+        color: {
+            primary: 'color-mix(in srgb, var(--color-accent-purple) 40%, transparent)',
+            gradient: ['var(--color-widget-gradient-from)', 'var(--color-widget-gradient-to)'] as [string, string],
+        },
+    };
+}
+
 function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: number | null, min: number, max: number, unit?: string, dynamicColor?: boolean, thresholds?: ThresholdRule[] }) {
     const safeValue = value ?? min;
     const clamp = Math.min(Math.max(safeValue, min), max);
     const range = max - min;
-    const percentage = range === 0 ? 0 : ((clamp - min) / range) * 100;
-    
-    const radius = 60;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-    const dynamicMode = dynamicColor && value !== null ? getDynamicColors(value, thresholds) : null;
-    const strokeColor = dynamicMode ? dynamicMode.svgColor : 'url(#kpi-gradient)';
-    const glowShadow = dynamicMode ? `drop-shadow(0 0 15px ${dynamicMode.glow})` : 'drop-shadow(0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent))';
+    const normalizedValue = range === 0 ? 0 : (clamp - min) / range;
+    const gaugeVisuals = getGaugeVisuals(value, dynamicColor, thresholds);
 
     return (
         <div className="relative flex items-center justify-center w-full h-full min-h-[140px]">
-            <svg 
-                className="w-full h-full transform -rotate-90 origin-center transition-all duration-500 ease-out" 
-                viewBox="-10 -10 160 160" 
-                preserveAspectRatio="xMidYMid meet"
-                style={{ filter: glowShadow }}
-            >
-                <defs>
-                    <linearGradient id="kpi-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="var(--color-widget-gradient-to)" />
-                        <stop offset="100%" stopColor="var(--color-widget-gradient-from)" />
-                    </linearGradient>
-                    <linearGradient id="kpi-normal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="var(--color-dynamic-normal-to)" />
-                        <stop offset="100%" stopColor="var(--color-dynamic-normal-from)" />
-                    </linearGradient>
-                    <linearGradient id="kpi-warning-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="var(--color-dynamic-warning-to)" />
-                        <stop offset="100%" stopColor="var(--color-dynamic-warning-from)" />
-                    </linearGradient>
-                    <linearGradient id="kpi-critical-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="var(--color-dynamic-critical-to)" />
-                        <stop offset="100%" stopColor="var(--color-dynamic-critical-from)" />
-                    </linearGradient>
-                    <filter id="glow-filter" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                </defs>
-                <circle
-                    cx="70" cy="70" r={radius}
-                    stroke="color-mix(in srgb, white 3%, transparent)"
-                    strokeWidth="8"
-                    fill="none"
-                />
-                <circle
-                    cx="70" cy="70" r={radius}
-                    stroke={strokeColor}
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    className="transition-all duration-500 ease-out"
-                    filter="url(#glow-filter)"
-                />
-            </svg>
+            <GaugeDisplay
+                normalizedValue={normalizedValue}
+                color={gaugeVisuals.color}
+                mode="circular"
+            />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-6xl text-white leading-none tracking-tighter mb-1" style={{ fontFamily: 'var(--font-widget-value)', fontWeight: 'var(--font-weight-widget-value)' }}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
                 {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
@@ -223,12 +223,8 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
     const safeValue = value ?? min;
     const clamp = Math.min(Math.max(safeValue, min), max);
     const range = max - min;
-    const percentage = range === 0 ? 0 : ((clamp - min) / range) * 100;
-
-    const dynamicMode = dynamicColor && value !== null ? getDynamicColors(value, thresholds) : null;
-    const backgroundStyle = dynamicMode 
-        ? { background: dynamicMode.cssColor, boxShadow: `0 0 15px ${dynamicMode.glow}` }
-        : { background: `linear-gradient(90deg, var(--color-widget-gradient-from), var(--color-widget-gradient-to))`, boxShadow: '0 0 15px color-mix(in srgb, var(--color-accent-purple) 40%, transparent)' };
+    const normalizedValue = range === 0 ? 0 : (clamp - min) / range;
+    const gaugeVisuals = getGaugeVisuals(value, dynamicColor, thresholds);
 
     return (
         <div className="flex flex-col w-full h-full justify-center px-2">
@@ -237,15 +233,11 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
                 {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
             </div>
             
-            <div className="h-2 w-full bg-white/5 rounded-full relative">
-                <div 
-                    className="absolute top-0 left-0 h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ 
-                        width: `${percentage}%`,
-                        ...backgroundStyle
-                    }}
-                />
-            </div>
+            <GaugeDisplay
+                normalizedValue={normalizedValue}
+                color={gaugeVisuals.color}
+                mode="bar"
+            />
             
             <div className="flex justify-between items-center mt-3 text-[10px] font-bold uppercase tracking-wider text-industrial-muted">
                 <span>{min} {unit}</span>

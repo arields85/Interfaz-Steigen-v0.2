@@ -265,6 +265,19 @@
   --color-status-warning: #f59e0b;
   --color-status-critical: #ef4444;
 
+  /* Machine Activity — Productive State Colors */
+  --color-state-stopped: var(--color-industrial-muted);
+  --color-state-stopped-from: var(--color-industrial-muted);
+  --color-state-stopped-to: var(--color-accent-blue);
+
+  --color-state-calibrating: var(--color-accent-blue);
+  --color-state-calibrating-from: var(--color-accent-blue);
+  --color-state-calibrating-to: var(--color-accent-purple);
+
+  --color-state-producing: var(--color-status-normal);
+  --color-state-producing-from: var(--color-accent-green);
+  --color-state-producing-to: var(--color-accent-green-glow);
+
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "IBMPlexMono", monospace;
   --font-chart: "IBMPlexMono", monospace;

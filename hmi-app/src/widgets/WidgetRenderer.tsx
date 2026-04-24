@@ -7,6 +7,7 @@ import StatusWidget from './renderers/StatusWidget';
 import ConnectionStatusWidget from './renderers/ConnectionStatusWidget';
 import TrendChartWidget from './renderers/TrendChartWidget';
 import KpiWidget from './renderers/KpiWidget';
+import MachineActivityWidget from './renderers/MachineActivityWidget';
 import AlertHistoryWidget from './renderers/AlertHistoryWidget';
 import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
 
@@ -78,6 +79,17 @@ export default function WidgetRenderer({
         case 'kpi':
             return (
                 <KpiWidget
+                    widget={widget}
+                    equipmentMap={equipmentMap}
+                    machines={machines}
+                    isLoadingData={isLoadingData}
+                    className={className}
+                />
+            );
+
+        case 'machine-activity':
+            return (
+                <MachineActivityWidget
                     widget={widget}
                     equipmentMap={equipmentMap}
                     machines={machines}

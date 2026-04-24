@@ -820,7 +820,7 @@ export default function DashboardBuilderPage() {
         const handleAddWidget = (type: WidgetType) => {
             const newId = generateWidgetId(type);
             const defaultWidth = type === 'trend-chart' || type === 'prod-history' ? 2 : 1;
-            const defaultHeight = type === 'kpi' || type === 'alert-history' || type === 'prod-history' ? 2 : 1;
+            const defaultHeight = type === 'kpi' || type === 'machine-activity' || type === 'alert-history' || type === 'prod-history' ? 2 : 1;
 
             const newWidget: WidgetConfig = type === 'trend-chart'
                 ? {
@@ -831,6 +831,18 @@ export default function DashboardBuilderPage() {
                     size: { w: defaultWidth, h: defaultHeight },
                     binding: { mode: 'simulated_value', simulatedValue: 50 },
                 }
+                : type === 'kpi'
+                    ? {
+                        id: newId,
+                        type,
+                        title: `Nuevo ${type.replace('-', ' ')}`,
+                        position: { x: 0, y: 0 },
+                        size: { w: defaultWidth, h: defaultHeight },
+                        binding: { mode: 'simulated_value', simulatedValue: 0 },
+                        displayOptions: {
+                            unitOverride: false,
+                        },
+                    }
                 : type === 'alert-history'
                     ? {
                         id: newId,
@@ -845,6 +857,35 @@ export default function DashboardBuilderPage() {
                             pollInterval: 10000,
                         },
                     }
+                    : type === 'machine-activity'
+                        ? {
+                            id: newId,
+                            type,
+                            title: 'Actividad de Máquina',
+                            position: { x: 0, y: 0 },
+                            size: { w: defaultWidth, h: defaultHeight },
+                            binding: { mode: 'simulated_value', simulatedValue: 0 },
+                            displayOptions: {
+                                icon: 'Activity',
+                                kpiMode: 'circular',
+                                unitOverride: true,
+                                unit: '%',
+                                thresholdStopped: 0.15,
+                                thresholdProducing: 0.25,
+                                hysteresis: 0.05,
+                                confirmationTime: 2000,
+                                smoothingWindow: 5,
+                                powerMin: 0,
+                                powerMax: 1.0,
+                                showStateSubtitle: true,
+                                showPowerSubtext: true,
+                                showDynamicColor: true,
+                                showStateAnimation: true,
+                                labelStopped: 'Detenida',
+                                labelCalibrating: 'Calibrando',
+                                labelProducing: 'Produciendo',
+                            },
+                        }
                     : type === 'prod-history'
                         ? {
                             id: newId,

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -145,31 +145,31 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// =============================================================================
 // trendDataGenerator
@@ -193,25 +193,25 @@ export interface TrendDataPoint {
  * @param pointCount - Cantidad de puntos (por defecto 20)
  * @param intervalMs - Intervalo entre puntos en ms (por defecto 60_000 = 1 min)
  */
-export function <span class="fstat-no" title="function not covered" >generateTrendData(</span>
+export function generateTrendData(
     baseValue: number,
     variance?: number,
-    pointCount: number = <span class="branch-0 cbranch-no" title="branch not covered" >20,</span>
-    intervalMs: number = <span class="branch-0 cbranch-no" title="branch not covered" >60_000,</span>
+    pointCount: number = 20,
+    intervalMs: number = 60_000,
 ): TrendDataPoint[] {
-    const effectiveVariance = <span class="cstat-no" title="statement not covered" >variance ?? Math.abs(baseValue) * 0.1;</span>
-    const now = <span class="cstat-no" title="statement not covered" >Date.now();</span>
-    const points: TrendDataPoint[] = <span class="cstat-no" title="statement not covered" >[];</span>
+    const effectiveVariance = variance ?? Math.abs(baseValue) * 0.1;
+    const now = Date.now();
+    const points: TrendDataPoint[] = [];
 &nbsp;
     // Generar de más antiguo a más reciente
-<span class="cstat-no" title="statement not covered" >    for (let i = <span class="cstat-no" title="statement not covered" >pointCount - 1; i</span> &gt;= 0; i--) {</span>
-        const ts = <span class="cstat-no" title="statement not covered" >now - i * intervalMs;</span>
-        const date = <span class="cstat-no" title="statement not covered" >new Date(ts);</span>
-        const <span class="cstat-no" title="statement not covered" >noise = (Math.random() - 0.5) * 2 * effectiveVariance;</span>
+    for (let i = pointCount - 1; i &gt;= 0; i--) {
+        const ts = now - i * intervalMs;
+        const date = new Date(ts);
+        const noise = (Math.random() - 0.5) * 2 * effectiveVariance;
         // Suavizado: mezclar con el punto anterior para evitar saltos abruptos
-        const rawValue = <span class="cstat-no" title="statement not covered" >baseValue + noise;</span>
+        const rawValue = baseValue + noise;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        points.push({</span>
+        points.push({
             time: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
             timestamp: ts,
             value: Math.round(rawValue * 100) / 100,
@@ -219,11 +219,11 @@ export function <span class="fstat-no" title="function not covered" >generateTre
     }
 &nbsp;
     // Suavizado simple: promedio móvil con el vecino anterior
-<span class="cstat-no" title="statement not covered" >    for (let i = <span class="cstat-no" title="statement not covered" >1; i</span> &lt; points.length; i++) {</span>
-<span class="cstat-no" title="statement not covered" >        points[i].value = Math.round(((points[i - 1].value + points[i].value) / 2) * 100) / 100;</span>
+    for (let i = 1; i &lt; points.length; i++) {
+        points[i].value = Math.round(((points[i - 1].value + points[i].value) / 2) * 100) / 100;
     }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return points;</span>
+    return points;
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -232,7 +232,7 @@ export function <span class="fstat-no" title="function not covered" >generateTre
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-21T20:59:18.450Z
+                at 2026-04-24T00:33:36.361Z
             </div>
         <script src="../prettify.js"></script>
         <script>

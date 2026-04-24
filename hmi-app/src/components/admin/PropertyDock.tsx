@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings2, Database, Zap, Sliders, Tag, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, MousePointerClick, TrendingUp, BarChart2, AreaChart, Lock, Loader2 } from 'lucide-react';
-import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, StatusDisplayOptions, ProdHistoryDisplayOptions } from '../../domain/admin.types';
+import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, StatusDisplayOptions, ProdHistoryDisplayOptions, MachineActivityDisplayOptions } from '../../domain/admin.types';
 import type { CatalogVariable } from '../../domain';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
@@ -62,6 +62,7 @@ const LABEL_CLS = ADMIN_SIDEBAR_LABEL_CLS;
 const SECTION_HEADER_CLS = ADMIN_SIDEBAR_SECTION_HEADER_CLS;
 const FIELD_ROW_CLS = 'flex items-center gap-2';
 const FIELD_LABEL_CLS = `${LABEL_CLS} shrink-0`;
+const PRESET_UNITS = ['°C', '°F', 'RPM', '%', 'bar', 'psi', 'kW', 'A', 'V', 'Hz', 'mm', 'kg', 'L/min', 'm³/h', 'N', 'kN'] as const;
 
 const STATUS_TEXT_FIELDS: Array<{ key: keyof StatusDisplayOptions; label: string; placeholder: string }> = [
     { key: 'runningText', label: 'Running', placeholder: DEFAULT_STATUS_LABELS.running },
@@ -137,13 +138,81 @@ export default function PropertyDock(props: PropertyDockProps) {
         onUpdateWidget({ ...selectedWidget, binding });
     };
 
+    const handleWidgetDisplayUnitChange = (val: string) => {
+        if (!selectedWidget || (selectedWidget.type !== 'kpi' && selectedWidget.type !== 'machine-activity')) {
+            return;
+        }
+
+        handleDisplayOptionChange('unit', val);
+    };
+
+    const handleWidgetSimulatedUnitChange = (val: string) => {
+        if (!selectedWidget || (selectedWidget.type !== 'kpi' && selectedWidget.type !== 'machine-activity')) {
+            return;
+        }
+
+        onUpdateWidget({
+            ...selectedWidget,
+            binding: {
+                ...selectedWidget.binding,
+                mode: selectedWidget.binding?.mode || 'simulated_value' as const,
+                unit: val || undefined,
+            },
+            displayOptions: {
+                ...(selectedWidget.displayOptions ?? {}),
+                unit: val || undefined,
+            },
+        } as WidgetConfig);
+    };
+
+    const handleWidgetUnitOverrideChange = (checked: boolean) => {
+        if (!selectedWidget || (selectedWidget.type !== 'kpi' && selectedWidget.type !== 'machine-activity')) {
+            return;
+        }
+
+        const nextDisplayOptions = {
+            ...(selectedWidget.displayOptions ?? {}),
+            unitOverride: checked,
+        };
+
+        if (checked && !nextDisplayOptions.unit) {
+            nextDisplayOptions.unit = selectedWidget.type === 'machine-activity' ? '%' : '';
+        }
+
+        onUpdateWidget({
+            ...selectedWidget,
+            displayOptions: nextDisplayOptions,
+        } as WidgetConfig);
+    };
+
+    const getUnitSelectOptions = (value?: string | null) => {
+        const normalizedValue = value?.trim() ?? '';
+        const baseOptions = PRESET_UNITS.map(unitOption => ({ value: unitOption, label: unitOption }));
+
+        if (!normalizedValue || PRESET_UNITS.includes(normalizedValue as (typeof PRESET_UNITS)[number])) {
+            return baseOptions;
+        }
+
+        return [{ value: normalizedValue, label: normalizedValue }, ...baseOptions];
+    };
+
     // --- Binding handlers ---
     const binding = selectedWidget?.binding || { mode: 'simulated_value' as const, simulatedValue: 0 };
     const thresholds = selectedWidget?.thresholds || [];
 
     const handleModeChange = (mode: WidgetBinding['mode']) => {
         if (!selectedWidget) return;
-        onUpdateWidget({ ...selectedWidget, binding: { ...binding, mode } });
+
+        const widgetDisplayOptions = (selectedWidget.type === 'kpi' || selectedWidget.type === 'machine-activity')
+            ? (selectedWidget.displayOptions as KpiDisplayOptions | MachineActivityDisplayOptions | undefined)
+            : undefined;
+        const nextBinding: WidgetBinding = { ...binding, mode };
+
+        if (mode === 'simulated_value' && widgetDisplayOptions?.unit?.trim()) {
+            nextBinding.unit = widgetDisplayOptions.unit.trim();
+        }
+
+        onUpdateWidget({ ...selectedWidget, binding: nextBinding });
     };
 
     const handleSimulatedValueChange = (val: string) => {
@@ -173,12 +242,16 @@ export default function PropertyDock(props: PropertyDockProps) {
 
     const handleVariableChange = (variableKey: string) => {
         if (!selectedWidget) return;
+
+        const selectedVariableUnit = selectedMachine?.values[variableKey]?.unit;
+
         onUpdateWidget({
             ...selectedWidget,
             binding: {
                 ...binding,
                 machineId: binding.machineId,
                 variableKey,
+                unit: selectedVariableUnit ?? binding.unit,
                 bindingVersion: 'node-red-v1',
             }
         });
@@ -306,6 +379,7 @@ export default function PropertyDock(props: PropertyDockProps) {
         ? (binding.mode === 'simulated_value' ? 'simulated_value' : connectionScope)
         : binding.mode;
     const isKpi = selectedWidget?.type === 'kpi';
+    const isMachineActivity = selectedWidget?.type === 'machine-activity';
     const widgetType = selectedWidget?.type ?? '';
     const hasCatalogSupport = supportsCatalogVariable(widgetType);
     const hasHierarchySupport = supportsHierarchy(widgetType);
@@ -324,6 +398,43 @@ export default function PropertyDock(props: PropertyDockProps) {
     const prodHistoryOptions = isProdHistory
         ? (selectedWidget.displayOptions as ProdHistoryDisplayOptions | undefined)
         : undefined;
+    const machineActivityOptions = isMachineActivity
+        ? (selectedWidget.displayOptions as MachineActivityDisplayOptions | undefined)
+        : undefined;
+    const kpiDisplayOptions = isKpi
+        ? (selectedWidget.displayOptions as KpiDisplayOptions | undefined)
+        : undefined;
+    const widgetUnitDisplayOptions = isMachineActivity
+        ? machineActivityOptions
+        : isKpi
+            ? kpiDisplayOptions
+            : undefined;
+    const isUnitOverrideEnabled = isMachineActivity
+        ? (machineActivityOptions?.unitOverride ?? true)
+        : (kpiDisplayOptions?.unitOverride ?? false);
+    const resolvedVariableUnit = binding.mode === 'real_variable' && binding.variableKey && selectedMachine
+        ? selectedMachine.values[binding.variableKey]?.unit
+        : undefined;
+    const resolvedMachineActivityScaleUnit = (
+        binding.mode === 'simulated_value'
+            ? (binding.unit?.trim() || widgetUnitDisplayOptions?.unit)
+            : (resolvedVariableUnit ?? binding.unit)
+    )?.trim() ?? '';
+    const machineActivityScaleMinLabel = resolvedMachineActivityScaleUnit ? `${resolvedMachineActivityScaleUnit} mín` : 'Valor mín';
+    const machineActivityScaleMaxLabel = resolvedMachineActivityScaleUnit ? `${resolvedMachineActivityScaleUnit} máx` : 'Valor máx';
+    const resolvedKpiScaleUnit = (
+        binding.mode === 'simulated_value'
+            ? (binding.unit?.trim() || widgetUnitDisplayOptions?.unit)
+            : (resolvedVariableUnit ?? binding.unit)
+    )?.trim() ?? '';
+    const kpiScaleMinLabel = resolvedKpiScaleUnit ? `${resolvedKpiScaleUnit} mín` : 'Valor mín';
+    const kpiScaleMaxLabel = resolvedKpiScaleUnit ? `${resolvedKpiScaleUnit} máx` : 'Valor máx';
+    const isSimulatedBinding = binding.mode === 'simulated_value';
+    const simulatedWidgetUnit = (binding.unit?.trim() || widgetUnitDisplayOptions?.unit?.trim() || '');
+    const customUnitInputValue = isSimulatedBinding
+        ? (simulatedWidgetUnit || (isMachineActivity ? '%' : ''))
+        : (widgetUnitDisplayOptions?.unit ?? (isMachineActivity ? '%' : (binding.unit ?? '')));
+    const resolvedUnitPreviewValue = resolvedVariableUnit ?? '—';
     const prodHistoryBarWidth = (() => {
         const rawValue = prodHistoryOptions?.productionBarWidth ?? 1;
         return Math.min(1.5, Math.max(0.5, Number.isFinite(rawValue) ? rawValue : 1));
@@ -336,8 +447,9 @@ export default function PropertyDock(props: PropertyDockProps) {
         && selectedWidget.type !== 'alert-history'
         && selectedWidget.type !== 'prod-history'
         && selectedWidget.type !== 'connection-status'
+        && selectedWidget.type !== 'kpi'
+        && selectedWidget.type !== 'machine-activity'
         ? (() => {
-            const PRESET_UNITS = ['°C', '°F', 'RPM', '%', 'bar', 'psi', 'kW', 'A', 'V', 'Hz', 'mm', 'kg', 'L/min', 'm³/h', 'N', 'kN'];
             const currentUnit = selectedWidget?.binding?.unit || '';
             const isPreset = PRESET_UNITS.includes(currentUnit);
             const showCustom = isCustomUnit || (!isPreset && currentUnit !== '');
@@ -464,6 +576,8 @@ export default function PropertyDock(props: PropertyDockProps) {
                                                 ? (selectedWidget.displayOptions as AlertHistoryDisplayOptions | undefined)?.icon
                                                 : selectedWidget.type === 'prod-history'
                                                     ? prodHistoryOptions?.icon
+                                                    : selectedWidget.type === 'machine-activity'
+                                                        ? machineActivityOptions?.icon
                                                     : (selectedWidget.displayOptions as KpiDisplayOptions | MetricCardDisplayOptions | undefined)?.icon;
                                             if (currentIcon === undefined) return '__pending__';
                                             if (currentIcon === null) return '__none__';
@@ -501,10 +615,10 @@ export default function PropertyDock(props: PropertyDockProps) {
                                     />
                                 </DockFieldRow>
                             )}
-                            {isKpi && (
+                            {(isKpi || isMachineActivity) && (
                                 <DockFieldRow label="Estilo">
                                     <AdminSelect
-                                        value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.kpiMode || 'circular'}
+                                        value={(isMachineActivity ? machineActivityOptions : selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.kpiMode || 'circular'}
                                         onChange={val => handleDisplayOptionChange('kpiMode', val)}
                                         options={[
                                             { value: 'circular', label: 'Radial' },
@@ -758,6 +872,18 @@ export default function PropertyDock(props: PropertyDockProps) {
                                             </DockFieldRow>
                                         )}
 
+                                        {binding.mode === 'simulated_value' && (isKpi || isMachineActivity) && (
+                                            <DockFieldRow label="Unidad">
+                                                <AdminSelect
+                                                    value={customUnitInputValue}
+                                                    onChange={handleWidgetSimulatedUnitChange}
+                                                    placeholder="Seleccionar"
+                                                    disabled={isBindingSourceDisabled}
+                                                    options={getUnitSelectOptions(customUnitInputValue)}
+                                                />
+                                            </DockFieldRow>
+                                        )}
+
                                         {binding.mode === 'real_variable' && (
                                             <>
                                                 {(!isConnectionWidget || connectionScope === 'machine' || connectionScope === 'global') && (
@@ -853,6 +979,35 @@ export default function PropertyDock(props: PropertyDockProps) {
                                                         )}
                                                     </DockFieldRow>
                                                 )}
+
+                                                {(isKpi || isMachineActivity) && !isConnectionWidget && (
+                                                    <>
+                                                        <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                                            <div className="relative flex items-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="sr-only peer"
+                                                                    checked={isUnitOverrideEnabled}
+                                                                    onChange={e => handleWidgetUnitOverrideChange(e.target.checked)}
+                                                                />
+                                                                <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                                                Unidad custom
+                                                            </span>
+                                                        </label>
+
+                                                        <DockFieldRow label="Unidad">
+                                                            <AdminSelect
+                                                                value={isUnitOverrideEnabled ? customUnitInputValue : resolvedUnitPreviewValue}
+                                                                onChange={handleWidgetDisplayUnitChange}
+                                                                placeholder="Seleccionar"
+                                                                disabled={!isUnitOverrideEnabled}
+                                                                options={getUnitSelectOptions(isUnitOverrideEnabled ? customUnitInputValue : resolvedUnitPreviewValue)}
+                                                            />
+                                                        </DockFieldRow>
+                                                        </>
+                                                )}
                                             </>
                                         )}
 
@@ -892,19 +1047,187 @@ export default function PropertyDock(props: PropertyDockProps) {
                             </DockSection>
                         )}
 
-                        {/* ─── RANGO (solo KPI) ─── */}
+                        {isMachineActivity && (
+                            <DockSection icon={<Sliders size={11} />} title="Escala Visual">
+                                <DockFieldRow label={machineActivityScaleMinLabel}>
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.powerMin ?? 0}
+                                        step={0.01}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('powerMin', val)}
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label={machineActivityScaleMaxLabel}>
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.powerMax ?? 1}
+                                        step={0.01}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('powerMax', val)}
+                                    />
+                                </DockFieldRow>
+                            </DockSection>
+                        )}
+
+                        {isMachineActivity && (
+                            <DockSection icon={<Activity size={11} />} title="Estados Productivos">
+                                <DockFieldRow label="Calib. ≥">
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.thresholdStopped ?? 0.15}
+                                        min={0}
+                                        step={0.01}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('thresholdStopped', val)}
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Prod. ≥">
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.thresholdProducing ?? 0.25}
+                                        min={0}
+                                        step={0.01}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('thresholdProducing', val)}
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Histéresis">
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.hysteresis ?? 0.05}
+                                        min={0}
+                                        step={0.01}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('hysteresis', val)}
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Conf. (ms)">
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.confirmationTime ?? 2000}
+                                        min={0}
+                                        step={100}
+                                        commitOnBlur
+                                        onChange={val => handleNumericDisplayOptionChange('confirmationTime', val)}
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Suavizado" labelClassName={isSimulatedBinding ? 'text-industrial-muted' : ''}>
+                                    <AdminNumberInput
+                                        value={machineActivityOptions?.smoothingWindow ?? 5}
+                                        min={1}
+                                        step={1}
+                                        commitOnBlur
+                                        disabled={isSimulatedBinding}
+                                        onChange={val => handleNumericDisplayOptionChange('smoothingWindow', val)}
+                                    />
+                                </DockFieldRow>
+                            </DockSection>
+                        )}
+
+                        {isMachineActivity && (
+                            <DockSection icon={<Settings size={11} />} title="Visualización">
+                                <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={machineActivityOptions?.showStateSubtitle !== false}
+                                            onChange={e => handleDisplayOptionChange('showStateSubtitle', e.target.checked)}
+                                        />
+                                        <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                        Mostrar subtítulo de estado
+                                    </span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={machineActivityOptions?.showPowerSubtext !== false}
+                                            onChange={e => handleDisplayOptionChange('showPowerSubtext', e.target.checked)}
+                                        />
+                                        <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                        {isSimulatedBinding ? 'Mostrar valor en subtexto' : 'Mostrar variable en subtexto'}
+                                    </span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={machineActivityOptions?.showDynamicColor !== false}
+                                            onChange={e => handleDisplayOptionChange('showDynamicColor', e.target.checked)}
+                                        />
+                                        <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                        Color dinámico por estado
+                                    </span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group mt-1">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={machineActivityOptions?.showStateAnimation !== false}
+                                            onChange={e => handleDisplayOptionChange('showStateAnimation', e.target.checked)}
+                                        />
+                                        <div className="w-7 h-4 rounded-full border border-transparent bg-white/10 transition-all peer peer-checked:bg-white/20 peer-checked:border-white/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-white/70 peer-checked:text-white group-hover:!text-white group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.4)] transition-all whitespace-nowrap">
+                                        Animación por estado
+                                    </span>
+                                </label>
+                            </DockSection>
+                        )}
+
+                        {isMachineActivity && (
+                            <DockSection icon={<Tag size={11} />} title="Textos">
+                                <DockFieldRow label="Detenida">
+                                    <input
+                                        type="text"
+                                        className={INPUT_CLS}
+                                        value={machineActivityOptions?.labelStopped ?? 'Detenida'}
+                                        onChange={e => handleDisplayOptionChange('labelStopped', e.target.value)}
+                                        placeholder="Detenida"
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Calibrando">
+                                    <input
+                                        type="text"
+                                        className={INPUT_CLS}
+                                        value={machineActivityOptions?.labelCalibrating ?? 'Calibrando'}
+                                        onChange={e => handleDisplayOptionChange('labelCalibrating', e.target.value)}
+                                        placeholder="Calibrando"
+                                    />
+                                </DockFieldRow>
+                                <DockFieldRow label="Produciendo">
+                                    <input
+                                        type="text"
+                                        className={INPUT_CLS}
+                                        value={machineActivityOptions?.labelProducing ?? 'Produciendo'}
+                                        onChange={e => handleDisplayOptionChange('labelProducing', e.target.value)}
+                                        placeholder="Produciendo"
+                                    />
+                                </DockFieldRow>
+                            </DockSection>
+                        )}
+
+                        {/* ─── ESCALA VISUAL (solo KPI) ─── */}
                         {isKpi && (
-                            <DockSection icon={<Sliders size={11} />} title="Rango">
+                            <DockSection icon={<Sliders size={11} />} title="Escala Visual">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <span className={LABEL_CLS}>MIN</span>
+                                        <span className={LABEL_CLS}>{kpiScaleMinLabel}</span>
                                         <AdminNumberInput
                                             value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.min ?? 0}
                                             onChange={val => handleDisplayOptionChange('min', val)}
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={LABEL_CLS}>MAX</span>
+                                        <span className={LABEL_CLS}>{kpiScaleMaxLabel}</span>
                                         <AdminNumberInput
                                             value={(selectedWidget.displayOptions as KpiDisplayOptions | undefined)?.max ?? 100}
                                             onChange={val => handleDisplayOptionChange('max', val)}

@@ -139,6 +139,23 @@ function getFieldButtonInSection(sectionTitle: string, label: string) {
     return within(row).getByRole('button');
 }
 
+function getInputInSection(sectionTitle: string, label: string) {
+    const section = getSection(sectionTitle);
+    const row = within(section).getByText(label).closest('div');
+
+    if (!row) {
+        throw new Error(`No se encontró la fila ${label} en ${sectionTitle}`);
+    }
+
+    const input = within(row).queryByRole('textbox');
+
+    if (!input) {
+        throw new Error(`No se encontró el input ${label} en ${sectionTitle}`);
+    }
+
+    return input;
+}
+
 describe('PropertyDock Node-RED binding', () => {
     it('renders Node-RED machine names when machines are available', async () => {
         const { user } = renderPropertyDock();
@@ -385,5 +402,419 @@ describe('PropertyDock Node-RED binding', () => {
             scope: 'global',
             showLastUpdate: true,
         });
+    });
+});
+
+describe('PropertyDock machine-activity', () => {
+    it('renders machine-activity sections with KPI-like general/data controls and default values', () => {
+        renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'real_variable',
+                unit: 'kW',
+            },
+        });
+
+        expect(screen.getByRole('button', { name: /general/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /datos/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /escala visual/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /estados productivos/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /visualización/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /textos/i })).toBeInTheDocument();
+
+        const sectionButtons = screen.getAllByRole('button').map((button) => button.textContent ?? '');
+        const dataIndex = sectionButtons.findIndex((text) => /datos/i.test(text));
+        const scaleIndex = sectionButtons.findIndex((text) => /escala visual/i.test(text));
+        const productiveStatesIndex = sectionButtons.findIndex((text) => /estados productivos/i.test(text));
+
+        expect(dataIndex).toBeGreaterThanOrEqual(0);
+        expect(scaleIndex).toBeGreaterThan(dataIndex);
+        expect(productiveStatesIndex).toBeGreaterThan(scaleIndex);
+
+        expect(screen.getByDisplayValue('Actividad de Máquina')).toBeInTheDocument();
+        expect(getFieldButtonInSection('General', 'Ícono')).toHaveTextContent('(Ícono pendiente)');
+        expect(getFieldButtonInSection('General', 'Estilo')).toHaveTextContent('Radial');
+
+        expect(getFieldButtonInSection('Datos', 'Origen')).toHaveTextContent('Variable Real');
+        expect(getFieldButtonInSection('Datos', 'Equipo')).toHaveTextContent('Seleccione...');
+        expect(getFieldButtonInSection('Datos', 'Variable')).toHaveTextContent('Seleccione...');
+        expect(screen.getByLabelText('Unidad custom')).toBeChecked();
+        expect(getFieldButtonInSection('Datos', 'Unidad')).toHaveTextContent('%');
+
+        const productiveStatesSection = getSection('Estados Productivos');
+        expect(within(productiveStatesSection).getByText('Calib. ≥')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByText('Prod. ≥')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByText('Conf. (ms)')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByDisplayValue('0.15')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByDisplayValue('0.25')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByDisplayValue('0.05')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByDisplayValue('2000')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByDisplayValue('5')).toBeInTheDocument();
+
+        const visualScaleSection = getSection('Escala Visual');
+        expect(within(visualScaleSection).getByText('kW mín')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByText('kW máx')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByDisplayValue('0')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByDisplayValue('1')).toBeInTheDocument();
+
+        expect(screen.getByLabelText('Mostrar subtítulo de estado')).toBeChecked();
+        expect(screen.getByLabelText('Mostrar variable en subtexto')).toBeChecked();
+        expect(screen.getByLabelText('Color dinámico por estado')).toBeChecked();
+        expect(screen.getByLabelText('Animación por estado')).toBeChecked();
+
+        const textsSection = getSection('Textos');
+        expect(within(textsSection).getByDisplayValue('Detenida')).toBeInTheDocument();
+        expect(within(textsSection).getByDisplayValue('Calibrando')).toBeInTheDocument();
+        expect(within(textsSection).getByDisplayValue('Produciendo')).toBeInTheDocument();
+    });
+
+    it('updates machine-activity display options from the custom property sections', async () => {
+        const { user, updates } = renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'real_variable',
+                unit: 'kW',
+            },
+        });
+
+        await user.click(getFieldButtonInSection('General', 'Estilo'));
+        await user.click(screen.getByRole('button', { name: 'Barra' }));
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({
+            kpiMode: 'bar',
+        });
+
+        const productiveStatesSection = getSection('Estados Productivos');
+        const confirmationInput = within(productiveStatesSection).getByDisplayValue('2000');
+        await user.clear(confirmationInput);
+        await user.type(confirmationInput, '3500');
+        await user.tab();
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({
+            confirmationTime: 3500,
+        });
+
+        const subtitleToggle = screen.getByLabelText('Mostrar subtítulo de estado');
+        await user.click(subtitleToggle);
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({
+            showStateSubtitle: false,
+        });
+
+        const textsSection = getSection('Textos');
+        const producingInput = within(textsSection).getByDisplayValue('Produciendo');
+        await user.type(producingInput, ' avanzada');
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({
+            labelProducing: 'Produciendo avanzada',
+        });
+    });
+
+    it('shows the custom unit toggle for real machine-activity bindings and enables editing only when active', async () => {
+        const { user, updates } = renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'real_variable',
+                machineId: 101,
+                variableKey: 'temp',
+                bindingVersion: 'node-red-v1',
+                unit: 'kW',
+            },
+            displayOptions: {
+                unitOverride: false,
+                unit: '%',
+            },
+        });
+
+        const toggle = screen.getByLabelText('Unidad custom');
+        const unitSelect = getFieldButtonInSection('Datos', 'Unidad');
+
+        expect(toggle).not.toBeChecked();
+        expect(unitSelect).toHaveTextContent('°C');
+        expect(unitSelect).toBeDisabled();
+
+        await user.click(toggle);
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({
+            unitOverride: true,
+            unit: '%',
+        });
+        expect(getFieldButtonInSection('Datos', 'Unidad')).toHaveTextContent('%');
+        expect(getFieldButtonInSection('Datos', 'Unidad')).not.toBeDisabled();
+    });
+
+    it('keeps the unit editable without toggle for simulated machine-activity bindings', () => {
+        renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                unit: '%',
+            },
+            displayOptions: {
+                unitOverride: true,
+                unit: '%',
+            },
+        });
+
+        expect(screen.queryByLabelText('Unidad custom')).not.toBeInTheDocument();
+        expect(getFieldButtonInSection('Datos', 'Unidad')).toHaveTextContent('%');
+        expect(getFieldButtonInSection('Datos', 'Unidad')).not.toBeDisabled();
+    });
+
+    it('updates the simulated machine-activity unit atomically without reverting to the previous value', async () => {
+        const { user, updates } = renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                unit: '%',
+            },
+            displayOptions: {
+                unitOverride: true,
+                unit: '%',
+            },
+        });
+
+        await user.click(getFieldButtonInSection('Datos', 'Unidad'));
+        await user.click(screen.getByRole('button', { name: 'RPM' }));
+
+        expect(updates.at(-1)).toMatchObject({
+            binding: {
+                mode: 'simulated_value',
+                unit: 'RPM',
+            },
+            displayOptions: {
+                unitOverride: true,
+                unit: 'RPM',
+            },
+        });
+        expect(getFieldButtonInSection('Datos', 'Unidad')).toHaveTextContent('RPM');
+        expect(within(getSection('Escala Visual')).getByText('RPM mín')).toBeInTheDocument();
+        expect(within(getSection('Escala Visual')).getByText('RPM máx')).toBeInTheDocument();
+    });
+
+    it('uses the selected variable unit for scale labels and falls back when no unit is available', () => {
+        const { rerender } = renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'real_variable',
+                machineId: 101,
+                variableKey: 'temp',
+                bindingVersion: 'node-red-v1',
+            },
+        });
+
+        const visualScaleSection = getSection('Escala Visual');
+        expect(within(visualScaleSection).getByText('°C mín')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByText('°C máx')).toBeInTheDocument();
+
+        rerender(
+            <PropertyDock
+                selectedWidget={{
+                    ...makeWidget({
+                        mode: 'real_variable',
+                        machineId: 101,
+                        variableKey: 'temp',
+                        bindingVersion: 'node-red-v1',
+                    }),
+                    type: 'machine-activity',
+                    title: 'Actividad de Máquina',
+                    displayOptions: {},
+                }}
+                selectedLayout={DEFAULT_LAYOUT}
+                equipmentMap={new Map()}
+                catalogVariables={[]}
+                usedCatalogVariableIds={[]}
+                machines={[
+                    {
+                        ...MACHINES[0],
+                        values: {
+                            temp: { value: 42, unit: '', timestamp: null },
+                        },
+                    },
+                ]}
+                dataEnabled
+                onCreateVariable={vi.fn()}
+                onDeleteVariable={vi.fn()}
+                onUpdateWidget={vi.fn()}
+                onUpdateLayout={vi.fn()}
+                onDelete={vi.fn()}
+                onDuplicate={vi.fn()}
+                onDeselect={vi.fn()}
+            />,
+        );
+
+        expect(within(getSection('Escala Visual')).getByText('Valor mín')).toBeInTheDocument();
+        expect(within(getSection('Escala Visual')).getByText('Valor máx')).toBeInTheDocument();
+    });
+
+    it('uses the simulated unit for machine-activity scale labels even when a previous real variable exists', () => {
+        renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                machineId: 101,
+                variableKey: 'temp',
+                bindingVersion: 'node-red-v1',
+                unit: 'Hz',
+            },
+        });
+
+        const visualScaleSection = getSection('Escala Visual');
+        expect(within(visualScaleSection).getByText('Hz mín')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByText('Hz máx')).toBeInTheDocument();
+        expect(within(visualScaleSection).queryByText('°C mín')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the current simulated display unit for machine-activity scale labels when binding.unit is empty', () => {
+        renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                unit: '',
+            },
+            displayOptions: {
+                unit: '°F',
+                unitOverride: true,
+            },
+        });
+
+        const visualScaleSection = getSection('Escala Visual');
+        expect(within(visualScaleSection).getByText('°F mín')).toBeInTheDocument();
+        expect(within(visualScaleSection).getByText('°F máx')).toBeInTheDocument();
+    });
+
+    it('syncs the simulated unit into scale labels when switching machine-activity from real to simulated', async () => {
+        const { user, updates } = renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'real_variable',
+                machineId: 101,
+                variableKey: 'temp',
+                bindingVersion: 'node-red-v1',
+                unit: '°C',
+            },
+            displayOptions: {
+                unitOverride: true,
+                unit: 'RPM',
+            },
+        });
+
+        expect(within(getSection('Escala Visual')).getByText('°C mín')).toBeInTheDocument();
+
+        await user.click(getFieldButtonInSection('Datos', 'Origen'));
+        await user.click(screen.getByRole('button', { name: 'Simulado' }));
+
+        expect(updates.at(-1)?.binding).toMatchObject({
+            mode: 'simulated_value',
+            unit: 'RPM',
+        });
+        expect(within(getSection('Escala Visual')).getByText('RPM mín')).toBeInTheDocument();
+        expect(within(getSection('Escala Visual')).getByText('RPM máx')).toBeInTheDocument();
+        expect(within(getSection('Escala Visual')).queryByText('°C mín')).not.toBeInTheDocument();
+    });
+
+    it('uses dynamic KPI scale labels for real and simulated units', () => {
+        const { rerender } = renderPropertyDock({
+            type: 'kpi',
+            title: 'Potencia',
+            binding: {
+                mode: 'real_variable',
+                machineId: 101,
+                variableKey: 'temp',
+                bindingVersion: 'node-red-v1',
+            },
+        });
+
+        const scaleSection = getSection('Escala Visual');
+        expect(within(scaleSection).getByText('°C mín')).toBeInTheDocument();
+        expect(within(scaleSection).getByText('°C máx')).toBeInTheDocument();
+
+        rerender(
+            <PropertyDock
+                selectedWidget={{
+                    ...makeWidget({
+                        mode: 'simulated_value',
+                        simulatedValue: 12,
+                        machineId: 101,
+                        variableKey: 'temp',
+                        bindingVersion: 'node-red-v1',
+                        unit: 'bar',
+                    }),
+                    title: 'Potencia',
+                    displayOptions: {},
+                }}
+                selectedLayout={DEFAULT_LAYOUT}
+                equipmentMap={new Map()}
+                catalogVariables={[]}
+                usedCatalogVariableIds={[]}
+                machines={MACHINES}
+                dataEnabled
+                onCreateVariable={vi.fn()}
+                onDeleteVariable={vi.fn()}
+                onUpdateWidget={vi.fn()}
+                onUpdateLayout={vi.fn()}
+                onDelete={vi.fn()}
+                onDuplicate={vi.fn()}
+                onDeselect={vi.fn()}
+            />,
+        );
+
+        expect(within(getSection('Escala Visual')).getByText('bar mín')).toBeInTheDocument();
+        expect(within(getSection('Escala Visual')).getByText('bar máx')).toBeInTheDocument();
+    });
+
+    it('falls back to the current simulated display unit for KPI scale labels when binding.unit is empty', () => {
+        renderPropertyDock({
+            type: 'kpi',
+            title: 'Potencia',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                unit: '',
+            },
+            displayOptions: {
+                unit: 'RPM',
+                unitOverride: true,
+            },
+        });
+
+        const scaleSection = getSection('Escala Visual');
+        expect(within(scaleSection).getByText('RPM mín')).toBeInTheDocument();
+        expect(within(scaleSection).getByText('RPM máx')).toBeInTheDocument();
+    });
+
+    it('disables smoothing and renames the subtext toggle when machine-activity uses simulated values', () => {
+        renderPropertyDock({
+            type: 'machine-activity',
+            title: 'Actividad de Máquina',
+            binding: {
+                mode: 'simulated_value',
+                simulatedValue: 12,
+                unit: '%',
+            },
+            displayOptions: {
+                showPowerSubtext: true,
+            },
+        });
+
+        const productiveStatesSection = getSection('Estados Productivos');
+        const smoothingInput = within(productiveStatesSection).getByDisplayValue('5');
+
+        expect(smoothingInput).toBeDisabled();
+        expect(screen.getByLabelText('Mostrar valor en subtexto')).toBeChecked();
+        expect(screen.queryByLabelText('Mostrar variable en subtexto')).not.toBeInTheDocument();
     });
 });

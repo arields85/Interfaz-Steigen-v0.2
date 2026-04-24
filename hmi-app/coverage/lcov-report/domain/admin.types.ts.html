@@ -666,33 +666,7 @@
 <a name='L601'></a><a href='#L601'>601</a>
 <a name='L602'></a><a href='#L602'>602</a>
 <a name='L603'></a><a href='#L603'>603</a>
-<a name='L604'></a><a href='#L604'>604</a>
-<a name='L605'></a><a href='#L605'>605</a>
-<a name='L606'></a><a href='#L606'>606</a>
-<a name='L607'></a><a href='#L607'>607</a>
-<a name='L608'></a><a href='#L608'>608</a>
-<a name='L609'></a><a href='#L609'>609</a>
-<a name='L610'></a><a href='#L610'>610</a>
-<a name='L611'></a><a href='#L611'>611</a>
-<a name='L612'></a><a href='#L612'>612</a>
-<a name='L613'></a><a href='#L613'>613</a>
-<a name='L614'></a><a href='#L614'>614</a>
-<a name='L615'></a><a href='#L615'>615</a>
-<a name='L616'></a><a href='#L616'>616</a>
-<a name='L617'></a><a href='#L617'>617</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L604'></a><a href='#L604'>604</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1284,7 +1258,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">46x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1427,6 +1401,32 @@ export interface Dashboard {
     publishedSnapshot?: PublishedSnapshot;
 }
 &nbsp;
+/**
+ * Opciones de visualización unificadas para widgets de conexión.
+ *
+ * Soporta dos modos de alcance:
+ * - `scope: 'global'`  → estado global de conexión con la capa de datos
+ * - `scope: 'machine'` → estado de una máquina específica (requiere `machineId`)
+ *
+ * Labels personalizables por estado del contrato oficial.
+ * `showLastUpdate` controla la visibilidad del footer de tiempo relativo.
+ */
+export interface ConnectionStatusDisplayOptions {
+    scope?: 'global' | 'machine';
+    machineId?: number;
+    onlineText?: string;
+    degradadoText?: string;
+    offlineText?: string;
+    unknownText?: string;
+    showLastUpdate?: boolean;
+    /** @deprecated Legacy — usar onlineText/offlineText */
+    connectedText?: string;
+    /** @deprecated Legacy — usar onlineText/offlineText */
+    disconnectedText?: string;
+}
+&nbsp;
+&nbsp;
+&nbsp;
 export interface WidgetLayout {
     widgetId: string;
     x: number;
@@ -1444,17 +1444,16 @@ export type WidgetType =
     | 'badge'
     | 'sparkline'
     | 'trend-chart'
-    | 'oee-production-trend'
     | 'prod-history'
     | 'table'
     | 'alert-list'
     | 'alert-history'
     | 'text-summary'
-    | 'connection-indicator'
     | 'connection-status'
     | 'multi-metric'
     | 'ai-summary'
-    | 'section-title';
+    | 'section-title'
+    | 'machine-activity';
 &nbsp;
 // --- AGREGACIÓN JERÁRQUICA ---
 &nbsp;
@@ -1490,7 +1489,7 @@ export interface WidgetBinding {
     /** Node-RED machine unitId. Present when bindingVersion = 'node-red-v1'. */
     machineId?: number;
     /** Binding version discriminator. undefined = legacy, 'node-red-v1' = Node-RED. */
-    bindingVersion?: 'node-red-v1';
+    bindingVersion?: 'node-red-v1' | 'real-variable-v1';
 }
 &nbsp;
 export interface ThresholdRule {
@@ -1584,39 +1583,6 @@ export interface AlertHistoryDisplayOptions {
 }
 &nbsp;
 /**
- * Opciones de visualización para widgets de tipo 'connection-status'.
- *
- * - `connectedText`: copy mostrado cuando el estado resuelto es conectado.
- * - `disconnectedText`: copy mostrado cuando el estado resuelto es desconectado.
- */
-export interface ConnectionStatusDisplayOptions {
-    connectedText?: string;
-    disconnectedText?: string;
-}
-&nbsp;
-/**
- * Opciones de visualización para widgets de tipo 'connection-indicator'.
- *
- * Permite personalizar los labels de cada uno de los 5 estados de conexión
- * y controlar si se muestra el tiempo de última actualización.
- *
- * - `onlineText`:    label para estado 'online'    (default: 'Online')
- * - `degradedText`:  label para estado 'degraded'  (default: 'Degradado')
- * - `staleText`:     label para estado 'stale'     (default: 'Dato desactualizado')
- * - `offlineText`:   label para estado 'offline'   (default: 'Sin señal')
- * - `unknownText`:   label para estado 'unknown'   (default: 'Sin datos de conexión')
- * - `showLastUpdate`: si true, muestra el tiempo relativo de última actualización.
- */
-export interface ConnectionIndicatorDisplayOptions {
-    onlineText?: string;
-    degradedText?: string;
-    staleText?: string;
-    offlineText?: string;
-    unknownText?: string;
-    showLastUpdate?: boolean;
-}
-&nbsp;
-/**
  * Opciones de visualización para widgets de tipo 'status'.
  *
  * Permite personalizar el label visible para cada estado operativo del equipo.
@@ -1631,24 +1597,25 @@ export interface StatusDisplayOptions {
     unknownText?: string;
 }
 &nbsp;
-/**
- * Opciones de visualización para widgets de tipo 'oee-production-trend'.
- *
- * Replica visual del gráfico OEE vs Producción de la página Tendencias.
- * Dos series: OEE (%) en eje izquierdo y Volumen/Producción en eje derecho.
- *
- * - `oeeLabel`:         label para la serie OEE en la leyenda (default: 'OEE (%)')
- * - `productionLabel`:  label para la serie de producción (default: 'Volumen (k)')
- * - `chartTitle`:       sobreescribe el título del gráfico (default: 'TENDENCIA HISTÓRICA: OEE vs PRODUCCIÓN')
- * - `volumeChartMode`:  modo de visualización del volumen de producción:
- *                       - `'area'`  (default): área rellena, igual que OEE
- *                       - `'bars'`: barras con gradiente oscuro y tope luminoso (estilo industrial)
- */
-export interface OeeProductionTrendDisplayOptions {
-    oeeLabel?: string;
-    productionLabel?: string;
-    chartTitle?: string;
-    volumeChartMode?: 'area' | 'bars';
+export type ProductiveState = 'stopped' | 'calibrating' | 'producing';
+&nbsp;
+export interface MachineActivityDisplayOptions {
+    icon?: string | null;
+    kpiMode?: 'circular' | 'bar';
+    thresholdStopped?: number;
+    thresholdProducing?: number;
+    hysteresis?: number;
+    confirmationTime?: number;
+    smoothingWindow?: number;
+    powerMin?: number;
+    powerMax?: number;
+    showStateSubtitle?: boolean;
+    showPowerSubtext?: boolean;
+    showDynamicColor?: boolean;
+    showStateAnimation?: boolean;
+    labelStopped?: string;
+    labelCalibrating?: string;
+    labelProducing?: string;
 }
 &nbsp;
 export type TemporalBucket = 'hour' | 'shift' | 'day' | 'month';
@@ -1792,11 +1759,6 @@ export interface TrendChartWidgetConfig extends WidgetConfigBase {
     displayOptions?: TrendChartDisplayOptions;
 }
 &nbsp;
-export interface OeeProductionTrendWidgetConfig extends WidgetConfigBase {
-    type: 'oee-production-trend';
-    displayOptions?: OeeProductionTrendDisplayOptions;
-}
-&nbsp;
 export interface ProdHistoryWidgetConfig extends WidgetConfigBase {
     type: 'prod-history';
     displayOptions?: ProdHistoryDisplayOptions;
@@ -1812,19 +1774,19 @@ export interface ConnectionStatusWidgetConfig extends WidgetConfigBase {
     displayOptions?: ConnectionStatusDisplayOptions;
 }
 &nbsp;
-export interface ConnectionIndicatorWidgetConfig extends WidgetConfigBase {
-    type: 'connection-indicator';
-    displayOptions?: ConnectionIndicatorDisplayOptions;
-}
-&nbsp;
 export interface StatusWidgetConfig extends WidgetConfigBase {
     type: 'status';
     displayOptions?: StatusDisplayOptions;
 }
 &nbsp;
+export interface MachineActivityWidgetConfig extends WidgetConfigBase {
+    type: 'machine-activity';
+    displayOptions?: MachineActivityDisplayOptions;
+}
+&nbsp;
 /** Variante genérica para todos los tipos de widget sin displayOptions específicos. */
 export interface GenericWidgetConfig extends WidgetConfigBase {
-    type: Exclude&lt;WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'oee-production-trend' | 'prod-history' | 'alert-history' | 'connection-status' | 'connection-indicator' | 'status'&gt;;
+    type: Exclude&lt;WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status' | 'machine-activity'&gt;;
     displayOptions?: BaseDisplayOptions;
 }
 &nbsp;
@@ -1836,12 +1798,11 @@ export type WidgetConfig =
     | KpiWidgetConfig
     | MetricCardWidgetConfig
     | TrendChartWidgetConfig
-    | OeeProductionTrendWidgetConfig
     | ProdHistoryWidgetConfig
     | AlertHistoryWidgetConfig
     | ConnectionStatusWidgetConfig
-    | ConnectionIndicatorWidgetConfig
     | StatusWidgetConfig
+    | MachineActivityWidgetConfig
     | GenericWidgetConfig;
 &nbsp;
 // =============================================================================
@@ -1918,7 +1879,7 @@ export function getDashboardVisualStatus(dashboard: Dashboard): DashboardVisualS
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-21T20:59:18.450Z
+                at 2026-04-24T00:33:36.361Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -213,13 +213,16 @@ vi.mock('../../components/admin/AdminWorkspaceLayout', () => ({
 }));
 
 vi.mock('../../components/admin/WidgetCatalogRail', () => ({
-    default: ({ onAddWidget }: { onAddWidget: (type: 'kpi' | 'metric-card') => void }) => (
+    default: ({ onAddWidget }: { onAddWidget: (type: 'kpi' | 'metric-card' | 'machine-activity') => void }) => (
         <div data-testid="widget-catalog-rail">
             <button type="button" onClick={() => onAddWidget('kpi')}>
                 Agregar KPI
             </button>
             <button type="button" onClick={() => onAddWidget('metric-card')}>
                 Agregar Métrica
+            </button>
+            <button type="button" onClick={() => onAddWidget('machine-activity')}>
+                Agregar Actividad de Máquina
             </button>
         </div>
     ),
@@ -421,6 +424,84 @@ describe('DashboardBuilderPage', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('dashboard-header')).toHaveAttribute('data-header-slot-count', '1');
+        });
+    });
+
+    it('adds machine-activity widgets with KPI-sized layout and default display options', async () => {
+        const user = userEvent.setup();
+
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            cols: 20,
+            rows: 12,
+            widgets: [],
+            layout: [],
+        }));
+
+        await user.click(screen.getByRole('button', { name: 'Agregar Actividad de Máquina' }));
+
+        await waitFor(() => {
+            const snapshot = getBuilderCanvasSnapshot();
+            expect(snapshot.layout).toHaveLength(1);
+            expect(snapshot.layout[0]).toMatchObject({ x: 0, y: 0, w: 1, h: 2 });
+        });
+
+        await waitFor(() => {
+            expect(propertyDockMock).toHaveBeenCalled();
+            expect(propertyDockMock.mock.calls.at(-1)?.[0]).toMatchObject({
+                selectedWidget: {
+                    type: 'machine-activity',
+                    title: 'Actividad de Máquina',
+                    size: { w: 1, h: 2 },
+                    binding: { mode: 'simulated_value', simulatedValue: 0 },
+                    displayOptions: {
+                        icon: 'Activity',
+                        kpiMode: 'circular',
+                        thresholdStopped: 0.15,
+                        thresholdProducing: 0.25,
+                        hysteresis: 0.05,
+                        confirmationTime: 2000,
+                        smoothingWindow: 5,
+                        powerMin: 0,
+                        powerMax: 1,
+                        showStateSubtitle: true,
+                        showPowerSubtext: true,
+                        showDynamicColor: true,
+                        showStateAnimation: true,
+                        unitOverride: true,
+                        unit: '%',
+                        labelStopped: 'Detenida',
+                        labelCalibrating: 'Calibrando',
+                        labelProducing: 'Produciendo',
+                    },
+                },
+            });
+        });
+    });
+
+    it('adds kpi widgets with unitOverride disabled by default', async () => {
+        const user = userEvent.setup();
+
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            cols: 20,
+            rows: 12,
+            widgets: [],
+            layout: [],
+        }));
+
+        await user.click(screen.getByRole('button', { name: 'Agregar KPI' }));
+
+        await waitFor(() => {
+            expect(propertyDockMock).toHaveBeenCalled();
+            expect(propertyDockMock.mock.calls.at(-1)?.[0]).toMatchObject({
+                selectedWidget: {
+                    type: 'kpi',
+                    displayOptions: {
+                        unitOverride: false,
+                    },
+                },
+            });
         });
     });
 

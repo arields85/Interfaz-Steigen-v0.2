@@ -16,6 +16,7 @@ export interface WidgetCapabilities {
 const WIDGET_CAPABILITIES: Partial<Record<WidgetType, WidgetCapabilities>> = {
     'metric-card': { catalogVariable: true, hierarchy: true },
     'kpi': { catalogVariable: false, hierarchy: false },
+    'machine-activity': { catalogVariable: false, hierarchy: false },
     'trend-chart': { catalogVariable: false, hierarchy: false },
     'connection-status': { catalogVariable: false, hierarchy: false },
     'status': { catalogVariable: false, hierarchy: false },

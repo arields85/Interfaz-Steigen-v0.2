@@ -181,7 +181,8 @@ export type WidgetType =
     | 'connection-status'
     | 'multi-metric'
     | 'ai-summary'
-    | 'section-title';
+    | 'section-title'
+    | 'machine-activity';
 
 // --- AGREGACIÓN JERÁRQUICA ---
 
@@ -263,6 +264,8 @@ export interface KpiDisplayOptions {
     min?: number;
     max?: number;
     dynamicColor?: boolean;
+    unit?: string;
+    unitOverride?: boolean;
 }
 
 /**
@@ -323,6 +326,29 @@ export interface StatusDisplayOptions {
     offlineText?: string;
     maintenanceText?: string;
     unknownText?: string;
+}
+
+export type ProductiveState = 'stopped' | 'calibrating' | 'producing';
+
+export interface MachineActivityDisplayOptions {
+    icon?: string | null;
+    kpiMode?: 'circular' | 'bar';
+    unit?: string;
+    unitOverride?: boolean;
+    thresholdStopped?: number;
+    thresholdProducing?: number;
+    hysteresis?: number;
+    confirmationTime?: number;
+    smoothingWindow?: number;
+    powerMin?: number;
+    powerMax?: number;
+    showStateSubtitle?: boolean;
+    showPowerSubtext?: boolean;
+    showDynamicColor?: boolean;
+    showStateAnimation?: boolean;
+    labelStopped?: string;
+    labelCalibrating?: string;
+    labelProducing?: string;
 }
 
 export type TemporalBucket = 'hour' | 'shift' | 'day' | 'month';
@@ -486,9 +512,14 @@ export interface StatusWidgetConfig extends WidgetConfigBase {
     displayOptions?: StatusDisplayOptions;
 }
 
+export interface MachineActivityWidgetConfig extends WidgetConfigBase {
+    type: 'machine-activity';
+    displayOptions?: MachineActivityDisplayOptions;
+}
+
 /** Variante genérica para todos los tipos de widget sin displayOptions específicos. */
 export interface GenericWidgetConfig extends WidgetConfigBase {
-    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status'>;
+    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status' | 'machine-activity'>;
     displayOptions?: BaseDisplayOptions;
 }
 
@@ -504,6 +535,7 @@ export type WidgetConfig =
     | AlertHistoryWidgetConfig
     | ConnectionStatusWidgetConfig
     | StatusWidgetConfig
+    | MachineActivityWidgetConfig
     | GenericWidgetConfig;
 
 // =============================================================================

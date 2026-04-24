@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">54.54% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>6/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">46.15% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>6/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>2/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">54.54% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>6/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -245,16 +245,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">96x</span>
+<span class="cline-any cline-yes">96x</span>
+<span class="cline-any cline-yes">96x</span>
+<span class="cline-any cline-yes">96x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -352,7 +352,7 @@ interface ChartHoverLayerProps {
  * Place this as the LAST element inside your `&lt;svg&gt;` so hit areas are on top.
  * The indicator and highlights use `pointerEvents="none"` to avoid interference.
  */
-export default function <span class="fstat-no" title="function not covered" >ChartHoverLayer({</span>
+export default function ChartHoverLayer({
     dataLength,
     x0,
     step,
@@ -363,19 +363,19 @@ export default function <span class="fstat-no" title="function not covered" >Cha
     hoveredIndex,
     onHoverChange,
     highlights,
-    indicatorColor = <span class="branch-0 cbranch-no" title="branch not covered" >'var(--color-industrial-muted)',</span>
-    highlightBorderColor = <span class="branch-0 cbranch-no" title="branch not covered" >'var(--color-industrial-bg)',</span>
+    indicatorColor = 'var(--color-industrial-muted)',
+    highlightBorderColor = 'var(--color-industrial-bg)',
 }: ChartHoverLayerProps) {
-    const isValidHover = <span class="cstat-no" title="statement not covered" >hoveredIndex !== null &amp;&amp; hoveredIndex &gt;= 0 &amp;&amp; hoveredIndex &lt; dataLength;</span>
+    const isValidHover = hoveredIndex !== null &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >hoveredIndex &gt;= 0 &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >h</span>overedIndex &lt; dataLength;</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return (</span>
+    return (
         &lt;g&gt;
             {/* Hit areas — one transparent rect per data column */}
-            {Array.from({ length: dataLength }, <span class="fstat-no" title="function not covered" >(_</span>, index) =&gt; {
-                const cx = <span class="cstat-no" title="statement not covered" >x0 + (index * step);</span>
-                const hitWidth = <span class="cstat-no" title="statement not covered" >step &gt; 0 ? step : plotWidth;</span>
-                const hitX = <span class="cstat-no" title="statement not covered" >cx - (hitWidth / 2);</span>
-<span class="cstat-no" title="statement not covered" >                return (</span>
+            {Array.from({ length: dataLength }, (_, index) =&gt; {
+                const cx = x0 + (index * step);
+                const hitWidth = step &gt; 0 ? step : <span class="branch-1 cbranch-no" title="branch not covered" >plotWidth;</span>
+                const hitX = cx - (hitWidth / 2);
+                return (
                     &lt;rect
                         key={`hit-${index}`}
                         x={Math.max(hitX, marginLeft)}
@@ -390,7 +390,7 @@ export default function <span class="fstat-no" title="function not covered" >Cha
             })}
 &nbsp;
             {/* Vertical indicator line */}
-            {isValidHover &amp;&amp; (<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+            {<span class="branch-1 cbranch-no" title="branch not covered" >isValidHover &amp;&amp; (<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
                 const cx = <span class="cstat-no" title="statement not covered" >x0 + (hoveredIndex * step);</span>
 <span class="cstat-no" title="statement not covered" >                return (</span>
                     &lt;line
@@ -408,8 +408,8 @@ export default function <span class="fstat-no" title="function not covered" >Cha
             })()}
 &nbsp;
             {/* Highlight dots */}
-            {isValidHover &amp;&amp; highlights &amp;&amp; highlights.length &gt; 0 &amp;&amp; (
-                &lt;g pointerEvents="none"&gt;
+            {isValidHover &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >highlights &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >h</span>ighlights.length &gt; 0 &amp;&amp; (</span>
+<span class="branch-3 cbranch-no" title="branch not covered" >                &lt;g pointerEvents="none"&gt;</span>
                     {highlights.map(<span class="fstat-no" title="function not covered" >(h</span>, i) =&gt; (
 <span class="cstat-no" title="statement not covered" >                        &lt;circle</span>
                             key={`highlight-${i}`}
@@ -433,7 +433,7 @@ export default function <span class="fstat-no" title="function not covered" >Cha
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-21T20:59:18.313Z
+                at 2026-04-24T00:33:36.201Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
