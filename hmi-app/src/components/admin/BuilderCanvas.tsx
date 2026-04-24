@@ -7,6 +7,7 @@ import type { ContractMachine, ConnectionHealth } from '../../domain/dataContrac
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
 import GridSelectionFrame from '../ui/GridSelectionFrame';
 import WidgetHoverActions from '../ui/WidgetHoverActions';
+import CursorTooltip from '../ui/CursorTooltip';
 import {
     HEADER_WIDGET_SLOT_COUNT,
     type HeaderWidgetDragPayload,
@@ -18,8 +19,11 @@ import { clampWidgetBounds, DEFAULT_COLS, DEFAULT_ROWS, getGridTemplateStyle } f
 import { useUIStore } from '../../store/ui.store';
 import {
     applyPointerDeltaToPixelBounds,
+    isResizeInteraction,
     layoutToPixelBounds,
     pixelBoundsToGridBounds,
+    resizeCursor,
+    type ResizeDirection,
     type WidgetInteractionMetrics,
     type WidgetInteractionType,
     type WidgetPixelBounds,
@@ -34,7 +38,6 @@ interface BuilderCanvasProps {
     hierarchyContext?: HierarchyContext;
     onWidgetSelect?: (widgetId: string) => void;
     selectedWidgetId?: string;
-    onReorder?: (startIndex: number, endIndex: number) => void;
     onResize?: (widgetId: string, w: number, h: number) => void;
     onLayoutCommit?: (layout: WidgetLayout) => void;
     onDelete?: (widgetId: string) => void;
@@ -48,11 +51,13 @@ interface BuilderCanvasProps {
 }
 
 const DRAG_THRESHOLD_PX = 3;
+const RESIZE_TOOLTIP_OFFSET_PX = 12;
 
 interface InteractionState {
     widgetId: string;
     type: WidgetInteractionType;
     startPointer: { x: number; y: number };
+    currentPointer: { x: number; y: number };
     startLayout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>;
     startBounds: WidgetPixelBounds;
     tentativeBounds: WidgetPixelBounds;
@@ -88,42 +93,69 @@ function resolveCommittedLayout(args: {
         return clampWidgetBounds(args.interaction.startLayout, args.cols, args.rows);
     }
 
-    if (args.interaction.type === 'resize') {
-        const safeX = Math.min(Math.max(args.interaction.startLayout.x, 0), Math.max(0, args.cols - 1));
-        const safeY = Math.min(Math.max(args.interaction.startLayout.y, 0), Math.max(0, args.rows - 1));
+    if (isResizeInteraction(args.interaction.type)) {
+        const start = args.interaction.startLayout;
+        const dir = args.interaction.type.slice('resize-'.length) as 'se' | 'ne' | 'nw' | 'sw';
+        const anchorLeft = dir === 'se' || dir === 'ne';
+        const anchorTop = dir === 'se' || dir === 'sw';
 
-        return {
-            x: safeX,
-            y: safeY,
-            w: Math.min(Math.max(tentativeLayout.w, 1), Math.max(1, args.cols - safeX)),
-            h: Math.min(Math.max(tentativeLayout.h, 1), Math.max(1, args.rows - safeY)),
-        };
+        if (anchorLeft && anchorTop) {
+            const x = Math.min(Math.max(start.x, 0), args.cols - 1);
+            const y = Math.min(Math.max(start.y, 0), args.rows - 1);
+            return { x, y, w: Math.min(Math.max(tentativeLayout.w, 1), args.cols - x), h: Math.min(Math.max(tentativeLayout.h, 1), args.rows - y) };
+        }
+        if (anchorLeft && !anchorTop) {
+            const x = Math.min(Math.max(start.x, 0), args.cols - 1);
+            const bottomEdge = start.y + start.h;
+            const h = Math.min(Math.max(tentativeLayout.h, 1), bottomEdge);
+            return { x, y: bottomEdge - h, w: Math.min(Math.max(tentativeLayout.w, 1), args.cols - x), h };
+        }
+        if (!anchorLeft && anchorTop) {
+            const y = Math.min(Math.max(start.y, 0), args.rows - 1);
+            const rightEdge = start.x + start.w;
+            const w = Math.min(Math.max(tentativeLayout.w, 1), rightEdge);
+            return { x: rightEdge - w, y, w, h: Math.min(Math.max(tentativeLayout.h, 1), args.rows - y) };
+        }
+        const rightEdge = start.x + start.w;
+        const bottomEdge = start.y + start.h;
+        const w = Math.min(Math.max(tentativeLayout.w, 1), rightEdge);
+        const h = Math.min(Math.max(tentativeLayout.h, 1), bottomEdge);
+        return { x: rightEdge - w, y: bottomEdge - h, w, h };
     }
 
     return clampWidgetBounds(tentativeLayout, args.cols, args.rows);
 }
 
+const RESIZE_HANDLE_CONFIGS: Record<ResizeDirection, {
+    cursor: string;
+    position: React.CSSProperties;
+    align: string;
+    clipPath: string;
+}> = {
+    se: { cursor: 'se-resize', position: { bottom: 0, right: 0 }, align: 'items-end justify-end', clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)' },
+    ne: { cursor: 'ne-resize', position: { top: 0, right: 0 }, align: 'items-start justify-end', clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%)' },
+    nw: { cursor: 'nw-resize', position: { top: 0, left: 0 }, align: 'items-start justify-start', clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)' },
+    sw: { cursor: 'sw-resize', position: { bottom: 0, left: 0 }, align: 'items-end justify-start', clipPath: 'polygon(0% 0%, 0% 100%, 100% 100%)' },
+};
+
 function ResizeHandle({
     widgetId,
+    direction,
     onPointerDown,
 }: {
     widgetId: string;
+    direction: ResizeDirection;
     onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
 }) {
+    const config = RESIZE_HANDLE_CONFIGS[direction];
     return (
         <div
-            data-testid={`builder-canvas-resize-handle-${widgetId}`}
+            data-testid={`builder-canvas-resize-handle-${direction}-${widgetId}`}
             onPointerDown={onPointerDown}
-            className="absolute bottom-0 right-0 z-20 flex h-6 w-6 cursor-se-resize items-end justify-end p-1.5 opacity-0 transition-opacity drop-shadow-md group-hover:opacity-100"
-            title="Arrastrar para cambiar tamaño"
+            className={`absolute z-20 flex h-6 w-6 p-1.5 opacity-0 transition-opacity drop-shadow-md group-hover:opacity-100 ${config.align}`}
+            style={{ cursor: config.cursor, ...config.position }}
         >
-            <div
-                className="h-2.5 w-2.5 rounded-sm"
-                style={{
-                    background: 'var(--color-admin-selection-to)',
-                    clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)',
-                }}
-            />
+            <div className="h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--color-admin-selection-to)', clipPath: config.clipPath }} />
         </div>
     );
 }
@@ -159,7 +191,6 @@ export default function BuilderCanvas({
     const metrics: WidgetInteractionMetrics = { cellWidth, rowHeight };
     const [interaction, setInteraction] = useState<InteractionState | null>(null);
     const [isPanMode, setIsPanMode] = useState(false);
-    const [isBuilderFocused, setIsBuilderFocused] = useState(false);
     const [panState, setPanState] = useState<PanState | null>(null);
 
     const interactionRef = useRef<InteractionState | null>(null);
@@ -254,7 +285,7 @@ export default function BuilderCanvas({
         }
 
         event.preventDefault();
-        if (type === 'resize') {
+        if (isResizeInteraction(type)) {
             event.stopPropagation();
         }
 
@@ -264,6 +295,7 @@ export default function BuilderCanvas({
             widgetId: item.widgetId,
             type,
             startPointer: { x: event.clientX, y: event.clientY },
+            currentPointer: { x: event.clientX, y: event.clientY },
             startLayout,
             startBounds,
             tentativeBounds: startBounds,
@@ -272,7 +304,7 @@ export default function BuilderCanvas({
 
         interactionRef.current = initialInteraction;
         setInteraction(initialInteraction);
-        document.body.style.cursor = type === 'resize' ? 'se-resize' : 'grabbing';
+        document.body.style.cursor = resizeCursor(type);
         onWidgetDragChange?.(null);
 
         const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -285,7 +317,7 @@ export default function BuilderCanvas({
             const deltaX = moveEvent.clientX - currentInteraction.startPointer.x;
             const deltaY = moveEvent.clientY - currentInteraction.startPointer.y;
             const distance = Math.hypot(deltaX, deltaY);
-            const hasExceededThreshold = currentInteraction.type === 'resize'
+            const hasExceededThreshold = isResizeInteraction(currentInteraction.type)
                 ? true
                 : currentInteraction.hasExceededThreshold || distance > DRAG_THRESHOLD_PX;
 
@@ -300,6 +332,7 @@ export default function BuilderCanvas({
 
             const nextInteraction: InteractionState = {
                 ...currentInteraction,
+                currentPointer: { x: moveEvent.clientX, y: moveEvent.clientY },
                 tentativeBounds,
                 hasExceededThreshold,
             };
@@ -388,6 +421,10 @@ export default function BuilderCanvas({
         };
     };
 
+    const resizeTooltipLayout = interaction && isResizeInteraction(interaction.type) && interaction.hasExceededThreshold
+        ? resolveCommittedLayout({ interaction, metrics, cols, rows })
+        : null;
+
     return (
         <div
             ref={containerRef}
@@ -397,7 +434,6 @@ export default function BuilderCanvas({
             style={{ cursor: panState ? 'grabbing' : isPanMode ? 'grab' : undefined }}
             onFocusCapture={() => {
                 isBuilderFocusedRef.current = true;
-                setIsBuilderFocused(true);
             }}
             onBlurCapture={(event) => {
                 const nextFocused = event.relatedTarget;
@@ -407,7 +443,6 @@ export default function BuilderCanvas({
                 }
 
                 isBuilderFocusedRef.current = false;
-                setIsBuilderFocused(false);
                 deactivatePanMode();
             }}
             onKeyDownCapture={handleSpaceKeyDown}
@@ -415,7 +450,6 @@ export default function BuilderCanvas({
             onPointerDownCapture={(event) => {
                 if (!isInputElement(event.target)) {
                     isBuilderFocusedRef.current = true;
-                    setIsBuilderFocused(true);
                     containerRef.current?.focus({ preventScroll: true });
                 }
 
@@ -523,10 +557,14 @@ export default function BuilderCanvas({
                                 />
 
                                 {isSelected && (
-                                    <ResizeHandle
-                                        widgetId={widget.id}
-                                        onPointerDown={(event) => beginInteraction(event, item, 'resize')}
-                                    />
+                                    (['se', 'ne', 'nw', 'sw'] as const).map((dir) => (
+                                        <ResizeHandle
+                                            key={dir}
+                                            widgetId={widget.id}
+                                            direction={dir}
+                                            onPointerDown={(event) => beginInteraction(event, item, `resize-${dir}`)}
+                                        />
+                                    ))
                                 )}
 
                                 <div
@@ -558,6 +596,21 @@ export default function BuilderCanvas({
                         </div>
                     )}
                 </div>
+
+                {resizeTooltipLayout && interaction && (() => {
+                    const isLeftHandle = interaction.type === 'resize-nw' || interaction.type === 'resize-sw';
+                    const isTopHandle = interaction.type === 'resize-nw' || interaction.type === 'resize-ne';
+                    return (
+                        <CursorTooltip
+                            data-testid="builder-canvas-resize-tooltip"
+                            data-offset-px={RESIZE_TOOLTIP_OFFSET_PX}
+                            label={`${resizeTooltipLayout.w} × ${resizeTooltipLayout.h}`}
+                            x={interaction.currentPointer.x}
+                            y={interaction.currentPointer.y}
+                            anchor={isLeftHandle ? (isTopHandle ? 'nw' : 'sw') : (isTopHandle ? 'ne' : 'se')}
+                        />
+                    );
+                })()}
             </div>
         </div>
     );

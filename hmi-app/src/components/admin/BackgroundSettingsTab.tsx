@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import { useShaderParamsStore, SHADER_SECTIONS } from '../../store/shaderParams.store';
 import type { ShaderParams } from '../../store/shaderParams.store';
+import HoverTooltip from '../ui/HoverTooltip';
 
 // =============================================================================
 // BackgroundSettingsTab
@@ -48,16 +49,18 @@ export default function BackgroundSettingsTab() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-industrial-muted">
                     Fondo Animado
                 </span>
-                <button
-                    type="button"
-                    onClick={resetAll}
-                    className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-industrial-muted hover:text-admin-accent transition-colors"
-                    style={{ fontWeight: 'var(--font-weight-mono)' }}
-                    title="Restaurar valores por defecto"
-                >
-                    <RotateCcw size={12} />
-                    Reset
-                </button>
+                <HoverTooltip label="Restaurar valores por defecto" position="bottom" className="flex">
+                    <button
+                        type="button"
+                        aria-label="Restaurar valores por defecto"
+                        onClick={resetAll}
+                        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-industrial-muted hover:text-admin-accent transition-colors"
+                        style={{ fontWeight: 'var(--font-weight-mono)' }}
+                    >
+                        <RotateCcw size={12} />
+                        Reset
+                    </button>
+                </HoverTooltip>
             </div>
 
             <div className="space-y-1">

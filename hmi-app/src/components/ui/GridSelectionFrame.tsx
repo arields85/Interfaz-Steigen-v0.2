@@ -8,8 +8,7 @@ interface GridSelectionFrameProps {
     className?: string;
 }
 
-const GRID_FRAME_OFFSET_PX = 4;
-const GRID_RADIUS_DELTA_PX = 2;
+const GRID_RADIUS_DELTA_PX = 0;
 // Grosor visual del anillo de foco seleccionado (en px).
 const GRID_BORDER_WIDTH_PX = 2;
 
@@ -50,7 +49,7 @@ export default function GridSelectionFrame({
         <div
             className={`pointer-events-none absolute z-10 ${className}`}
             style={{
-                inset: `-${GRID_FRAME_OFFSET_PX}px`,
+                inset: 'var(--widget-spacing)',
                 borderRadius: `${outerRadiusPx}px`,
                 // Limitar transiciones a las propiedades reales que cambian.
                 // transition-all anima 'display' y otras propiedades no interpolables,

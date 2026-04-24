@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Lock, Plus, Trash2, X } from 'lucide-react';
 import type { CatalogVariable } from '../../domain';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
+import HoverTooltip from '../ui/HoverTooltip';
 import { ADMIN_SIDEBAR_HINT_CLS, ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
 
 interface CatalogVariableSelectorProps {
@@ -189,20 +190,25 @@ export default function CatalogVariableSelector({
                                         </button>
 
                                         {onDelete ? (
-                                            <button
-                                                type="button"
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-                                                    onDelete(variable.id);
-                                                    closeOverlay();
-                                                }}
-                                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-industrial-muted opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:text-status-critical"
-                                                title={`Eliminar variable ${variable.name}`}
-                                                aria-label={`Eliminar variable ${variable.name}`}
+                                            <HoverTooltip
+                                                label={`Eliminar variable ${variable.name}`}
+                                                position="top"
+                                                className="flex"
                                             >
-                                                <Trash2 size={13} />
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        event.stopPropagation();
+                                                        onDelete(variable.id);
+                                                        closeOverlay();
+                                                    }}
+                                                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-industrial-muted opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:text-status-critical"
+                                                    aria-label={`Eliminar variable ${variable.name}`}
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </HoverTooltip>
                                         ) : null}
                                     </div>
                                 );

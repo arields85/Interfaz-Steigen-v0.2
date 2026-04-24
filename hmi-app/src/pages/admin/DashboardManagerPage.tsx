@@ -17,15 +17,13 @@ import {
     ADMIN_CONTEXT_BAR_LABEL_CLS,
     ADMIN_SIDEBAR_INPUT_CLS,
     ADMIN_SIDEBAR_PANEL_CLS,
-    ADMIN_SIDEBAR_PANEL_STACK_CLS,
-    ADMIN_SIDEBAR_PANEL_TITLE_CLS,
-    ADMIN_SIDEBAR_SECTION_CLS,
 } from '../../components/admin/adminSidebarStyles';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
 import AdminDialog from '../../components/admin/AdminDialog';
 import AdminDestructiveDialog from '../../components/admin/AdminDestructiveDialog';
 import AdminActionButton from '../../components/admin/AdminActionButton';
 import AdminTag from '../../components/admin/AdminTag';
+import HoverTooltip from '../../components/ui/HoverTooltip';
 
 function getVisibleDashboardSubtitle(dashboard: Dashboard, activeTemplateIds: Set<string>) {
     const subtitle = getDashboardHeaderSubtitle(dashboard);
@@ -381,14 +379,16 @@ export default function DashboardManagerPage() {
             }
             rail={
                 <div className="h-full w-full flex flex-col items-center py-3 gap-1">
-                    <button
-                        type="button"
-                        title="Nuevo dashboard"
-                        onClick={handleCreateNew}
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
-                    >
-                        <Plus size={18} />
-                    </button>
+                    <HoverTooltip label="Nuevo dashboard" position="right" className="flex">
+                        <button
+                            type="button"
+                            aria-label="Nuevo dashboard"
+                            onClick={handleCreateNew}
+                            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
+                        >
+                            <Plus size={18} />
+                        </button>
+                    </HoverTooltip>
                 </div>
             }
             sidePanel={
@@ -437,15 +437,19 @@ export default function DashboardManagerPage() {
                                                             }}
                                                             className="w-full rounded border border-admin-accent/50 bg-black/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white transition-colors focus:outline-none"
                                                         />
-                                                        <button
-                                                            onMouseDown={(e) => e.preventDefault()}
-                                                            onClick={() => {
-                                                                void handleCommitTemplateRename(template);
-                                                            }}
-                                                            className="rounded p-1 text-admin-accent transition-colors hover:bg-white/10"
-                                                        >
-                                                            <Check size={14} />
-                                                        </button>
+                                                        <HoverTooltip label="Guardar nombre del template" position="right" className="flex">
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Guardar nombre del template"
+                                                                onMouseDown={(e) => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    void handleCommitTemplateRename(template);
+                                                                }}
+                                                                className="rounded p-1 text-admin-accent transition-colors hover:bg-white/10"
+                                                            >
+                                                                <Check size={14} />
+                                                            </button>
+                                                        </HoverTooltip>
                                                     </div>
                                                 ) : (
                                                     <button
@@ -474,13 +478,16 @@ export default function DashboardManagerPage() {
                                                     <LayoutTemplate size={13} />
                                                     Crear Dashboard
                                                 </AdminActionButton>
-                                                <button
-                                                    onClick={() => handleDeleteTemplate(template.id)}
-                                                    className="rounded p-2 text-industrial-muted transition-colors hover:bg-white/10 hover:[color:var(--color-status-critical)]"
-                                                    title="Eliminar template"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
+                                                <HoverTooltip label="Eliminar template" position="right" className="flex">
+                                                    <button
+                                                        type="button"
+                                                        aria-label="Eliminar template"
+                                                        onClick={() => handleDeleteTemplate(template.id)}
+                                                        className="rounded p-2 text-industrial-muted transition-colors hover:bg-white/10 hover:[color:var(--color-status-critical)]"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </HoverTooltip>
                                             </div>
                                         </article>
                                 );
@@ -517,9 +524,6 @@ export default function DashboardManagerPage() {
                     {filteredDashboards.map(dash => {
                         const headerTitle = getDashboardHeaderTitle(dash);
                         const headerSubtitle = getVisibleDashboardSubtitle(dash, activeTemplateIds);
-                        const ownerNode = dash.ownerNodeId
-                            ? nodeMap.get(dash.ownerNodeId)
-                            : undefined;
                         const dashboardTypeLabel = getDashboardTypeLabel(dash.dashboardType, dash.ownerNodeId, nodeMap);
                         const isAssigned = Boolean(dash.ownerNodeId);
 
@@ -601,40 +605,52 @@ export default function DashboardManagerPage() {
                             </div>
 
                             <div className="flex justify-end gap-1 text-industrial-muted">
-                                <button 
-                                    className="p-2 hover:bg-white/10 hover:text-white rounded transition-colors"
-                                    onClick={() => navigate(`/admin/builder/${dash.id}`)}
-                                    title="Editar en Builder"
-                                >
-                                    <FileEdit size={16} />
-                                </button>
-                                <button 
-                                    className="p-2 hover:bg-white/10 hover:text-white rounded transition-colors"
-                                    title="Duplicar"
-                                    onClick={() => {
-                                        setShowDuplicatePrompt(dash.id);
-                                        setDuplicateName(getSuggestedDuplicateName(dash));
-                                    }}
-                                >
-                                    <Copy size={16} />
-                                </button>
-                                <button 
-                                    className="p-2 hover:bg-violet-500/20 hover:text-violet-400 rounded transition-colors"
-                                    title="Guardar como Template"
-                                    onClick={() => {
-                                        setShowTemplatePrompt(dash.id);
-                                        setTemplateName(getSuggestedTemplateName(dash));
-                                    }}
-                                >
-                                    <Bookmark size={16} />
-                                </button>
-                                <button 
-                                    className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded transition-colors" 
-                                    title="Eliminar"
-                                    onClick={() => handleDelete(dash.id)}
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                <HoverTooltip label="Editar en Builder" position="right" className="flex">
+                                    <button 
+                                        type="button"
+                                        aria-label="Editar en Builder"
+                                        className="p-2 hover:bg-white/10 hover:text-white rounded transition-colors"
+                                        onClick={() => navigate(`/admin/builder/${dash.id}`)}
+                                    >
+                                        <FileEdit size={16} />
+                                    </button>
+                                </HoverTooltip>
+                                <HoverTooltip label="Duplicar" position="right" className="flex">
+                                    <button 
+                                        type="button"
+                                        aria-label="Duplicar"
+                                        className="p-2 hover:bg-white/10 hover:text-white rounded transition-colors"
+                                        onClick={() => {
+                                            setShowDuplicatePrompt(dash.id);
+                                            setDuplicateName(getSuggestedDuplicateName(dash));
+                                        }}
+                                    >
+                                        <Copy size={16} />
+                                    </button>
+                                </HoverTooltip>
+                                <HoverTooltip label="Guardar como Template" position="right" className="flex">
+                                    <button 
+                                        type="button"
+                                        aria-label="Guardar como Template"
+                                        className="p-2 hover:bg-violet-500/20 hover:text-violet-400 rounded transition-colors"
+                                        onClick={() => {
+                                            setShowTemplatePrompt(dash.id);
+                                            setTemplateName(getSuggestedTemplateName(dash));
+                                        }}
+                                    >
+                                        <Bookmark size={16} />
+                                    </button>
+                                </HoverTooltip>
+                                <HoverTooltip label="Eliminar" position="right" className="flex">
+                                    <button 
+                                        type="button"
+                                        aria-label="Eliminar"
+                                        className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded transition-colors" 
+                                        onClick={() => handleDelete(dash.id)}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </HoverTooltip>
                             </div>
 
                             </div>

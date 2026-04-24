@@ -12,3 +12,7 @@ export type { WidgetHeaderProps } from './WidgetHeader';
 export { default as WidgetCenteredContentLayout } from './WidgetCenteredContentLayout';
 export { default as WidgetSegmentedControl } from './WidgetSegmentedControl';
 export type { SegmentedOption, WidgetSegmentedControlProps } from './WidgetSegmentedControl';
+export { default as HoverTooltip } from './HoverTooltip';
+export type { HoverTooltipProps } from './HoverTooltip';
+export { default as CursorTooltip } from './CursorTooltip';
+export type { CursorTooltipProps } from './CursorTooltip';

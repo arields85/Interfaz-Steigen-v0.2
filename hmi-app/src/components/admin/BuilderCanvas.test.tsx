@@ -264,12 +264,21 @@ describe('BuilderCanvas', () => {
         });
 
         const builderRoot = screen.getByTestId('builder-canvas-root');
+        const duplicateButton = screen.getByRole('button', { name: 'Duplicar widget' });
+        const deleteButton = screen.getByRole('button', { name: 'Eliminar widget' });
 
         expect(builderRoot.className).toContain('overflow-visible');
         expect(builderRoot.className).not.toContain('overflow-hidden');
         expect(builderRoot.className).not.toContain('overflow-clip');
-        expect(screen.getByTitle('Duplicar widget')).toBeInTheDocument();
-        expect(screen.getByTitle('Eliminar widget')).toBeInTheDocument();
+        expect(duplicateButton).toBeInTheDocument();
+        expect(deleteButton).toBeInTheDocument();
+        expect(duplicateButton).not.toHaveAttribute('title');
+        expect(deleteButton).not.toHaveAttribute('title');
+
+        fireEvent.mouseEnter(duplicateButton);
+        fireEvent.mouseEnter(deleteButton);
+        expect(duplicateButton).toBeVisible();
+        expect(deleteButton).toBeVisible();
     });
 
     it('adds token-based internal spacing to each widget surface without changing grid placement', async () => {
@@ -522,7 +531,7 @@ describe('BuilderCanvas', () => {
             expect(screen.getByTestId('builder-canvas-item-widget-1').style.gridColumnStart).toBe('6');
         });
 
-        const handle = screen.getByTestId('builder-canvas-resize-handle-widget-1');
+        const handle = screen.getByTestId('builder-canvas-resize-handle-se-widget-1');
 
         await pressPointer(user, handle, { clientX: 0, clientY: 0 });
         await movePointer(user, document.body, { clientX: 1320, clientY: 0 });
@@ -590,7 +599,7 @@ describe('BuilderCanvas', () => {
             resizeHeight: 900,
         });
 
-        const handle = screen.getByTestId('builder-canvas-resize-handle-widget-1');
+        const handle = screen.getByTestId('builder-canvas-resize-handle-se-widget-1');
 
         await pressPointer(user, handle, { clientX: 0, clientY: 0 });
         await movePointer(user, document.body, { clientX: 120, clientY: 75 });
@@ -598,6 +607,62 @@ describe('BuilderCanvas', () => {
 
         expect(onWidgetSelect).not.toHaveBeenCalled();
         expect(onLayoutCommit).toHaveBeenCalledWith({ widgetId: 'widget-1', x: 2, y: 1, w: 5, h: 3 });
+    });
+
+    it('shows a floating resize tooltip with tentative grid dimensions and hides it on release', async () => {
+        const user = userEvent.setup();
+
+        await renderInteractiveCanvas({
+            selectedWidgetId: 'widget-1',
+            layout: [makeLayout({ widgetId: 'widget-1', x: 2, y: 1, w: 3, h: 2 })],
+            cols: 16,
+            resizeWidth: 1200,
+            resizeHeight: 900,
+        });
+
+        expect(screen.queryByTestId('builder-canvas-resize-tooltip')).not.toBeInTheDocument();
+
+        const handle = screen.getByTestId('builder-canvas-resize-handle-se-widget-1');
+
+        await pressPointer(user, handle, { clientX: 300, clientY: 150 });
+        await movePointer(user, document.body, { clientX: 420, clientY: 225 });
+
+        const tooltip = screen.getByTestId('builder-canvas-resize-tooltip');
+        expect(tooltip).toHaveTextContent('5 × 3');
+        expect(tooltip).toHaveClass('fixed');
+        expect(tooltip.style.left).toBe('420px');
+        expect(tooltip.style.top).toBe('225px');
+        expect(tooltip.style.transform).toBe('translate(12px, 12px)');
+
+        await releasePointer(user, document.body, { clientX: 420, clientY: 225 });
+
+        expect(screen.queryByTestId('builder-canvas-resize-tooltip')).not.toBeInTheDocument();
+    });
+
+    it('shows the resize tooltip only for resize interactions, not during widget move drags', async () => {
+        const user = userEvent.setup();
+
+        const { item } = await renderInteractiveCanvas({
+            selectedWidgetId: 'widget-1',
+            layout: [makeLayout({ widgetId: 'widget-1', x: 2, y: 1, w: 3, h: 2 })],
+            cols: 16,
+            resizeWidth: 1200,
+            resizeHeight: 900,
+        });
+
+        await pressPointer(user, item, { clientX: 120, clientY: 75 });
+        await movePointer(user, document.body, { clientX: 240, clientY: 150 });
+
+        expect(screen.queryByTestId('builder-canvas-resize-tooltip')).not.toBeInTheDocument();
+
+        await releasePointer(user, document.body, { clientX: 240, clientY: 150 });
+
+        const handle = screen.getByTestId('builder-canvas-resize-handle-ne-widget-1');
+
+        await pressPointer(user, handle, { clientX: 300, clientY: 150 });
+        await movePointer(user, document.body, { clientX: 375, clientY: 75 });
+
+        expect(screen.getByTestId('builder-canvas-resize-tooltip')).toHaveTextContent('4 × 3');
     });
 
     it('converts pointer deltas with useCanvasReference cell metrics', async () => {

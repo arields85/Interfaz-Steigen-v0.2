@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { DragEvent } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
@@ -25,6 +25,7 @@ import AdminActionButton from '../../components/admin/AdminActionButton';
 import AdminTag from '../../components/admin/AdminTag';
 import ContextBarNotice from '../../components/admin/ContextBarNotice';
 import DashboardSettingsPanel from '../../components/admin/DashboardSettingsPanel';
+import HoverTooltip from '../../components/ui/HoverTooltip';
 import { generateWidgetId } from '../../utils/idGenerator';
 import {
     HEADER_WIDGET_DRAG_MIME,
@@ -78,11 +79,9 @@ export default function DashboardBuilderPage() {
     const [dialogMessage, setDialogMessage] = useState<string | null>(null);
     const [variableDeletionState, setVariableDeletionState] = useState<VariableDeletionState | null>(null);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [, setBuilderViewport] = useState({ width: 0, height: 0 });
     const [pendingBoundsChange, setPendingBoundsChange] = useState<PendingBoundsChange | null>(null);
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
     const [, setNodeTypeLabelsVersion] = useState(0);
-    const builderViewportRef = useRef<HTMLDivElement | null>(null);
 
     const isGridVisible = useUIStore((state) => state.isGridVisible);
     const toggleGrid = useUIStore((state) => state.toggleGrid);
@@ -99,33 +98,6 @@ export default function DashboardBuilderPage() {
             setNodeTypeLabelsVersion((current) => current + 1);
         });
     }, []);
-
-    useEffect(() => {
-        const viewportElement = builderViewportRef.current;
-
-        if (!viewportElement) {
-            return;
-        }
-
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-
-            if (!entry) {
-                return;
-            }
-
-            setBuilderViewport({
-                width: entry.contentRect.width,
-                height: entry.contentRect.height,
-            });
-        });
-
-        observer.observe(viewportElement);
-
-        return () => {
-            observer.disconnect();
-        };
-    }, [draft?.id]);
 
     const allCatalogVariables = useMemo(
         () => [...catalogVariables, ...stagedVariables],
@@ -379,51 +351,54 @@ export default function DashboardBuilderPage() {
     const contextBarPanel = draft ? (
         <div className="relative flex items-center gap-2 px-3">
             {backButton}
-            <button
-                aria-label={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'}
-                aria-pressed={isGridVisible}
-                className={[
-                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
-                    isGridVisible
-                        ? 'bg-admin-accent/15 text-admin-accent hover:bg-admin-accent/20'
-                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
-                ].join(' ')}
-                title={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'}
-                type="button"
-                onClick={toggleGrid}
-            >
-                <LayoutGrid size={16} />
-            </button>
-            <button
-                aria-expanded={isTemplateDialogOpen}
-                aria-label="Aplicar template"
-                className={[
-                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
-                    isTemplateDialogOpen
-                        ? 'bg-white/10 text-white'
-                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
-                ].join(' ')}
-                title="Aplicar template"
-                type="button"
-                onClick={handleOpenTemplateDialog}
-            >
-                <LayoutTemplate size={16} />
-            </button>
-            <button
-                aria-expanded={isSettingsPanelOpen}
-                aria-label="Configurar dashboard"
-                className={[
-                    'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
-                    isSettingsPanelOpen
-                        ? 'bg-white/10 text-white'
-                        : 'text-industrial-muted hover:bg-white/5 hover:text-white',
-                ].join(' ')}
-                title="Configurar dashboard"
-                type="button"
-                onClick={() => setIsSettingsPanelOpen((current) => !current)}
-            >
-                <SlidersHorizontal size={16} />
-            </button>
+            <HoverTooltip label={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'} position="right" className="flex">
+                <button
+                    aria-label={isGridVisible ? 'Ocultar grid' : 'Mostrar grid'}
+                    aria-pressed={isGridVisible}
+                    className={[
+                        'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                        isGridVisible
+                            ? 'bg-admin-accent/15 text-admin-accent hover:bg-admin-accent/20'
+                            : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                    ].join(' ')}
+                    type="button"
+                    onClick={toggleGrid}
+                >
+                    <LayoutGrid size={16} />
+                </button>
+            </HoverTooltip>
+            <HoverTooltip label="Aplicar template" position="right" className="flex">
+                <button
+                    aria-expanded={isTemplateDialogOpen}
+                    aria-label="Aplicar template"
+                    className={[
+                        'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                        isTemplateDialogOpen
+                            ? 'bg-white/10 text-white'
+                            : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                    ].join(' ')}
+                    type="button"
+                    onClick={handleOpenTemplateDialog}
+                >
+                    <LayoutTemplate size={16} />
+                </button>
+            </HoverTooltip>
+            <HoverTooltip label="Configurar dashboard" position="right" className="flex">
+                <button
+                    aria-expanded={isSettingsPanelOpen}
+                    aria-label="Configurar dashboard"
+                    className={[
+                        'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
+                        isSettingsPanelOpen
+                            ? 'bg-white/10 text-white'
+                            : 'text-industrial-muted hover:bg-white/5 hover:text-white',
+                    ].join(' ')}
+                    type="button"
+                    onClick={() => setIsSettingsPanelOpen((current) => !current)}
+                >
+                    <SlidersHorizontal size={16} />
+                </button>
+            </HoverTooltip>
 
             {isSettingsPanelOpen ? (
                 <DashboardSettingsPanel
@@ -1305,21 +1280,6 @@ export default function DashboardBuilderPage() {
             });
         };
 
-        const handleReorderLayout = (startIndex: number, endIndex: number) => {
-            setDraft(prev => {
-                if (!prev) return prev;
-
-                const newLayout = Array.from(prev.layout);
-                const [movedItem] = newLayout.splice(startIndex, 1);
-                newLayout.splice(endIndex, 0, movedItem);
-
-                return {
-                    ...prev,
-                    layout: newLayout,
-                };
-            });
-        };
-
         const handleDeleteWidget = (widgetId?: string) => {
             const targetWidgetId = widgetId ?? selectedWidgetId;
 
@@ -1462,7 +1422,7 @@ export default function DashboardBuilderPage() {
                         />
                     </div>
 
-                    <div ref={builderViewportRef} data-testid="dashboard-builder-canvas-viewport" className="flex min-h-0 flex-1 overflow-x-auto overflow-y-auto hmi-scrollbar pt-10 pl-3 pr-3 pb-3">
+                    <div data-testid="dashboard-builder-canvas-viewport" className="flex min-h-0 flex-1 overflow-x-auto overflow-y-auto hmi-scrollbar pt-10 pl-3 pr-3 pb-3">
                         <BuilderCanvas
                             layout={draft.layout}
                             widgets={draft.widgets}
@@ -1474,7 +1434,6 @@ export default function DashboardBuilderPage() {
                             rows={draft.rows}
                             selectedWidgetId={selectedWidgetId}
                             onWidgetSelect={setSelectedWidgetId}
-                            onReorder={handleReorderLayout}
                             onResize={handleResizeLayout}
                             onLayoutCommit={handleUpdateLayout}
                             onDelete={handleDeleteWidget}

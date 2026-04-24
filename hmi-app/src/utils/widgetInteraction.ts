@@ -1,6 +1,21 @@
 import type { WidgetLayout } from '../domain/admin.types';
 
-export type WidgetInteractionType = 'move' | 'resize';
+export type ResizeDirection = 'nw' | 'ne' | 'sw' | 'se';
+export type WidgetInteractionType = 'move' | `resize-${ResizeDirection}`;
+
+export function isResizeInteraction(type: WidgetInteractionType): boolean {
+    return type.startsWith('resize-');
+}
+
+export function resizeCursor(type: WidgetInteractionType): string {
+    switch (type) {
+        case 'resize-se': return 'se-resize';
+        case 'resize-ne': return 'ne-resize';
+        case 'resize-nw': return 'nw-resize';
+        case 'resize-sw': return 'sw-resize';
+        default: return 'grabbing';
+    }
+}
 
 export interface WidgetInteractionMetrics {
     cellWidth: number;
@@ -53,10 +68,34 @@ export function applyPointerDeltaToPixelBounds(
         };
     }
 
-    return {
-        left: startBounds.left,
-        top: startBounds.top,
-        width: Math.max(1, startBounds.width + deltaX),
-        height: Math.max(1, startBounds.height + deltaY),
-    };
+    switch (type) {
+        case 'resize-se':
+            return {
+                left: startBounds.left,
+                top: startBounds.top,
+                width: Math.max(1, startBounds.width + deltaX),
+                height: Math.max(1, startBounds.height + deltaY),
+            };
+        case 'resize-ne':
+            return {
+                left: startBounds.left,
+                top: startBounds.top + deltaY,
+                width: Math.max(1, startBounds.width + deltaX),
+                height: Math.max(1, startBounds.height - deltaY),
+            };
+        case 'resize-nw':
+            return {
+                left: startBounds.left + deltaX,
+                top: startBounds.top + deltaY,
+                width: Math.max(1, startBounds.width - deltaX),
+                height: Math.max(1, startBounds.height - deltaY),
+            };
+        case 'resize-sw':
+            return {
+                left: startBounds.left + deltaX,
+                top: startBounds.top,
+                width: Math.max(1, startBounds.width - deltaX),
+                height: Math.max(1, startBounds.height + deltaY),
+            };
+    }
 }

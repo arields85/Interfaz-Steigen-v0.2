@@ -397,6 +397,31 @@ describe('DashboardBuilderPage', () => {
         expect(screen.getByRole('button', { name: 'Mostrar grid' })).toHaveAttribute('aria-pressed', 'false');
     });
 
+    it('shows hover tooltips for the dashboard context-bar icon actions', async () => {
+        const user = userEvent.setup();
+
+        await renderBuilderPage();
+
+        await user.hover(screen.getByRole('button', { name: 'Ocultar grid' }));
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Ocultar grid');
+
+        await user.unhover(screen.getByRole('button', { name: 'Ocultar grid' }));
+        await waitFor(() => {
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+
+        await user.hover(screen.getByRole('button', { name: 'Aplicar template' }));
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Aplicar template');
+
+        await user.unhover(screen.getByRole('button', { name: 'Aplicar template' }));
+        await waitFor(() => {
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        });
+
+        await user.hover(screen.getByRole('button', { name: 'Configurar dashboard' }));
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Configurar dashboard');
+    });
+
     it('keeps the builder surface stretchable so sidebar and header widget additions can become visible', async () => {
         const user = userEvent.setup();
         await renderBuilderPage(makeDashboard({
