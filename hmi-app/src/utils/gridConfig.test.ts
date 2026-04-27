@@ -3,12 +3,12 @@ import {
     computeCanvasReference,
     computeGridCols,
     DEFAULT_COLS,
+    DEFAULT_ROWS,
     fitToAspect,
     getRowHeight,
     isTemplateApplicable,
     MAX_COLS,
     MIN_COLS,
-    MIN_COL_WIDTH,
 } from './gridConfig';
 
 describe('fitToAspect', () => {
@@ -57,7 +57,11 @@ describe('computeGridCols', () => {
     });
 
     it('keeps the dashboard default as the current suggestion baseline', () => {
-        expect(DEFAULT_COLS).toBe(20);
+        expect(DEFAULT_COLS).toBe(40);
+    });
+
+    it('keeps the dashboard default rows as the canonical baseline', () => {
+        expect(DEFAULT_ROWS).toBe(24);
     });
 });
 

@@ -122,7 +122,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                         setStatus('idle');
                     }}
                     placeholder="https://192.168.50.250:51880"
-                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                 />
                 <p className={`mt-1.5 ${ADMIN_SIDEBAR_HINT_CLS}`}>
                     URL base del servidor Node-RED. Dejar vacio para deshabilitar.
@@ -140,7 +140,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                         setStatus('idle');
                     }}
                     placeholder="/api/hmi/overview"
-                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                 />
                 <p className={`mt-1.5 ${ADMIN_SIDEBAR_HINT_CLS}`}>
                     Ruta del endpoint
@@ -158,7 +158,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                         setStatus('idle');
                     }}
                     placeholder="/api/hmi-data/history"
-                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                    className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                 />
                 <p className={`mt-1.5 ${ADMIN_SIDEBAR_HINT_CLS}`}>
                     Ruta del endpoint de datos históricos. Dejar vacío para deshabilitar.
@@ -167,25 +167,25 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
 
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                    <p className="uppercase text-industrial-muted">
                         URL Snapshot
                     </p>
-                    <p className="mt-0.5 break-all text-xs text-white/70" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-weight-mono)' }}>
+                    <p className="mt-0.5 break-all text-white/70">
                         {previewSnapshotUrl ?? 'Sin URL base configurada'}
                     </p>
                 </div>
                 <div className="mt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                    <p className="uppercase text-industrial-muted">
                         URL Histórico
                     </p>
-                    <p className="mt-0.5 break-all text-xs text-white/70" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-weight-mono)' }}>
+                    <p className="mt-0.5 break-all text-white/70">
                         {previewHistoryUrl}
                     </p>
                 </div>
             </div>
 
             {status === 'saved' && (
-                <p className="text-[10px] font-bold uppercase tracking-widest text-admin-accent">
+                <p className="uppercase text-admin-accent">
                     Configuracion guardada. Los datos se actualizaran automaticamente.
                 </p>
             )}

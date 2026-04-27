@@ -140,14 +140,14 @@ export default function ConnectionStatusWidget({
                     />
                 )}
 
-                <span className="text-[10px] font-black uppercase tracking-normal text-industrial-muted">
+                <span className="uppercase text-industrial-muted">
                     {label}
                 </span>
 
                 {showLastUpdate ? (
                     <div className="mt-0.5 flex items-center justify-center gap-1.5">
                         <span className={`h-2 w-2 shrink-0 rounded-full -translate-y-px ${visual.dotClass}`} aria-hidden="true" />
-                        <span className="text-[11px] font-normal tracking-normal text-industrial-muted font-[family-name:var(--font-mono)] leading-none" style={{ fontWeight: 'var(--font-weight-mono)' }}>{relativeTime || '—'}</span>
+                        <span className="text-industrial-muted font-mono leading-none">{relativeTime || '—'}</span>
                     </div>
                 ) : null}
             </div>

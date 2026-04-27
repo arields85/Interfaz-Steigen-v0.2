@@ -29,9 +29,9 @@ export default function EmptyState({
                 <Icon size={24} className="text-industrial-muted" strokeWidth={1.5} />
             </div>
             <div className="flex flex-col gap-1">
-                <p className="text-sm font-bold text-industrial-text">{title}</p>
+                <p className="text-industrial-text">{title}</p>
                 {message && (
-                    <p className="text-xs text-industrial-muted max-w-xs">{message}</p>
+                    <p className="text-industrial-muted max-w-xs">{message}</p>
                 )}
             </div>
             {action && <div className="mt-2">{action}</div>}

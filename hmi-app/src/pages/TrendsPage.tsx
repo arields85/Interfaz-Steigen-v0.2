@@ -114,10 +114,10 @@ export default function TrendsPage() {
             {/* HEADER */}
             <div className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-5xl font-black tracking-tight text-industrial-text mb-2">
+                    <h1 className="text-5xl text-industrial-text mb-2">
                         Tendencias
                     </h1>
-                    <p className="text-industrial-muted text-[11px] font-bold uppercase tracking-widest mt-1">
+                    <p className="text-industrial-muted uppercase mt-1">
                         Exploración de métricas históricas y evolución temporal.
                     </p>
                 </div>
@@ -127,7 +127,7 @@ export default function TrendsPage() {
                     <div className="relative">
                         <button
                             onClick={() => setDropdownOpen(v => !v)}
-                            className="flex items-center gap-2 px-4 py-2.5 glass-panel hover:border-accent-cyan/50 text-sm font-medium text-industrial-text transition-colors min-w-[180px] justify-between"
+                            className="flex items-center gap-2 px-4 py-2.5 glass-panel hover:border-accent-cyan/50 text-industrial-text transition-colors min-w-[180px] justify-between"
                         >
                             <div className="flex items-center gap-2">
                                 <Activity size={14} className="text-accent-cyan shrink-0" />
@@ -144,13 +144,13 @@ export default function TrendsPage() {
                                     <button
                                         key={eq.id}
                                         onClick={() => { setSelectedEquipmentId(eq.id); setDropdownOpen(false); }}
-                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${eq.id === displayEquipment?.id
+                                        className={`w-full text-left px-4 py-2.5 transition-colors ${eq.id === displayEquipment?.id
                                             ? 'bg-industrial-hover text-white'
                                             : 'text-industrial-muted hover:bg-industrial-hover hover:text-industrial-text'
                                             }`}
                                     >
                                         {eq.name}
-                                        <span className="ml-2 text-[9px] uppercase tracking-widest text-industrial-muted">{eq.type}</span>
+                                        <span className="ml-2 uppercase text-industrial-muted">{eq.type}</span>
                                     </button>
                                 ))}
                             </div>
@@ -163,7 +163,7 @@ export default function TrendsPage() {
                             <button
                                 key={r.value}
                                 onClick={() => setSelectedRange(r.value)}
-                                className={`px-3 py-1.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-colors ${selectedRange === r.value
+                                className={`px-3 py-1.5 rounded-2xl uppercase transition-colors ${selectedRange === r.value
                                     ? 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20'
                                     : 'text-industrial-muted hover:text-industrial-text'
                                     }`}
@@ -202,8 +202,8 @@ export default function TrendsPage() {
                     {/* Contexto */}
                     <div className="flex items-center gap-3 px-1">
                         <div className="w-2 h-2 rounded-full bg-accent-cyan animate-pulse-slow" />
-                        <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">{displayEquipment.name}</span>
-                        <span className="text-[9px] uppercase tracking-widest text-slate-600 font-bold">
+                        <span className="uppercase text-slate-400">{displayEquipment.name}</span>
+                        <span className="uppercase text-slate-600">
                             · {displayEquipment.type} · rango {selectedRange}
                         </span>
                     </div>
@@ -217,7 +217,7 @@ export default function TrendsPage() {
                             <div className="w-6 h-6 rounded bg-[rgba(0,224,255,0.1)] flex items-center justify-center border border-[rgba(0,224,255,0.2)]">
                                 <Gauge size={14} className="text-accent-cyan" />
                             </div>
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
+                            <h2 className="text-slate-400 uppercase">
                                 Métricas del equipo seleccionado
                             </h2>
                         </div>

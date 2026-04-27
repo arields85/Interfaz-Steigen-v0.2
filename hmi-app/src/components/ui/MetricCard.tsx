@@ -77,14 +77,27 @@ export default function MetricCard({
     if (isError) {
         return (
             <div className={`p-5 rounded-3xl bg-industrial-surface border border-accent-ruby/20 flex flex-col justify-center items-center gap-2 ${className}`}>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{label}</span>
-                <span className="text-xs font-medium" style={{ color: 'var(--color-status-critical)' }}>Error de lectura</span>
+                <span className="uppercase text-slate-500">{label}</span>
+                <span style={{ color: 'var(--color-status-critical)' }}>Error de lectura</span>
             </div>
         );
     }
 
     const displayValue = value === null || value === undefined ? '--' : value;
     const isNoData = value === null || value === undefined;
+    const valueTypographyStyle = {
+        fontFamily: 'var(--font-widget-value)',
+        fontWeight: 'var(--font-weight-widget-value)',
+        fontSize: 'var(--font-size-widget-value)',
+        letterSpacing: 'var(--tracking-widget-value)',
+        ...(!isNoData && styles.valueColor ? { color: styles.valueColor } : {}),
+    };
+    const unitTypographyStyle = {
+        fontFamily: 'var(--font-widget-value)',
+        fontWeight: 'var(--font-weight-widget-value)',
+        fontSize: 'var(--font-size-widget-unit)',
+        letterSpacing: 'var(--tracking-widget-value)',
+    };
 
     return (
         <div className={`p-5 flex flex-col justify-between w-full h-full transition-colors duration-300 group ${styles.card} ${className}`}>
@@ -98,22 +111,18 @@ export default function MetricCard({
 
             {/* Valor principal */}
             <div 
-                className={`mt-3 text-4xl tracking-tighter flex items-end gap-1.5 ${isNoData ? 'text-slate-600' : ''}`}
-                style={{
-                    fontFamily: 'var(--font-widget-value)',
-                    fontWeight: 'var(--font-weight-widget-value)',
-                    ...(!isNoData && styles.valueColor ? { color: styles.valueColor } : {}),
-                }}
+                className={`mt-3 flex items-baseline gap-1.5 ${isNoData ? 'text-slate-600' : ''}`}
+                style={valueTypographyStyle}
             >
                 {displayValue}
                 {unit && !isNoData && (
-                    <span className="text-lg text-slate-400 font-bold mb-0.5">{unit}</span>
+                    <span className="text-slate-400" style={unitTypographyStyle}>{unit}</span>
                 )}
             </div>
 
             {/* Subtext */}
             {subtext && (
-                <div className="mt-3 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="mt-3 uppercase text-slate-400">
                     {subtext}
                 </div>
             )}

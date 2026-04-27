@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 //
 // Header estándar del sistema de widgets con ícono.
 // Implementa la referencia visual canónica derivada de KpiWidget y MetricCard:
-//   - Título a la izquierda (10px, black, uppercase, tracking-widest, muted)
+//   - Título a la izquierda (10px, black, uppercase, muted)
 //   - Subtítulo opcional debajo del título (mismo tamaño, color semántico del ícono)
 //   - Ícono a la derecha: size=24, strokeWidth=2, shrink-0, color semántico
 //   - Trailing content opcional a la derecha del ícono (ej: indicador lumínico)
@@ -111,8 +111,8 @@ export default function WidgetHeader({
     ) : null;
     const titleNode = (
         <span className={centered
-            ? 'min-w-0 text-center text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors'
-            : 'min-w-0 flex-1 truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted group-hover:text-white transition-colors'}>
+            ? 'min-w-0 text-center uppercase text-industrial-muted group-hover:text-white transition-colors'
+            : 'min-w-0 flex-1 truncate uppercase text-industrial-muted group-hover:text-white transition-colors'}>
             {title}
         </span>
     );
@@ -160,7 +160,7 @@ export default function WidgetHeader({
 
             {/* Fila 2 reservada SIEMPRE. Se acerca solo el subtítulo sin mover el título. */}
             <span
-                className={`row-start-2 min-w-0 -mt-0.5 truncate text-[10px] font-bold uppercase tracking-widest transition-opacity ${hasSubtitle ? '' : 'invisible'}`}
+                className={`row-start-2 min-w-0 -mt-0.5 truncate uppercase transition-opacity ${hasSubtitle ? '' : 'invisible'}`}
                 style={{ color: iconColor }}
                 aria-hidden={!hasSubtitle}
             >

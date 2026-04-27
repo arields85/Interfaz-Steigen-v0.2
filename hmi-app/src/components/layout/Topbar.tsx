@@ -43,8 +43,8 @@ export default function Topbar() {
         <>
             <header className="relative z-50 sticky top-0 flex items-center justify-between border-b border-white/5 bg-black/40 px-6 py-4 backdrop-blur-xl lg:px-10">
                 {/* Left: Logo */}
-                <h2 className="text-white text-xl font-extrabold tracking-tight uppercase shrink-0" style={{ letterSpacing: '0.05em' }}>
-                    Core <span className="text-gradient font-light">Analytics</span>
+                <h2 className="text-white uppercase shrink-0">
+                    Core <span className="text-gradient">Analytics</span>
                 </h2>
 
                 {/* Center: Nav Left + Search + Nav Right */}
@@ -58,7 +58,7 @@ export default function Topbar() {
                     <div className="hidden lg:flex items-center bg-white/5 border border-white/5 rounded-2xl px-4 py-2 w-80">
                         <Search className="text-slate-500 shrink-0" size={20} />
                         <input
-                            className="bg-transparent border-none focus:ring-0 focus:outline-none text-sm w-full placeholder:text-slate-600 ml-2 text-white"
+                            className="bg-transparent border-none focus:ring-0 focus:outline-none w-full placeholder:text-slate-600 ml-2 text-white"
                             placeholder="Analyze equipment..."
                             type="text"
                         />

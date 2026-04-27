@@ -1,5 +1,42 @@
+import type { CSSProperties } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Activity } from 'lucide-react';
+
+const chartAxisTickStyle = {
+    fill: '#8F9BB3',
+    fontFamily: 'var(--font-chart)',
+    fontSize: 'var(--font-size-chart)',
+    fontWeight: 'var(--font-weight-chart)',
+    letterSpacing: 'var(--tracking-chart)',
+} satisfies CSSProperties;
+
+const chartTooltipContentStyle = {
+    backgroundColor: '#0e1117',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: '8px',
+    color: '#f1f5f9',
+    fontFamily: 'var(--font-chart)',
+    fontSize: 'var(--font-size-chart)',
+    fontWeight: 'var(--font-weight-chart)',
+    letterSpacing: 'var(--tracking-chart)',
+} satisfies CSSProperties;
+
+const chartTooltipItemStyle = {
+    color: '#fff',
+    fontFamily: 'var(--font-chart)',
+    fontSize: 'var(--font-size-chart)',
+    fontWeight: 'var(--font-weight-chart)',
+    letterSpacing: 'var(--tracking-chart)',
+} satisfies CSSProperties;
+
+const chartTooltipLabelStyle = {
+    color: '#8F9BB3',
+    marginBottom: '4px',
+    fontFamily: 'var(--font-chart)',
+    fontSize: 'var(--font-size-chart)',
+    fontWeight: 'var(--font-weight-chart)',
+    letterSpacing: 'var(--tracking-chart)',
+} satisfies CSSProperties;
 
 const mockData = [
     { time: '08:00', oee: 72, production: 120 },
@@ -17,9 +54,9 @@ export default function TrendWidget() {
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
                     <Activity size={18} className="text-accent-cyan" />
-                    <h3 className="font-semibold text-industrial-text text-sm tracking-wide">TENDENCIA HISTÓRICA: OEE vs PRODUCCIÓN</h3>
+                    <h3 className="text-industrial-text">TENDENCIA HISTÓRICA: OEE vs PRODUCCIÓN</h3>
                 </div>
-                <div className="flex gap-4 text-xs font-medium text-industrial-muted">
+                <div className="flex gap-4 text-industrial-muted">
                     <div className="flex items-center gap-1">
                         <div className="w-2 h-2 rounded-full bg-accent-cyan"></div>
                         <span>OEE (%)</span>
@@ -45,13 +82,13 @@ export default function TrendWidget() {
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                        <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#8F9BB3', fontSize: 11 }} tickLine={false} axisLine={false} dy={10} />
-                        <YAxis yAxisId="left" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#8F9BB3', fontSize: 11 }} tickLine={false} axisLine={false} dx={-10} />
-                        <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#8F9BB3', fontSize: 11 }} tickLine={false} axisLine={false} dx={10} />
+                        <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" tick={chartAxisTickStyle} tickLine={false} axisLine={false} dy={10} />
+                        <YAxis yAxisId="left" stroke="rgba(255,255,255,0.2)" tick={chartAxisTickStyle} tickLine={false} axisLine={false} dx={-10} />
+                        <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.2)" tick={chartAxisTickStyle} tickLine={false} axisLine={false} dx={10} />
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#0e1117', borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: '8px', color: '#f1f5f9' }}
-                            itemStyle={{ color: '#fff', fontSize: '12px' }}
-                            labelStyle={{ color: '#8F9BB3', marginBottom: '4px', fontSize: '12px' }}
+                            contentStyle={chartTooltipContentStyle}
+                            itemStyle={chartTooltipItemStyle}
+                            labelStyle={chartTooltipLabelStyle}
                         />
                         <Area yAxisId="left" type="monotone" dataKey="oee" stroke="#00BEFF" strokeWidth={3} fillOpacity={1} fill="url(#colorOee)" activeDot={{ r: 6, fill: '#22d3ee', stroke: '#0e1117', strokeWidth: 2 }} className="neon-cyan-glow" />
                         <Area yAxisId="right" type="monotone" dataKey="production" stroke="#B258FF" strokeWidth={3} fillOpacity={1} fill="url(#colorProd)" activeDot={{ r: 6, fill: '#a855f7', stroke: '#0e1117', strokeWidth: 2 }} className="neon-violet-glow" />

@@ -5,7 +5,7 @@ import { DASHBOARDS_STORAGE_KEY } from '../utils/legacyStorageCleanup';
 import { TemplateAspectMismatchError } from '../utils/templateAspectMismatch';
 
 const DEFAULT_DASHBOARD_ASPECT = '16:9' as const;
-const DEFAULT_DASHBOARD_ROWS = 12;
+const DEFAULT_DASHBOARD_ROWS = 24;
 
 // =============================================================================
 // DashboardStorageService

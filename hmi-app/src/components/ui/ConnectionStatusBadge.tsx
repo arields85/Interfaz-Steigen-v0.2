@@ -15,7 +15,7 @@ export default function ConnectionStatusBadge({
     return (
         <span className={`inline-flex items-center gap-2 ${className}`}>
             <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dotClass}`} />
-            <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${textClass}`}>
+            <span className={`uppercase ${textClass}`}>
                 {label}
             </span>
         </span>

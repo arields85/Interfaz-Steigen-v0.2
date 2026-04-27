@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type GaugeMode = 'circular' | 'bar';
 
@@ -18,6 +18,12 @@ export interface GaugeDisplayProps {
     animation?: GaugeDisplayAnimation;
     size?: 'sm' | 'md' | 'lg' | number;
     className?: string;
+    circularContent?: (layout: {
+        center: number;
+        radius: number;
+        viewBoxSize: number;
+        renderedSize: number;
+    }) => ReactNode;
 }
 
 const CIRCULAR_RADIUS = 60;
@@ -56,7 +62,10 @@ export default function GaugeDisplay({
     animation,
     size,
     className,
+    circularContent,
 }: GaugeDisplayProps) {
+    const svgRef = useRef<SVGSVGElement>(null);
+    const [renderedSize, setRenderedSize] = useState(0);
     const normalized = clampNormalizedValue(normalizedValue);
     const gradientId = useId().replace(/:/g, '');
     const glowFilterId = `${gradientId}-glow`;
@@ -69,6 +78,32 @@ export default function GaugeDisplay({
     const showGlow = animationEnabled && animationIntensity !== 'none';
     const gradientColors = color.gradient;
     const primaryColor = color.primary;
+
+    useEffect(() => {
+        if (mode !== 'circular') {
+            return undefined;
+        }
+
+        const element = svgRef.current;
+
+        if (!element || typeof ResizeObserver === 'undefined') {
+            return undefined;
+        }
+
+        const updateRenderedSize = (width: number, height: number) => {
+            setRenderedSize(Math.min(width, height));
+        };
+
+        updateRenderedSize(element.clientWidth, element.clientHeight);
+
+        const observer = new ResizeObserver(([entry]) => {
+            updateRenderedSize(entry.contentRect.width, entry.contentRect.height);
+        });
+
+        observer.observe(element);
+
+        return () => observer.disconnect();
+    }, [mode]);
 
     if (mode === 'bar') {
         const backgroundStyle = `linear-gradient(90deg, ${gradientColors[0]}, ${gradientColors[1]})`;
@@ -113,17 +148,21 @@ export default function GaugeDisplay({
     const center = circularSize ? svgSize / 2 : CIRCULAR_CENTER;
     const viewBoxSize = circularSize ? svgSize : CIRCULAR_VIEWBOX_SIZE;
     const strokeColor = `url(#${gradientId})`;
+    const circularScale = renderedSize > 0 ? renderedSize / viewBoxSize : 1;
+
+    const circularStyle: CSSProperties & { '--gauge-circular-scale': string } = {
+        '--gauge-circular-scale': String(circularScale),
+        transitionDuration: `${animationDuration}ms`,
+    };
 
     return (
         <svg
+            ref={svgRef}
             className={`w-full h-full transform -rotate-90 origin-center transition-all duration-500 ease-out ${className ?? ''}`.trim()}
             data-testid="gauge-circular"
             viewBox={`${-viewBoxInset} ${-viewBoxInset} ${viewBoxSize} ${viewBoxSize}`}
             preserveAspectRatio="xMidYMid meet"
-            style={{
-                filter: showGlow ? `drop-shadow(0 0 15px ${primaryColor})` : undefined,
-                transitionDuration: `${animationDuration}ms`,
-            }}
+            style={circularStyle}
         >
             <defs>
                 <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -158,8 +197,13 @@ export default function GaugeDisplay({
                 filter={showGlow ? `url(#${glowFilterId})` : undefined}
                 style={{ transitionDuration: `${animationDuration}ms` }}
             />
+            {circularContent && (
+                <g transform={`rotate(90 ${center} ${center})`} data-testid="gauge-circular-center-content">
+                    {circularContent({ center, radius, viewBoxSize, renderedSize })}
+                </g>
+            )}
         </svg>
     );
 }
 
-export { BAR_HEIGHT, CIRCULAR_DIAMETER, CIRCULAR_RADIUS };
+export { BAR_HEIGHT, CIRCULAR_DIAMETER, CIRCULAR_RADIUS, CIRCULAR_VIEWBOX_SIZE };

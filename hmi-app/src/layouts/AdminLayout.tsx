@@ -19,17 +19,17 @@ export default function AdminLayout() {
     const [isNodeRedSettingsOpen, setIsNodeRedSettingsOpen] = useState(false);
 
     return (
-        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-industrial-bg font-sans text-industrial-text">
+        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-industrial-bg text-industrial-text">
             
             {/* TOPBAR ADMIN */}
             <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-industrial-border bg-industrial-surface px-6">
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-2">
                         <div className="flex flex-col">
-                            <h1 className="text-sm font-black tracking-widest leading-tight">
-                                CORE <span className="text-admin-accent font-light">BUILDER</span>
+                            <h1 className="leading-tight">
+                                CORE <span className="text-admin-accent">BUILDER</span>
                             </h1>
-                            <span className="text-[9px] uppercase tracking-widest text-industrial-muted font-bold">
+                            <span className="uppercase text-industrial-muted">
                                 Modo Administrador
                             </span>
                         </div>
@@ -57,14 +57,14 @@ export default function AdminLayout() {
                     >
                         <Settings size={14} />
                     </button>
-                    <span className="text-xs font-bold text-admin-accent/80 flex items-center gap-2">
+                    <span className="text-admin-accent/80 flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-admin-accent animate-pulse" />
                         SESIÓN ADMIN ACTIVA
                     </span>
                     <div className="h-4 w-px bg-industrial-border" />
                     <NavLink 
                         to="/" 
-                        className="flex items-center gap-2 text-xs font-bold text-industrial-muted hover:text-white transition-colors"
+                        className="flex items-center gap-2 text-industrial-muted hover:text-white transition-colors"
                     >
                         Salir al visor
                         <LogOut size={14} />
@@ -92,7 +92,7 @@ function AdminNavItem({ to, label, isActive }: { to: string; label: string; isAc
     return (
         <NavLink
             to={to}
-            className={`relative px-3 pb-2 pt-3 text-xs font-bold tracking-wide transition-colors ${
+            className={`relative px-3 pb-2 pt-3 uppercase transition-colors ${
                 isActive ? 'text-white' : 'text-industrial-muted hover:text-white'
             }`}
         >

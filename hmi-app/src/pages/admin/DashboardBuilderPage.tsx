@@ -2,14 +2,13 @@ import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { DragEvent } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
-import { Save, ArrowLeft, Loader2, AlertCircle, ChevronRight, AlertTriangle, LayoutGrid, SlidersHorizontal, LayoutTemplate } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, AlertCircle, ChevronRight, AlertTriangle, LayoutGrid } from 'lucide-react';
 import { dashboardStorage } from '../../services/DashboardStorageService';
 import { hierarchyStorage } from '../../services/HierarchyStorageService';
-import { templateStorage } from '../../services/TemplateStorageService';
 import { variableCatalogStorage } from '../../services/VariableCatalogStorageService';
 import { mockEquipmentList } from '../../mocks/equipment.mock';
 import type { CatalogVariable } from '../../domain';
-import type { Dashboard, DashboardAspect, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, Template, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
+import type { Dashboard, DashboardHeaderConfig, DashboardVisualStatus, HierarchyNode, WidgetType, WidgetConfig, WidgetLayout } from '../../domain/admin.types';
 import { getDashboardVisualStatus } from '../../domain/admin.types';
 import type { EquipmentSummary, MetricValue } from '../../domain/equipment.types';
 import type { HierarchyContext } from '../../widgets/resolvers/hierarchyResolver';
@@ -24,7 +23,6 @@ import AdminDestructiveDialog from '../../components/admin/AdminDestructiveDialo
 import AdminActionButton from '../../components/admin/AdminActionButton';
 import AdminTag from '../../components/admin/AdminTag';
 import ContextBarNotice from '../../components/admin/ContextBarNotice';
-import DashboardSettingsPanel from '../../components/admin/DashboardSettingsPanel';
 import HoverTooltip from '../../components/ui/HoverTooltip';
 import { generateWidgetId } from '../../utils/idGenerator';
 import {
@@ -44,10 +42,8 @@ import { getAncestors } from '../../utils/hierarchyTree';
 import { loadNodeTypeLabels, resolveTypeLabel } from '../../utils/nodeTypeLabels';
 import { migrateLegacyBindings } from '../../utils/catalogMigration';
 import { supportsCatalogVariable } from '../../utils/widgetCapabilities';
-import { planDashboardBoundsChange } from '../../utils/dashboardBoundsSettings';
-import { DEFAULT_COLS, DEFAULT_ROWS, isTemplateApplicable } from '../../utils/gridConfig';
+import { DEFAULT_COLS, DEFAULT_ROWS } from '../../utils/gridConfig';
 import { useUIStore } from '../../store/ui.store';
-import { buildTemplateAspectMismatchMessage, TemplateAspectMismatchError } from '../../utils/templateAspectMismatch';
 import { useDataOverview } from '../../queries/useDataOverview';
 
 // =============================================================================
@@ -64,7 +60,6 @@ export default function DashboardBuilderPage() {
     const [originalConfig, setOriginalConfig] = useState<Dashboard | null>(null);
     const [draft, setDraft] = useState<Dashboard | null>(null);
     const [allDashboards, setAllDashboards] = useState<Dashboard[]>([]);
-    const [templates, setTemplates] = useState<Template[]>([]);
     const [allNodes, setAllNodes] = useState<HierarchyNode[]>([]);
     const [catalogVariables, setCatalogVariables] = useState<CatalogVariable[]>([]);
     const [stagedVariables, setStagedVariables] = useState<CatalogVariable[]>([]);
@@ -78,9 +73,6 @@ export default function DashboardBuilderPage() {
     const [isHeaderDropActive, setIsHeaderDropActive] = useState(false);
     const [dialogMessage, setDialogMessage] = useState<string | null>(null);
     const [variableDeletionState, setVariableDeletionState] = useState<VariableDeletionState | null>(null);
-    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [pendingBoundsChange, setPendingBoundsChange] = useState<PendingBoundsChange | null>(null);
-    const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
     const [, setNodeTypeLabelsVersion] = useState(0);
 
     const isGridVisible = useUIStore((state) => state.isGridVisible);
@@ -98,6 +90,19 @@ export default function DashboardBuilderPage() {
             setNodeTypeLabelsVersion((current) => current + 1);
         });
     }, []);
+
+    const normalizeDashboardBounds = (dashboard: Dashboard): Dashboard => ({
+        ...dashboard,
+        cols: dashboard.cols || DEFAULT_COLS,
+        rows: dashboard.rows || DEFAULT_ROWS,
+        publishedSnapshot: dashboard.publishedSnapshot
+            ? {
+                ...dashboard.publishedSnapshot,
+                cols: dashboard.publishedSnapshot.cols || dashboard.cols || DEFAULT_COLS,
+                rows: dashboard.publishedSnapshot.rows || dashboard.rows || DEFAULT_ROWS,
+            }
+            : undefined,
+    });
 
     const allCatalogVariables = useMemo(
         () => [...catalogVariables, ...stagedVariables],
@@ -173,10 +178,9 @@ export default function DashboardBuilderPage() {
             if (!id) return;
             setIsLoading(true);
             try {
-                const [config, dashboards, templateData, nodes, catalog] = await Promise.all([
+                const [config, dashboards, nodes, catalog] = await Promise.all([
                     dashboardStorage.getDashboard(id),
                     dashboardStorage.getDashboards(),
-                    templateStorage.getTemplates(),
                     hierarchyStorage.getNodes(),
                     variableCatalogStorage.getAll(),
                 ]);
@@ -198,15 +202,15 @@ export default function DashboardBuilderPage() {
                     nextCatalog = await variableCatalogStorage.getAll();
                 }
 
-                setAllDashboards(nextDashboards);
-                setTemplates(templateData);
+                setAllDashboards(nextDashboards.map(normalizeDashboardBounds));
                 setAllNodes(nodes);
                 setCatalogVariables(nextCatalog);
                 setStagedVariables([]);
 
                 if (nextConfig) {
-                    setOriginalConfig(nextConfig);
-                    setDraft(JSON.parse(JSON.stringify(nextConfig))); // Deep copy
+                    const normalizedConfig = normalizeDashboardBounds(nextConfig);
+                    setOriginalConfig(normalizedConfig);
+                    setDraft(JSON.parse(JSON.stringify(normalizedConfig))); // Deep copy
                 }
             } catch (error) {
                 console.error("Error cargando dashboard:", error);
@@ -230,123 +234,12 @@ export default function DashboardBuilderPage() {
         <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-xs font-medium text-industrial-muted transition-colors hover:text-white"
+            className="flex items-center gap-1 text-industrial-muted transition-colors hover:text-white"
         >
             <ArrowLeft size={14} />
             Volver
         </button>
     );
-
-    const handleDashboardBoundsChange = (change: Partial<Pick<Dashboard, 'aspect'>>) => {
-        setDraft((prev) => {
-            if (!prev) {
-                return prev;
-            }
-
-            const nextAspect = change.aspect ?? prev.aspect;
-
-            return {
-                ...prev,
-                aspect: nextAspect,
-            };
-        });
-    };
-
-    const handleDashboardGridChange = (change: Partial<Pick<Dashboard, 'cols' | 'rows'>>) => {
-        setDraft((prev) => {
-            if (!prev) {
-                return prev;
-            }
-
-            const nextCols = change.cols ?? prev.cols ?? DEFAULT_COLS;
-            const nextRows = change.rows ?? prev.rows ?? DEFAULT_ROWS;
-            const plan = planDashboardBoundsChange({
-                layout: prev.layout,
-                nextCols,
-                nextRows,
-            });
-
-            if (plan.adjustedWidgetCount > 0) {
-                setPendingBoundsChange({
-                    aspect: prev.aspect,
-                    cols: nextCols,
-                    rows: nextRows,
-                    layout: plan.layout,
-                    adjustedWidgetCount: plan.adjustedWidgetCount,
-                });
-
-                return prev;
-            }
-
-            setPendingBoundsChange(null);
-
-            return {
-                ...prev,
-                cols: nextCols,
-                rows: nextRows,
-                layout: plan.layout,
-            };
-        });
-    };
-
-    const applyPendingBoundsChange = () => {
-        if (!pendingBoundsChange) {
-            return;
-        }
-
-        setDraft((prev) => {
-            if (!prev) {
-                return prev;
-            }
-
-            return {
-                ...prev,
-                aspect: pendingBoundsChange.aspect,
-                cols: pendingBoundsChange.cols,
-                rows: pendingBoundsChange.rows,
-                layout: pendingBoundsChange.layout,
-            };
-        });
-        setPendingBoundsChange(null);
-    };
-
-    const cancelPendingBoundsChange = () => {
-        setPendingBoundsChange(null);
-    };
-
-    const handleOpenTemplateDialog = () => {
-        setIsTemplateDialogOpen(true);
-    };
-
-    const handleCloseTemplateDialog = () => {
-        setIsTemplateDialogOpen(false);
-    };
-
-    const handleApplyTemplate = (template: Template) => {
-        if (!draft) {
-            return;
-        }
-
-        if (!isTemplateApplicable(template, draft)) {
-            setDialogMessage(buildTemplateAspectMismatchMessage(template.aspect, draft.aspect));
-            return;
-        }
-
-        try {
-            const nextDashboard = dashboardStorage.applyTemplate(draft, template);
-            setDraft(nextDashboard);
-            setSelectedWidgetId(undefined);
-            setIsTemplateDialogOpen(false);
-        } catch (error) {
-            if (error instanceof TemplateAspectMismatchError) {
-                setDialogMessage(error.message);
-                return;
-            }
-
-            console.error('Error aplicando template:', error);
-            setDialogMessage('Hubo un error al aplicar el template.');
-        }
-    };
 
     const contextBarPanel = draft ? (
         <div className="relative flex items-center gap-2 px-3">
@@ -367,49 +260,6 @@ export default function DashboardBuilderPage() {
                     <LayoutGrid size={16} />
                 </button>
             </HoverTooltip>
-            <HoverTooltip label="Aplicar template" position="right" className="flex">
-                <button
-                    aria-expanded={isTemplateDialogOpen}
-                    aria-label="Aplicar template"
-                    className={[
-                        'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
-                        isTemplateDialogOpen
-                            ? 'bg-white/10 text-white'
-                            : 'text-industrial-muted hover:bg-white/5 hover:text-white',
-                    ].join(' ')}
-                    type="button"
-                    onClick={handleOpenTemplateDialog}
-                >
-                    <LayoutTemplate size={16} />
-                </button>
-            </HoverTooltip>
-            <HoverTooltip label="Configurar dashboard" position="right" className="flex">
-                <button
-                    aria-expanded={isSettingsPanelOpen}
-                    aria-label="Configurar dashboard"
-                    className={[
-                        'h-9 w-9 inline-flex items-center justify-center rounded-md transition-colors',
-                        isSettingsPanelOpen
-                            ? 'bg-white/10 text-white'
-                            : 'text-industrial-muted hover:bg-white/5 hover:text-white',
-                    ].join(' ')}
-                    type="button"
-                    onClick={() => setIsSettingsPanelOpen((current) => !current)}
-                >
-                    <SlidersHorizontal size={16} />
-                </button>
-            </HoverTooltip>
-
-            {isSettingsPanelOpen ? (
-                <DashboardSettingsPanel
-                    aspect={draft.aspect}
-                    cols={draft.cols}
-                    rows={draft.rows}
-                    onAspectChange={(aspect) => handleDashboardBoundsChange({ aspect })}
-                    onColsChange={(cols) => handleDashboardGridChange({ cols })}
-                    onRowsChange={(rows) => handleDashboardGridChange({ rows })}
-                />
-            ) : null}
         </div>
     ) : backButton;
 
@@ -526,7 +376,7 @@ export default function DashboardBuilderPage() {
 
     if (isLoading) {
         contextBar = renderContextBarState(
-            <div className="flex items-center gap-2 text-xs font-bold text-industrial-muted">
+            <div className="flex items-center gap-2 text-industrial-muted">
                 <Loader2 size={14} className="animate-spin" />
                 Cargando dashboard…
             </div>
@@ -539,7 +389,7 @@ export default function DashboardBuilderPage() {
         );
     } else if (!draft || !originalConfig) {
         contextBar = renderContextBarState(
-            <div className="text-xs font-bold uppercase tracking-widest text-industrial-muted">
+            <div className="uppercase text-industrial-muted">
                 Dashboard no encontrado
             </div>
         );
@@ -1316,7 +1166,7 @@ export default function DashboardBuilderPage() {
                         <AdminTag label={resolveTypeLabel(ownerNode.type)} variant="muted" />
                     )}
                     {ownerNodeBreadcrumbs.length > 0 && (
-                        <nav className="flex min-w-0 items-center gap-1 overflow-hidden text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        <nav className="flex min-w-0 items-center gap-1 overflow-hidden uppercase text-industrial-muted">
                             {ownerNodeBreadcrumbs.map((ancestor, idx) => (
                                 <span key={ancestor.id} className="flex min-w-0 items-center gap-1">
                                     {idx > 0 && <ChevronRight size={10} className="shrink-0 opacity-40" />}
@@ -1388,7 +1238,7 @@ export default function DashboardBuilderPage() {
         content = (
             <div className="flex h-full min-h-0 flex-col bg-[url('/grid.svg')] bg-center">
                 <div data-testid="dashboard-builder-content-column" className="flex h-full min-h-0 min-w-0 flex-1 flex-col px-8">
-                    <div className="shrink-0 border-b border-white/5 bg-industrial-bg/60 pb-4 pt-6 backdrop-blur-sm">
+                    <div className="shrink-0 border-b border-white/5 bg-industrial-bg/60 pb-4 pt-2 backdrop-blur-sm">
                         <DashboardHeader
                             mode="preview"
                             dashboard={draft}
@@ -1422,7 +1272,7 @@ export default function DashboardBuilderPage() {
                         />
                     </div>
 
-                    <div data-testid="dashboard-builder-canvas-viewport" className="flex min-h-0 flex-1 overflow-x-auto overflow-y-auto hmi-scrollbar pt-10 pl-3 pr-3 pb-3">
+                    <div data-testid="dashboard-builder-canvas-viewport" className="flex min-h-0 min-w-0 flex-1 overflow-hidden pt-2 pb-3">
                         <BuilderCanvas
                             layout={draft.layout}
                             widgets={draft.widgets}
@@ -1468,55 +1318,6 @@ export default function DashboardBuilderPage() {
             </AdminWorkspaceLayout>
 
             <AdminDialog
-                open={isTemplateDialogOpen}
-                title="Aplicar template"
-                onClose={handleCloseTemplateDialog}
-                actions={(
-                    <AdminActionButton variant="secondary" onClick={handleCloseTemplateDialog}>
-                        Cerrar
-                    </AdminActionButton>
-                )}
-            >
-                <div className="flex flex-col gap-2">
-                    {templates.length === 0 ? (
-                        <p className="text-xs text-industrial-muted">No hay templates disponibles.</p>
-                    ) : templates.map((template) => {
-                        const isApplicable = draft ? isTemplateApplicable(template, draft) : false;
-                        const mismatchMessage = draft
-                            ? buildTemplateAspectMismatchMessage(template.aspect, draft.aspect)
-                            : undefined;
-
-                        return (
-                            <div
-                                key={template.id}
-                                className={[
-                                    'rounded-md border border-white/10 bg-white/[0.02] p-3 transition-opacity',
-                                    isApplicable ? '' : 'opacity-40',
-                                ].join(' ')}
-                            >
-                                <div className="mb-2">
-                                    <p className="text-xs font-bold text-white">{template.name}</p>
-                                    <p className="text-[10px] font-medium text-industrial-muted">
-                                        Aspect {template.aspect} · {template.rows} filas
-                                    </p>
-                                </div>
-                                <AdminActionButton
-                                    aria-label={`Aplicar template ${template.name}`}
-                                    disabled={!isApplicable}
-                                    onClick={() => handleApplyTemplate(template)}
-                                    title={isApplicable ? 'Aplicar template' : mismatchMessage}
-                                    variant="primary"
-                                >
-                                    <LayoutTemplate size={14} />
-                                    Aplicar
-                                </AdminActionButton>
-                            </div>
-                        );
-                    })}
-                </div>
-            </AdminDialog>
-
-            <AdminDialog
                 open={Boolean(dialogMessage)}
                 title="Error de operación"
                 onClose={() => setDialogMessage(null)}
@@ -1526,7 +1327,7 @@ export default function DashboardBuilderPage() {
                     </AdminActionButton>
                 )}
             >
-                <p className="text-xs text-industrial-muted">{dialogMessage}</p>
+                <p className="text-industrial-muted">{dialogMessage}</p>
             </AdminDialog>
 
             <AdminDestructiveDialog
@@ -1558,29 +1359,10 @@ export default function DashboardBuilderPage() {
             >
                 <div className="flex items-start gap-2 rounded-md border border-status-warning bg-status-warning/10 px-3 py-2.5">
                     <AlertTriangle size={16} className="shrink-0 text-status-warning" />
-                    <p className="text-xs text-industrial-muted">Tenés cambios sin guardar en este dashboard. Si salís ahora, los cambios se perderán.</p>
+                    <p className="text-industrial-muted">Tenés cambios sin guardar en este dashboard. Si salís ahora, los cambios se perderán.</p>
                 </div>
             </AdminDialog>
 
-            <AdminDialog
-                open={Boolean(pendingBoundsChange)}
-                title="Confirmar ajuste de widgets"
-                onClose={cancelPendingBoundsChange}
-                actions={(
-                    <>
-                        <AdminActionButton variant="secondary" onClick={cancelPendingBoundsChange}>
-                            Cancelar
-                        </AdminActionButton>
-                        <AdminActionButton variant="primary" onClick={applyPendingBoundsChange}>
-                            Continuar
-                        </AdminActionButton>
-                    </>
-                )}
-            >
-                <p className="text-xs text-industrial-muted">
-                    Este cambio ajustará la posición/tamaño de {pendingBoundsChange?.adjustedWidgetCount ?? 0} widget{pendingBoundsChange?.adjustedWidgetCount === 1 ? '' : 's'} al nuevo área. ¿Continuar?
-                </p>
-            </AdminDialog>
         </>
     );
 }
@@ -1591,14 +1373,6 @@ interface VariableDeletionState {
         id: string;
         name: string;
     }>;
-}
-
-interface PendingBoundsChange {
-    aspect: DashboardAspect;
-    cols: number;
-    rows: number;
-    layout: WidgetLayout[];
-    adjustedWidgetCount: number;
 }
 
 function buildCatalogVariableId(name: string, unit: string): string {

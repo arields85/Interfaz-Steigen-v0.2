@@ -81,7 +81,7 @@ export default function CatalogVariableSelector({
                     {selectedVariable ? (
                         <>
                             <span className="truncate">{selectedVariable.name}</span>
-                            <span className={`shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>
+                            <span className={`shrink-0 rounded bg-white/5 px-1.5 py-0.5 ${ADMIN_SIDEBAR_HINT_CLS}`}>
                                 {selectedVariable.unit}
                             </span>
                         </>
@@ -104,7 +104,7 @@ export default function CatalogVariableSelector({
                 <div className="overflow-hidden rounded-md border border-white/10 bg-industrial-surface shadow-xl">
                     {isCreating ? (
                         <div className="flex flex-col gap-3 p-3">
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-industrial-muted">
+                            <div className="flex items-center gap-2 uppercase text-industrial-muted">
                                 <Plus size={12} className="text-admin-accent" />
                                 Crear variable
                             </div>
@@ -132,7 +132,7 @@ export default function CatalogVariableSelector({
                                 <button
                                     type="button"
                                     onClick={closeOverlay}
-                                    className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-industrial-muted transition-colors hover:bg-white/10 hover:text-white"
+                                    className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1 uppercase text-industrial-muted transition-colors hover:bg-white/10 hover:text-white"
                                 >
                                     <X size={11} /> Cancelar
                                 </button>
@@ -140,7 +140,7 @@ export default function CatalogVariableSelector({
                                     type="button"
                                     disabled={!canConfirm}
                                     onClick={handleCreateConfirm}
-                                    className="inline-flex items-center gap-1 rounded border border-admin-accent/30 bg-admin-accent/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-admin-accent transition-colors hover:bg-admin-accent/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-industrial-muted"
+                                    className="inline-flex items-center gap-1 rounded border border-admin-accent/30 bg-admin-accent/10 px-2 py-1 uppercase text-admin-accent transition-colors hover:bg-admin-accent/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-industrial-muted"
                                 >
                                     <Check size={11} /> Confirmar
                                 </button>
@@ -149,7 +149,7 @@ export default function CatalogVariableSelector({
                     ) : (
                         <div className="py-1">
                             {variables.length === 0 && (
-                                <div className="px-3 py-2 text-xs text-industrial-muted">
+                                <div className="px-3 py-2 text-industrial-muted">
                                     No hay variables disponibles para esta unidad.
                                 </div>
                             )}
@@ -160,7 +160,7 @@ export default function CatalogVariableSelector({
                                 return (
                                     <div
                                         key={variable.id}
-                                        className={`group flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                                        className={`group flex items-center gap-2 px-3 py-1.5 transition-colors ${
                                             variable.id === selectedId
                                                 ? 'bg-white/5'
                                                 : 'hover:bg-white/5'
@@ -183,7 +183,7 @@ export default function CatalogVariableSelector({
                                         >
                                             <span className="truncate">{variable.name}</span>
                                             {isUsedByAnotherWidget ? (
-                                                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-status-warning">
+                                                <span className="inline-flex shrink-0 items-center gap-1 uppercase text-status-warning">
                                                     <Lock size={10} /> En uso
                                                 </span>
                                             ) : null}
@@ -219,7 +219,7 @@ export default function CatalogVariableSelector({
                             <button
                                 type="button"
                                 onClick={() => setIsCreating(true)}
-                                className="block w-full px-3 py-1.5 text-left text-xs text-admin-accent transition-colors hover:bg-white/5"
+                                className="block w-full px-3 py-1.5 text-left text-admin-accent transition-colors hover:bg-white/5"
                             >
                                 <span className="flex items-center gap-1.5">
                                     <Plus size={12} className="shrink-0" />

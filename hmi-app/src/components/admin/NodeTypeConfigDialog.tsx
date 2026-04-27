@@ -310,8 +310,8 @@ export default function NodeTypeConfigDialog({
                                             {previewIcon}
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase tracking-widest text-white">{type.label || 'Nuevo tipo'}</p>
-                                            <p className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>key: {getDisplayKey(type, index)}</p>
+                                            <p className="uppercase text-white">{type.label || 'Nuevo tipo'}</p>
+                                            <p className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>key: {getDisplayKey(type, index)}</p>
                                         </div>
                                     </div>
 
@@ -326,20 +326,20 @@ export default function NodeTypeConfigDialog({
 
                                 <div className="grid gap-3 md:grid-cols-2">
                                     <div>
-                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Label</label>
+                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto`}>Label</label>
                                         <input
                                             value={type.label}
                                             onChange={(event) => handleUpdateType(index, { label: event.target.value })}
                                             onBlur={() => handleLabelBlur(index)}
-                                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                                         />
-                                        <p className={`mt-1 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>
+                                        <p className={`mt-1 font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>
                                             key: {getDisplayKey(type, index)}
                                         </p>
                                     </div>
 
                                     <div>
-                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Ícono</label>
+                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto`}>Ícono</label>
                                         <AdminSelect
                                             value={type.icon}
                                             onChange={(value) => handleUpdateType(index, {
@@ -351,7 +351,7 @@ export default function NodeTypeConfigDialog({
                                     </div>
 
                                     <div>
-                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Color</label>
+                                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto`}>Color</label>
                                         <AdminSelect
                                             value={type.color}
                                             onChange={(value) => handleUpdateType(index, { color: value })}
@@ -361,7 +361,7 @@ export default function NodeTypeConfigDialog({
                                 </div>
 
                                 {usageCount > 0 && (
-                                    <p className="text-[11px] text-status-warning">
+                                    <p className="text-status-warning">
                                         Este tipo está asignado a {usageCount} nodo{usageCount !== 1 ? 's' : ''}. Si lo eliminás, esos nodos conservarán la key pero quedarán sin definición visual explícita.
                                     </p>
                                 )}
@@ -371,8 +371,8 @@ export default function NodeTypeConfigDialog({
 
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-white/10 bg-black/10 p-4">
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-white">Agregar tipo</p>
-                            <p className="text-xs text-industrial-muted">Creá una nueva definición editable por el admin.</p>
+                            <p className="uppercase text-white">Agregar tipo</p>
+                            <p className="text-industrial-muted">Creá una nueva definición editable por el admin.</p>
                         </div>
                         <AdminActionButton variant="primary" onClick={() => setDraftTypes((current) => [...current, buildNewNodeType()])}>
                             <Plus size={12} /> Agregar tipo
@@ -380,7 +380,7 @@ export default function NodeTypeConfigDialog({
                     </div>
 
                     {(hasInvalidRows || hasDuplicateKeys) && (
-                        <p className="text-xs text-status-warning">
+                        <p className="text-status-warning">
                             Revisá los tipos antes de guardar: cada fila necesita label, ícono y color, y las keys internas deben seguir siendo únicas.
                         </p>
                     )}

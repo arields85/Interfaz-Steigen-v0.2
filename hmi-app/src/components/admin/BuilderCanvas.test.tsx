@@ -234,7 +234,18 @@ describe('BuilderCanvas', () => {
         expect(viewerRoot.className).toContain('justify-center');
 
         const overlay = screen.getByTestId('builder-canvas-grid-overlay');
-        expect(overlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        const majorOverlay = screen.getByTestId('builder-canvas-grid-major-overlay');
+        const majorEraserOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-overlay');
+        const majorEraserVerticalOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-vertical-overlay');
+        const majorEraserHorizontalOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-horizontal-overlay');
+        const majorVerticalOverlay = screen.getByTestId('builder-canvas-grid-major-vertical-overlay');
+        const majorHorizontalOverlay = screen.getByTestId('builder-canvas-grid-major-horizontal-overlay');
+        const minorOverlay = screen.getByTestId('builder-canvas-grid-minor-overlay');
+        expect(overlay.style.backgroundImage).toBe('');
+        expect(majorOverlay.style.backgroundImage).toBe('');
+        expect(majorVerticalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(majorHorizontalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(minorOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
         expect(overlay.style.opacity).toBe('1');
 
         expect(screen.getByTestId('builder-canvas-item-widget-origin').style.gridColumnStart).toBe(
@@ -254,6 +265,61 @@ describe('BuilderCanvas', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('builder-canvas-grid-overlay').style.opacity).toBe('0');
+        });
+    });
+
+    it('keeps canvas focus behavior while explicitly suppressing the focus outline and rendering dashed major grid lines without a solid major-line base', async () => {
+        useUIStore.setState({ ...useUIStore.getInitialState(), isGridVisible: true });
+
+        const { builderRoot } = await renderInteractiveCanvas();
+        const overlay = screen.getByTestId('builder-canvas-grid-overlay');
+        const majorOverlay = screen.getByTestId('builder-canvas-grid-major-overlay');
+        const majorEraserOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-overlay');
+        const majorEraserVerticalOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-vertical-overlay');
+        const majorEraserHorizontalOverlay = screen.getByTestId('builder-canvas-grid-major-eraser-horizontal-overlay');
+        const majorVerticalOverlay = screen.getByTestId('builder-canvas-grid-major-vertical-overlay');
+        const majorHorizontalOverlay = screen.getByTestId('builder-canvas-grid-major-horizontal-overlay');
+        const minorOverlay = screen.getByTestId('builder-canvas-grid-minor-overlay');
+
+        expect(builderRoot).toHaveAttribute('tabindex', '0');
+        expect(builderRoot.style.outline).toBe('none');
+
+        fireEvent.pointerDown(builderRoot, { button: 0, clientX: 10, clientY: 10 });
+
+        expect(document.activeElement).toBe(builderRoot);
+        expect(overlay.style.backgroundImage).toBe('');
+        expect(majorOverlay.style.backgroundImage).toBe('');
+        expect(majorEraserOverlay.style.backgroundImage).toBe('');
+        expect(majorOverlay.style.backgroundImage).not.toContain('radial-gradient');
+        expect(majorEraserVerticalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(majorEraserVerticalOverlay.style.backgroundImage).toContain('var(--color-canvas-bg)');
+        expect(majorEraserVerticalOverlay.style.webkitMaskImage).toBe('');
+        expect(majorEraserHorizontalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(majorEraserHorizontalOverlay.style.backgroundImage).toContain('var(--color-canvas-bg)');
+        expect(majorEraserHorizontalOverlay.style.webkitMaskImage).toBe('');
+        expect(majorVerticalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(majorVerticalOverlay.style.backgroundImage).toContain('var(--color-canvas-grid-major)');
+        expect(majorVerticalOverlay.style.webkitMaskImage).toContain('repeating-linear-gradient');
+        expect(majorHorizontalOverlay.style.backgroundImage).toContain('repeating-linear-gradient');
+        expect(majorHorizontalOverlay.style.backgroundImage).toContain('var(--color-canvas-grid-major)');
+        expect(majorHorizontalOverlay.style.webkitMaskImage).toContain('repeating-linear-gradient');
+        expect(minorOverlay.style.backgroundImage).toContain('var(--color-canvas-grid-minor)');
+        expect(minorOverlay.style.backgroundImage).not.toContain('var(--color-canvas-grid-major)');
+    });
+
+    it('hides the composed major and minor grid overlays when the grid toggle is off', async () => {
+        useUIStore.setState({ ...useUIStore.getInitialState(), isGridVisible: false });
+
+        await renderInteractiveCanvas();
+
+        const overlay = screen.getByTestId('builder-canvas-grid-overlay');
+        const majorOverlay = screen.getByTestId('builder-canvas-grid-major-overlay');
+        const minorOverlay = screen.getByTestId('builder-canvas-grid-minor-overlay');
+
+        await waitFor(() => {
+            expect(overlay.style.opacity).toBe('0');
+            expect(majorOverlay.style.opacity).toBe('0');
+            expect(minorOverlay.style.opacity).toBe('0');
         });
     });
 
@@ -360,158 +426,16 @@ describe('BuilderCanvas', () => {
 
         await waitFor(() => {
             const canvasFrame = builderRoot.firstElementChild as HTMLElement | null;
+            const gridOverlay = screen.getByTestId('builder-canvas-grid-overlay');
 
             expect(builderRoot.className).toContain('w-full');
             expect(builderRoot.style.minWidth).toBe('');
             expect(canvasFrame).not.toBeNull();
             expect(Number.parseFloat(canvasFrame?.style.width ?? '0')).toBeCloseTo(900, 4);
             expect(Number.parseFloat(canvasFrame?.style.height ?? '0')).toBeCloseTo(620, 4);
+            expect(gridOverlay.style.width).toBe('');
+            expect(gridOverlay.style.height).toBe('');
         });
-    });
-
-    it('enters space-pan mode and scrolls horizontally without committing widget movement', async () => {
-        const user = userEvent.setup();
-        const onLayoutCommit = vi.fn();
-
-        const dashboard = makeDashboard({
-            cols: 20,
-            rows: 12,
-            widgets: [makeWidget({ id: 'widget-1', title: 'Widget 1' })],
-            layout: [makeLayout({ widgetId: 'widget-1', x: 0, y: 0, w: 4, h: 3 })],
-        });
-
-        const { container } = render(
-            <div data-testid="scroll-shell" style={{ width: '700px', height: '520px', overflow: 'auto' }}>
-                <BuilderCanvas
-                    widgets={dashboard.widgets}
-                    layout={dashboard.layout}
-                    equipmentMap={new Map()}
-                    cols={dashboard.cols}
-                    rows={dashboard.rows}
-                    onLayoutCommit={onLayoutCommit}
-                />
-            </div>,
-        );
-
-        const builderRoot = container.querySelector('[data-testid="builder-canvas-root"]');
-
-        if (!builderRoot) {
-            throw new Error('Builder root was not rendered.');
-        }
-
-        await syncCanvasMetrics(builderRoot, 700, 520);
-
-        const scrollShell = screen.getByTestId('scroll-shell');
-        const item = screen.getByTestId('builder-canvas-item-widget-1');
-
-        if (!(builderRoot instanceof HTMLElement) || !(scrollShell instanceof HTMLDivElement)) {
-            throw new Error('Builder root or scroll shell is invalid.');
-        }
-
-        await user.click(builderRoot);
-        await act(async () => {
-            fireEvent.keyDown(window, { key: ' ', code: 'Space' });
-        });
-
-        await waitFor(() => {
-            expect(builderRoot.style.cursor).toBe('grab');
-        });
-
-        await pressPointer(user, item, { clientX: 300, clientY: 180 });
-        await movePointer(user, document.body, { clientX: 120, clientY: 180 });
-
-        expect(scrollShell.scrollLeft).toBeGreaterThan(0);
-        expect(onLayoutCommit).not.toHaveBeenCalled();
-    });
-
-    it('exits space-pan mode on keyup and blur, restoring the default cursor', async () => {
-        const user = userEvent.setup();
-        const { builderRoot } = await renderInteractiveCanvas();
-
-        if (!(builderRoot instanceof HTMLElement)) {
-            throw new Error('Builder root is not focusable.');
-        }
-
-        await user.click(builderRoot);
-        await act(async () => {
-            fireEvent.keyDown(window, { key: ' ', code: 'Space' });
-        });
-        await waitFor(() => {
-            expect(builderRoot.style.cursor).toBe('grab');
-        });
-
-        await act(async () => {
-            fireEvent.keyUp(window, { key: ' ', code: 'Space' });
-        });
-        expect(builderRoot.style.cursor).toBe('');
-
-        await user.click(builderRoot);
-        await act(async () => {
-            fireEvent.keyDown(window, { key: ' ', code: 'Space' });
-        });
-        await waitFor(() => {
-            expect(builderRoot.style.cursor).toBe('grab');
-        });
-
-        await act(async () => {
-            fireEvent.blur(builderRoot);
-        });
-        await waitFor(() => {
-            expect(builderRoot.style.cursor).toBe('');
-        });
-    });
-
-    it('does not hijack Space when focus is inside a text input', async () => {
-        const user = userEvent.setup();
-        const onLayoutCommit = vi.fn();
-
-        const dashboard = makeDashboard({
-            cols: 20,
-            rows: 12,
-            widgets: [makeWidget({ id: 'widget-1', title: 'Editable Input' })],
-            layout: [makeLayout({ widgetId: 'widget-1', x: 0, y: 0, w: 4, h: 3 })],
-        });
-
-        const { container } = render(
-            <div data-testid="scroll-shell" style={{ width: '700px', height: '520px', overflow: 'auto' }}>
-                <BuilderCanvas
-                    widgets={dashboard.widgets}
-                    layout={dashboard.layout}
-                    equipmentMap={new Map()}
-                    cols={dashboard.cols}
-                    rows={dashboard.rows}
-                    onLayoutCommit={onLayoutCommit}
-                />
-            </div>,
-        );
-
-        const builderRoot = container.querySelector('[data-testid="builder-canvas-root"]');
-
-        if (!builderRoot) {
-            throw new Error('Builder root was not rendered.');
-        }
-
-        await syncCanvasMetrics(builderRoot, 700, 520);
-
-        const input = screen.getByTestId('widget-renderer-input-widget-1');
-        const scrollShell = screen.getByTestId('scroll-shell');
-
-        if (!(builderRoot instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !(scrollShell instanceof HTMLDivElement)) {
-            throw new Error('Builder root, input, or scroll shell is invalid.');
-        }
-
-        input.focus();
-        await act(async () => {
-            fireEvent.keyDown(input, { key: ' ', code: 'Space' });
-        });
-
-        expect(builderRoot.style.cursor).toBe('');
-
-        await pressPointer(user, input, { clientX: 300, clientY: 180 });
-        await movePointer(user, document.body, { clientX: 120, clientY: 180 });
-        await releasePointer(user, document.body, { clientX: 120, clientY: 180 });
-
-        expect(scrollShell.scrollLeft).toBe(0);
     });
 
     it('clamps resize commits on release after visual overflow', async () => {
@@ -541,6 +465,50 @@ describe('BuilderCanvas', () => {
         await releasePointer(user, document.body, { clientX: 1320, clientY: 0 });
 
         expect(onLayoutCommit).toHaveBeenCalledWith({ widgetId: 'widget-1', x: 5, y: 2, w: 11, h: 2 });
+    });
+
+    it('applies the resize cursor to the document body during resize interactions and clears it on release', async () => {
+        const user = userEvent.setup();
+
+        await renderInteractiveCanvas({
+            selectedWidgetId: 'widget-1',
+            layout: [makeLayout({ widgetId: 'widget-1', x: 2, y: 1, w: 3, h: 2 })],
+            cols: 16,
+            resizeWidth: 1200,
+            resizeHeight: 900,
+        });
+
+        const handle = screen.getByTestId('builder-canvas-resize-handle-se-widget-1');
+
+        await pressPointer(user, handle, { clientX: 300, clientY: 150 });
+
+        expect(document.body.style.cursor).toBe('se-resize');
+
+        await releasePointer(user, document.body, { clientX: 300, clientY: 150 });
+
+        expect(document.body.style.cursor).toBe('');
+    });
+
+    it('clears the document body resize cursor when the canvas unmounts mid-interaction', async () => {
+        const user = userEvent.setup();
+
+        const { unmount } = await renderInteractiveCanvas({
+            selectedWidgetId: 'widget-1',
+            layout: [makeLayout({ widgetId: 'widget-1', x: 2, y: 1, w: 3, h: 2 })],
+            cols: 16,
+            resizeWidth: 1200,
+            resizeHeight: 900,
+        });
+
+        const handle = screen.getByTestId('builder-canvas-resize-handle-se-widget-1');
+
+        await pressPointer(user, handle, { clientX: 300, clientY: 150 });
+
+        expect(document.body.style.cursor).toBe('se-resize');
+
+        unmount();
+
+        expect(document.body.style.cursor).toBe('');
     });
 
     it('clamps drag-to-move commits on release and allows visual overflow while dragging', async () => {

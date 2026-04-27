@@ -50,7 +50,7 @@ export default function AdminDialog({
                 aria-label={title}
                 className={`w-full ${maxWidth} rounded-xl border border-white/10 bg-industrial-surface p-6 shadow-2xl`}
             >
-                <h3 className="text-sm font-black uppercase tracking-widest text-white">{title}</h3>
+                <h3 className="uppercase text-white">{title}</h3>
                 <div className="mt-4 space-y-4">{children}</div>
                 <div className="mt-6 flex justify-end gap-2">{actions}</div>
             </div>

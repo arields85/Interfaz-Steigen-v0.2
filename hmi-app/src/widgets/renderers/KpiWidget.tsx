@@ -19,6 +19,20 @@ const ICON_MAP: Record<string, LucideIcon> = {
     'FoldVertical': FoldVertical
 };
 
+const WIDGET_VALUE_TEXT_STYLE = {
+    fontFamily: 'var(--font-widget-value-gauge)',
+    fontWeight: 'var(--font-weight-widget-value-gauge)',
+    fontSize: 'var(--font-size-widget-value-gauge)',
+    letterSpacing: 'var(--tracking-widget-value-gauge)',
+} as const;
+
+const WIDGET_UNIT_TEXT_STYLE = {
+    fontFamily: 'var(--font-widget-value-gauge)',
+    fontWeight: 'var(--font-weight-widget-value-gauge)',
+    fontSize: 'var(--font-size-widget-unit-gauge)',
+    letterSpacing: 'var(--tracking-widget-value-gauge)',
+} as const;
+
 interface KpiWidgetProps {
     widget: KpiWidgetConfig;
     equipmentMap: Map<string, EquipmentSummary>;
@@ -120,7 +134,7 @@ export default function KpiWidget({ widget, equipmentMap, machines, isLoadingDat
 
             {/* Footer subtext — texto aclaratorio inferior, sin alterar el centrado del KPI */}
             {footerSubtext && (
-                <div className="absolute left-5 bottom-3 z-20 text-[10px] font-black uppercase tracking-widest leading-none text-industrial-muted truncate max-w-[calc(100%-2.5rem)]">
+                <div className="absolute left-5 bottom-3 z-20 uppercase leading-none text-industrial-muted truncate max-w-[calc(100%-2.5rem)]">
                     {footerSubtext}
                 </div>
             )}
@@ -212,8 +226,8 @@ function CircularKpi({ value, min, max, unit, dynamicColor, thresholds }: { valu
                 mode="circular"
             />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-6xl text-white leading-none tracking-tighter mb-1" style={{ fontFamily: 'var(--font-widget-value)', fontWeight: 'var(--font-weight-widget-value)' }}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest">{unit}</span>}
+                <span className="text-white leading-none mb-1" style={WIDGET_VALUE_TEXT_STYLE}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                {unit && value !== null && <span className="text-industrial-muted uppercase" style={WIDGET_UNIT_TEXT_STYLE}>{unit}</span>}
             </div>
         </div>
     );
@@ -228,9 +242,9 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
 
     return (
         <div className="flex flex-col w-full h-full justify-center px-2">
-            <div className="flex items-end gap-2 mb-3">
-                <span className="text-6xl text-white leading-none tracking-tighter" style={{ fontFamily: 'var(--font-widget-value)', fontWeight: 'var(--font-weight-widget-value)' }}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
-                {unit && value !== null && <span className="text-xs font-bold text-industrial-muted uppercase tracking-widest mb-1.5">{unit}</span>}
+            <div className="flex items-baseline gap-2 mb-3">
+                <span className="text-white leading-none" style={WIDGET_VALUE_TEXT_STYLE}>{value === null ? '--' : value % 1 !== 0 ? value.toFixed(1) : value}</span>
+                {unit && value !== null && <span className="text-industrial-muted uppercase" style={WIDGET_UNIT_TEXT_STYLE}>{unit}</span>}
             </div>
             
             <GaugeDisplay
@@ -239,7 +253,7 @@ function BarKpi({ value, min, max, unit, dynamicColor, thresholds }: { value: nu
                 mode="bar"
             />
             
-            <div className="flex justify-between items-center mt-3 text-[10px] font-bold uppercase tracking-wider text-industrial-muted">
+            <div className="flex justify-between items-center mt-3 uppercase text-industrial-muted">
                 <span>{min} {unit}</span>
                 <span>{max} {unit}</span>
             </div>

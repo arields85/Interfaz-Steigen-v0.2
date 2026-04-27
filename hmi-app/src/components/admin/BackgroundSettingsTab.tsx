@@ -46,7 +46,7 @@ export default function BackgroundSettingsTab() {
         <div>
             {/* Header with reset */}
             <div className="mb-3 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-industrial-muted">
+                <span className="uppercase text-industrial-muted">
                     Fondo Animado
                 </span>
                 <HoverTooltip label="Restaurar valores por defecto" position="bottom" className="flex">
@@ -54,8 +54,7 @@ export default function BackgroundSettingsTab() {
                         type="button"
                         aria-label="Restaurar valores por defecto"
                         onClick={resetAll}
-                        className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-industrial-muted hover:text-admin-accent transition-colors"
-                        style={{ fontWeight: 'var(--font-weight-mono)' }}
+                        className="flex items-center gap-1.5 uppercase text-industrial-muted hover:text-admin-accent transition-colors"
                     >
                         <RotateCcw size={12} />
                         Reset
@@ -86,12 +85,11 @@ export default function BackgroundSettingsTab() {
                                     )}
                                 </button>
                                 <span
-                                    className={`flex-1 text-xs font-mono uppercase tracking-wider cursor-pointer ${
+                                    className={`flex-1 uppercase cursor-pointer ${
                                         isEnabled
                                             ? 'text-industrial-text'
                                             : 'text-industrial-muted'
                                     }`}
-                                    style={{ fontWeight: 'var(--font-weight-mono)' }}
                                     onClick={() => toggleSection(section.title)}
                                 >
                                     {section.title}
@@ -120,11 +118,11 @@ export default function BackgroundSettingsTab() {
                                 >
                                     {section.controls.map((ctrl) => (
                                         <div key={ctrl.key} className="space-y-0.5">
-                                            <div className="flex justify-between text-[11px]">
+                                            <div className="flex justify-between">
                                                 <span className="text-industrial-muted">
                                                     {ctrl.label}
                                                 </span>
-                                                <span className="font-mono text-industrial-muted/70 tabular-nums" style={{ fontWeight: 'var(--font-weight-mono)' }}>
+                                                <span className="font-mono text-industrial-muted/70 tabular-nums">
                                                     {params[ctrl.key].toFixed(2)}
                                                 </span>
                                             </div>

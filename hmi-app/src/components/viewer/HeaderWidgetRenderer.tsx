@@ -105,7 +105,7 @@ function CompactIndicator({
                 }}
             />
             <span
-                className="truncate text-[10px] font-bold uppercase tracking-[0.18em]"
+                className="truncate uppercase"
                 style={{ color }}
             >
                 {label}
@@ -186,7 +186,7 @@ export default function HeaderWidgetRenderer({
         return (
             <div className="flex h-full w-full flex-col text-center">
                 {title ? (
-                    <span className="w-full truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted text-center">
+                    <span className="w-full truncate uppercase text-industrial-muted text-center">
                         {title}
                     </span>
                 ) : null}
@@ -201,7 +201,7 @@ export default function HeaderWidgetRenderer({
                         aria-hidden="true"
                     />
 
-                    <span className="max-w-full truncate text-[10px] font-black uppercase tracking-normal text-center text-industrial-muted">
+                    <span className="max-w-full truncate uppercase text-center text-industrial-muted">
                         {label}
                     </span>
 
@@ -215,7 +215,7 @@ export default function HeaderWidgetRenderer({
                                 }}
                                 aria-hidden="true"
                             />
-                            <span className="text-[11px] font-normal tracking-normal text-industrial-muted font-[family-name:var(--font-mono)] leading-none" style={{ fontWeight: 'var(--font-weight-mono)' }}>{relativeTime || '—'}</span>
+                            <span className="text-industrial-muted font-mono leading-none">{relativeTime || '—'}</span>
                         </div>
                     ) : null}
                 </div>
@@ -225,10 +225,10 @@ export default function HeaderWidgetRenderer({
 
     return (
         <div className={`flex flex-col gap-0.5 opacity-40 ${alignmentClasses}`}>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">
+            <span className="uppercase text-industrial-muted">
                 Widget no soportado en header
             </span>
-            <span className="text-[9px] font-mono text-industrial-muted/60" style={{ fontWeight: 'var(--font-weight-mono)' }}>
+            <span className="font-mono text-industrial-muted/60">
                 {widget.type}
             </span>
         </div>

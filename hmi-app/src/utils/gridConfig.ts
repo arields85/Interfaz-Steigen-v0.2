@@ -13,8 +13,8 @@ export const MAX_COLS = 20;
 export const MIN_COLS = 1;
 export const VIEWER_GAP = 16;  // matches gap-4 (Tailwind)
 export const BUILDER_GAP = 24; // matches gap-6 (Tailwind)
-export const DEFAULT_COLS = 20;
-export const DEFAULT_ROWS = 12;
+export const DEFAULT_COLS = 40;
+export const DEFAULT_ROWS = 24;
 
 const ASPECT_RATIOS: Record<DashboardAspect, number> = {
     '16:9': 16 / 9,

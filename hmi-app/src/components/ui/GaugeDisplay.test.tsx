@@ -37,6 +37,7 @@ describe('GaugeDisplay', () => {
         expect(gradientStops[0]).toHaveAttribute('stop-color', 'var(--color-widget-gradient-to)');
         expect(gradientStops[1]).toHaveAttribute('stop-color', 'var(--color-widget-gradient-from)');
         expect(arc).toHaveStyle({ transitionDuration: '750ms' });
+        expect(svg.style.filter).toBe('');
     });
 
     it('renders bar mode and disables animated glow when animation is disabled', () => {
@@ -115,5 +116,30 @@ describe('GaugeDisplay', () => {
 
         expect(screen.getByTestId('gauge-bar-track')).toHaveStyle({ height: '6px' });
         expect(screen.getByTestId('gauge-bar-fill')).toHaveStyle({ width: '100%' });
+    });
+
+    it('renders optional circular center content inside the svg so it scales with the gauge', () => {
+        render(
+            <GaugeDisplay
+                normalizedValue={0.5}
+                color={{
+                    primary: 'var(--color-accent-cyan)',
+                    gradient: ['var(--color-widget-gradient-from)', 'var(--color-widget-gradient-to)'],
+                }}
+                circularContent={({ center }) => (
+                    <text x={center} y={center} textAnchor="middle">
+                        50
+                    </text>
+                )}
+            />,
+        );
+
+        const svg = screen.getByTestId('gauge-circular');
+        const centerContent = screen.getByTestId('gauge-circular-center-content');
+
+        expect(centerContent.tagName.toLowerCase()).toBe('g');
+        expect(centerContent).toHaveAttribute('transform', 'rotate(90 70 70)');
+        expect(svg).toContainElement(centerContent);
+        expect(screen.getByText('50').tagName.toLowerCase()).toBe('text');
     });
 });

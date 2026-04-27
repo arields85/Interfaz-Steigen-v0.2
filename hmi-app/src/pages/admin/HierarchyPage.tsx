@@ -140,7 +140,7 @@ function NodeDetailPanel({
                                         onChange={e => setEditNameValue(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                                         onBlur={handleSaveName}
-                                        className={`${ADMIN_SIDEBAR_INPUT_CLS} w-full border-admin-accent/50 bg-black/50 py-1 text-2xl font-black tracking-tight`}
+                                        className={`${ADMIN_SIDEBAR_INPUT_CLS} w-full border-admin-accent/50 bg-black/50 py-1`}
                                     />
                                     <button onClick={handleSaveName} className="p-2 text-admin-accent hover:bg-white/10 rounded">
                                         <Check size={20} />
@@ -148,15 +148,15 @@ function NodeDetailPanel({
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditingName(true)}>
-                                    <h1 className="text-2xl font-black text-white tracking-tight group-hover:text-admin-accent transition-colors">
+                                    <h1 className="text-white group-hover:text-admin-accent transition-colors">
                                         {node.name}
                                     </h1>
                                     <Edit2 size={14} className="text-white/20 group-hover:text-admin-accent transition-colors" />
                                 </div>
                             )}
                         </div>
-                        <p className="text-xs text-industrial-muted font-mono font-semibold flex items-center gap-2" style={{ fontWeight: 'var(--font-weight-mono)' }}>
-                            id: {node.id} 
+                        <p className="text-industrial-muted flex items-center gap-2">
+                            <span className="font-mono">id: {node.id}</span>
                             <AdminTag label={resolveTypeLabel(node.type, nodeTypeLabels)} variant="muted" />
                         </p>
                     </div>
@@ -210,7 +210,7 @@ function NodeDetailPanel({
                             <input 
                                 disabled
                                 value={node.linkedAssetId || 'Ninguno (Solo lectura en V1)'}
-                                className={`${ADMIN_SIDEBAR_INPUT_CLS} cursor-not-allowed border-white/5 px-3 py-2 text-sm font-medium text-industrial-muted`}
+                                className={`${ADMIN_SIDEBAR_INPUT_CLS} cursor-not-allowed border-white/5 px-3 py-2 text-industrial-muted`}
                             />
                         </div>
                     </section>
@@ -223,7 +223,7 @@ function NodeDetailPanel({
                                 <p className={`${ADMIN_SIDEBAR_SECTION_HEADER_CLS} mb-1`}>
                                     Jerarquía Descendente
                                 </p>
-                                <p className="text-sm text-white">
+                                <p className="text-white">
                                     Contiene {node.children.length} nodo{node.children.length !== 1 ? 's' : ''} directos.
                                 </p>
                             </div>
@@ -520,7 +520,7 @@ export default function HierarchyPage() {
                             value={searchTerm}
                             onChange={(event) => setSearchTerm(event.target.value)}
                             placeholder="Buscar área, box o equipo"
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} h-9 pl-9 pr-3 text-xs font-medium`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} h-9 pl-9 pr-3`}
                             aria-label="Buscar nodos de jerarquía por nombre"
                         />
                     </label>
@@ -529,7 +529,7 @@ export default function HierarchyPage() {
             contextBar={
                 selectedNode ? (
                     <div className="flex h-full w-full items-center justify-between gap-4 px-4">
-                        <nav className="flex min-w-0 items-center gap-1 overflow-hidden text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        <nav className="flex min-w-0 items-center gap-1 overflow-hidden uppercase text-industrial-muted">
                             {selectedNodeBreadcrumbs.map((ancestor, idx) => (
                                 <span key={ancestor.id} className="flex min-w-0 items-center gap-1">
                                     {idx > 0 && <ChevronRight size={10} className="shrink-0 opacity-40" />}
@@ -564,7 +564,7 @@ export default function HierarchyPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex h-full w-full items-center px-4 text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                    <div className="flex h-full w-full items-center px-4 uppercase text-industrial-muted">
                         Seleccioná un nodo para ver acciones contextualizadas
                     </div>
                 )
@@ -633,18 +633,18 @@ export default function HierarchyPage() {
                     )}
                 >
                     <div>
-                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Nombre</label>
+                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto`}>Nombre</label>
                         <input
                             autoFocus
                             type="text"
                             value={newChildName}
                             onChange={(e) => setNewChildName(e.target.value)}
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                         />
                     </div>
 
                     <div>
-                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto tracking-widest`}>Tipo</label>
+                        <label className={`mb-1.5 block ${ADMIN_SIDEBAR_LABEL_CLS} w-auto`}>Tipo</label>
                         <AdminSelect
                             value={newChildType}
                             onChange={(value) => setNewChildType(value as NodeType)}
@@ -676,14 +676,14 @@ export default function HierarchyPage() {
                             </>
                         )}
                     >
-                        <p className="text-xs text-industrial-muted">
+                        <p className="text-industrial-muted">
                             ¿Bajo qué nodo padre querés mover "{selectedNode.name}"?
                         </p>
 
                         <select
                             value={moveTargetId}
                             onChange={(e) => setMoveTargetId(e.target.value)}
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                         >
                             <option value="">-- Mover a la Raíz (Sin padre) --</option>
                             {allNodes
@@ -713,13 +713,13 @@ export default function HierarchyPage() {
                     )}
                 >
                     <div>
-                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto tracking-widest`}>Nombre</label>
+                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto`}>Nombre</label>
                         <input
                             autoFocus
                             type="text"
                             value={addRootName}
                             onChange={(e) => setAddRootName(e.target.value)}
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                         />
                     </div>
                 </AdminDialog>
@@ -740,13 +740,13 @@ export default function HierarchyPage() {
                     )}
                 >
                     <div>
-                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto tracking-widest`}>Nombre</label>
+                        <label className={`${ADMIN_SIDEBAR_LABEL_CLS} mb-1.5 block w-auto`}>Nombre</label>
                         <input
                             autoFocus
                             type="text"
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                         />
                     </div>
                 </AdminDialog>
@@ -765,7 +765,7 @@ export default function HierarchyPage() {
                         </>
                     )}
                 >
-                    <p className="text-xs text-industrial-muted">¿Seguro que deseás eliminar el nodo seleccionado?</p>
+                    <p className="text-industrial-muted">¿Seguro que deseás eliminar el nodo seleccionado?</p>
                 </AdminDialog>
 
                 <AdminDialog
@@ -776,7 +776,7 @@ export default function HierarchyPage() {
                         <AdminActionButton variant="primary" onClick={() => setDialogMessage(null)}>Entendido</AdminActionButton>
                     )}
                 >
-                    <p className="text-xs text-industrial-muted">{dialogMessage}</p>
+                    <p className="text-industrial-muted">{dialogMessage}</p>
                 </AdminDialog>
             </>
         </AdminWorkspaceLayout>

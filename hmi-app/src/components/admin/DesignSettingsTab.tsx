@@ -1,45 +1,70 @@
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import AdminActionButton from './AdminActionButton';
+import AdminNumberInput from './AdminNumberInput';
+import AdminSelect from './AdminSelect';
+import AdminTag from './AdminTag';
 import {
     ADMIN_SIDEBAR_HINT_CLS,
-    ADMIN_SIDEBAR_INPUT_CLS,
-    ADMIN_SIDEBAR_LABEL_CLS,
+    ADMIN_SIDEBAR_SECTION_BODY_CLS,
+    ADMIN_SIDEBAR_SECTION_BUTTON_CLS,
+    ADMIN_SIDEBAR_SECTION_CLS,
+    ADMIN_SIDEBAR_SECTION_HEADER_CLS,
 } from './adminSidebarStyles';
+import {
+    AVAILABLE_FONTS,
+    CHART_FONT_SIZE_RANGE,
+    DASHBOARD_TITLE_FONT_SIZE_RANGE,
+    DEFAULT_CHART_FONT_SIZE_PX,
+    DEFAULT_DASHBOARD_TITLE_FONT_SIZE_PX,
+    DEFAULT_FONT_TRACKING_PX,
+    DEFAULT_MONO_FONT_SIZE_PX,
+    DEFAULT_SYSTEM_FONT_SIZE_PX,
+    DEFAULT_WIDGET_GAUGE_UNIT_FONT_SIZE_PX,
+    DEFAULT_WIDGET_GAUGE_VALUE_FONT_SIZE_PX,
+    DEFAULT_WIDGET_UNIT_FONT_SIZE_PX,
+    DEFAULT_WIDGET_VALUE_FONT_SIZE_PX,
+    FONT_TRACKING_RANGE,
+    getAvailableWeightOptions,
+    getClosestAvailableWeight,
+    isFontName,
+    normalizeChartFontSizeValue,
+    normalizeDashboardTitleFontSizeValue,
+    normalizeFontTrackingValue,
+    normalizeStoredFontOverrides,
+    normalizeSystemFontSizeValue,
+    normalizeWidgetGaugeUnitFontSizeValue,
+    normalizeWidgetGaugeValueFontSizeValue,
+    normalizeWidgetUnitFontSizeValue,
+    normalizeWidgetValueFontSizeValue,
+    parseChartFontSizeValue,
+    parseDashboardTitleFontSizeValue,
+    parseFontTrackingValue,
+    parseSystemFontSizeValue,
+    parseWidgetGaugeUnitFontSizeValue,
+    parseWidgetGaugeValueFontSizeValue,
+    parseWidgetUnitFontSizeValue,
+    parseWidgetValueFontSizeValue,
+    resolveFontCssVariableValue,
+    SYSTEM_FONT_SIZE_RANGE,
+    WIDGET_GAUGE_UNIT_FONT_SIZE_RANGE,
+    WIDGET_GAUGE_VALUE_FONT_SIZE_RANGE,
+    WIDGET_UNIT_FONT_SIZE_RANGE,
+    type FontFamilyTokenKey,
+    type FontName,
+    WIDGET_VALUE_FONT_SIZE_RANGE,
+} from './designSettingsTypography';
 
 const FONT_STORAGE_KEY = 'hmi-theme-fonts';
 const COLOR_STORAGE_KEY = 'hmi-theme-colors';
 
 const FONT_TOKENS = [
-    { key: '--font-sans', label: 'Tipografia General', description: 'Textos, titulos, UI', weightKey: '--font-weight-sans' },
-    { key: '--font-mono', label: 'Tipografia Monoespaciada', description: 'Codigo, URLs, valores', weightKey: '--font-weight-mono' },
-    { key: '--font-chart', label: 'Tipografia Graficos', description: 'Ejes, labels de charts', weightKey: '--font-weight-chart' },
-    { key: '--font-dashboard-title', label: 'Titulos de Dashboard', description: 'Titulo principal de cada dashboard', weightKey: '--font-weight-dashboard-title' },
-    { key: '--font-widget-value', label: 'Valores de Widgets', description: 'Valor numerico en KPI y Metric Card', weightKey: '--font-weight-widget-value' },
-] as const;
-
-const AVAILABLE_FONTS = [
-    'Plus Jakarta Sans',
-    'Magistral',
-    'Poppins',
-    'SpaceGrotesk',
-    'JetBrainsMono',
-    'AtkinsonHyperlegible',
-    'IBMPlexSans',
-    'IBMPlexMono',
-    'Ubuntu',
-    'Lato',
-    'Mojang',
-    'PixelArial',
-] as const;
-
-const AVAILABLE_WEIGHTS = [
-    { name: 'Light', value: '300' },
-    { name: 'Book', value: '400' },
-    { name: 'Medium', value: '500' },
-    { name: 'Semi Bold', value: '600' },
-    { name: 'Bold', value: '700' },
-    { name: 'Extra Bold', value: '800' },
-    { name: 'Black', value: '900' },
+    { key: '--font-system', label: 'TEXTOS EN GENERAL', weightKey: '--font-weight-system', sizeKey: '--font-size-system', trackingKey: '--tracking-system' },
+    { key: '--font-mono', label: 'TEXTOS TÉCNICOS', weightKey: '--font-weight-mono', sizeKey: '--font-size-mono', trackingKey: '--tracking-mono' },
+    { key: '--font-chart', label: 'TEXTOS WIDGET GRÁFICOS', weightKey: '--font-weight-chart', sizeKey: '--font-size-chart', trackingKey: '--tracking-chart' },
+    { key: '--font-dashboard-title', label: 'TÍTULOS DE DASHBOARD', weightKey: '--font-weight-dashboard-title', sizeKey: '--font-size-dashboard-title', trackingKey: '--tracking-dashboard-title' },
+    { key: '--font-widget-value', label: 'VALORES NUMERICOS MOSTRADOS POR:', weightKey: '--font-weight-widget-value', sizeKey: '--font-size-widget-value', trackingKey: '--tracking-widget-value' },
+    { key: '--font-widget-value-gauge', label: 'VALORES NUMERICOS MOSTRADOS POR:', weightKey: '--font-weight-widget-value-gauge', trackingKey: '--tracking-widget-value-gauge' },
 ] as const;
 
 const COLOR_GROUPS = [
@@ -105,24 +130,135 @@ const COLOR_GROUPS = [
 ] as const;
 
 type FontTokenKey = (typeof FONT_TOKENS)[number]['key'];
-type FontName = (typeof AVAILABLE_FONTS)[number];
 type ColorTokenKey = (typeof COLOR_GROUPS)[number]['colors'][number]['key'];
+type FontSizeTokenKey = Extract<(typeof FONT_TOKENS)[number]['sizeKey'], string> | '--font-size-widget-unit' | '--font-size-widget-value-gauge' | '--font-size-widget-unit-gauge';
+type TrackingTokenKey = Extract<(typeof FONT_TOKENS)[number]['trackingKey'], string> | '--tracking-widget-value-gauge';
 
 const DEFAULT_FONT_VALUES: Record<FontTokenKey, FontName> = {
-    '--font-sans': 'Plus Jakarta Sans',
+    '--font-system': 'JetBrainsMono',
     '--font-mono': 'IBMPlexMono',
     '--font-chart': 'IBMPlexMono',
-    '--font-dashboard-title': 'Plus Jakarta Sans',
-    '--font-widget-value': 'Plus Jakarta Sans',
+    '--font-dashboard-title': 'Magistral',
+    '--font-widget-value': 'Magistral',
+    '--font-widget-value-gauge': 'Magistral',
 };
 
 const DEFAULT_WEIGHT_VALUES: Record<string, string> = {
-    '--font-weight-sans': '400',
+    '--font-weight-system': '400',
     '--font-weight-mono': '400',
     '--font-weight-chart': '400',
-    '--font-weight-dashboard-title': '900',
-    '--font-weight-widget-value': '900',
+    '--font-weight-dashboard-title': '400',
+    '--font-weight-widget-value': '400',
+    '--font-weight-widget-value-gauge': '400',
 };
+
+const FONT_SIZE_FIELD_CONFIG = {
+    '--font-size-system': {
+        defaultValue: String(DEFAULT_SYSTEM_FONT_SIZE_PX),
+        range: SYSTEM_FONT_SIZE_RANGE,
+        normalize: normalizeSystemFontSizeValue,
+        parse: parseSystemFontSizeValue,
+    },
+    '--font-size-mono': {
+        defaultValue: String(DEFAULT_MONO_FONT_SIZE_PX),
+        range: SYSTEM_FONT_SIZE_RANGE,
+        normalize: normalizeSystemFontSizeValue,
+        parse: parseSystemFontSizeValue,
+    },
+    '--font-size-chart': {
+        defaultValue: String(DEFAULT_CHART_FONT_SIZE_PX),
+        range: CHART_FONT_SIZE_RANGE,
+        normalize: normalizeChartFontSizeValue,
+        parse: parseChartFontSizeValue,
+    },
+    '--font-size-dashboard-title': {
+        defaultValue: String(DEFAULT_DASHBOARD_TITLE_FONT_SIZE_PX),
+        range: DASHBOARD_TITLE_FONT_SIZE_RANGE,
+        normalize: normalizeDashboardTitleFontSizeValue,
+        parse: parseDashboardTitleFontSizeValue,
+    },
+    '--font-size-widget-value': {
+        defaultValue: String(DEFAULT_WIDGET_VALUE_FONT_SIZE_PX),
+        range: WIDGET_VALUE_FONT_SIZE_RANGE,
+        normalize: normalizeWidgetValueFontSizeValue,
+        parse: parseWidgetValueFontSizeValue,
+    },
+    '--font-size-widget-unit': {
+        defaultValue: String(DEFAULT_WIDGET_UNIT_FONT_SIZE_PX),
+        range: WIDGET_UNIT_FONT_SIZE_RANGE,
+        normalize: normalizeWidgetUnitFontSizeValue,
+        parse: parseWidgetUnitFontSizeValue,
+    },
+    '--font-size-widget-value-gauge': {
+        defaultValue: String(DEFAULT_WIDGET_GAUGE_VALUE_FONT_SIZE_PX),
+        range: WIDGET_GAUGE_VALUE_FONT_SIZE_RANGE,
+        normalize: normalizeWidgetGaugeValueFontSizeValue,
+        parse: parseWidgetGaugeValueFontSizeValue,
+    },
+    '--font-size-widget-unit-gauge': {
+        defaultValue: String(DEFAULT_WIDGET_GAUGE_UNIT_FONT_SIZE_PX),
+        range: WIDGET_GAUGE_UNIT_FONT_SIZE_RANGE,
+        normalize: normalizeWidgetGaugeUnitFontSizeValue,
+        parse: parseWidgetGaugeUnitFontSizeValue,
+    },
+} as const satisfies Record<FontSizeTokenKey, {
+    defaultValue: string;
+    range: { min: number; max: number };
+    normalize: (value: string | number) => string;
+    parse: (value: string | undefined) => number;
+}>;
+
+const DEFAULT_FONT_SIZE_VALUES: Record<FontSizeTokenKey, string> = Object.fromEntries(
+    Object.entries(FONT_SIZE_FIELD_CONFIG).map(([key, config]) => [key, config.defaultValue]),
+) as Record<FontSizeTokenKey, string>;
+
+const TRACKING_FIELD_CONFIG = {
+    '--tracking-system': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+    '--tracking-mono': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+    '--tracking-chart': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+    '--tracking-dashboard-title': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+    '--tracking-widget-value': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+    '--tracking-widget-value-gauge': {
+        defaultValue: String(DEFAULT_FONT_TRACKING_PX),
+        range: FONT_TRACKING_RANGE,
+        normalize: normalizeFontTrackingValue,
+        parse: parseFontTrackingValue,
+    },
+} as const satisfies Record<TrackingTokenKey, {
+    defaultValue: string;
+    range: { min: number; max: number; step: number };
+    normalize: (value: string | number) => string;
+    parse: (value: string | undefined) => number;
+}>;
+
+const DEFAULT_TRACKING_VALUES: Record<TrackingTokenKey, string> = Object.fromEntries(
+    Object.entries(TRACKING_FIELD_CONFIG).map(([key, config]) => [key, config.defaultValue]),
+) as Record<TrackingTokenKey, string>;
 
 const DEFAULT_COLOR_VALUES: Record<ColorTokenKey, string> = COLOR_GROUPS.reduce((accumulator, group) => {
     for (const color of group.colors) {
@@ -131,6 +267,49 @@ const DEFAULT_COLOR_VALUES: Record<ColorTokenKey, string> = COLOR_GROUPS.reduce(
 
     return accumulator;
 }, {} as Record<ColorTokenKey, string>);
+
+const FONT_SELECT_WIDTH_CH = Math.max(...AVAILABLE_FONTS.map((fontName) => fontName.length)) + 4;
+const TYPOGRAPHY_SECTION_ROW_CLS = 'flex flex-wrap min-w-0 items-center gap-x-3 gap-y-2 overflow-hidden pb-1';
+const TYPOGRAPHY_CONTROL_LABEL_CLS = 'text-industrial-muted';
+const TYPOGRAPHY_COMPACT_NUMBER_CLS = 'w-16 shrink-0';
+
+function TypographySection({
+    header,
+    children,
+    defaultOpen = true,
+}: {
+    header: React.ReactNode;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+}) {
+    const [open, setOpen] = useState(defaultOpen);
+
+    return (
+        <section className={ADMIN_SIDEBAR_SECTION_CLS}>
+            <button
+                type="button"
+                onClick={() => setOpen((previous) => !previous)}
+                className={ADMIN_SIDEBAR_SECTION_BUTTON_CLS}
+            >
+                <span className={ADMIN_SIDEBAR_SECTION_HEADER_CLS}>{header}</span>
+                <ChevronDown
+                    size={14}
+                    className={`text-industrial-muted transition-transform ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+
+            {open && (
+                <div className={ADMIN_SIDEBAR_SECTION_BODY_CLS}>
+                    {children}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function getWeightSelectWidthCh(weightOptions: { label: string }[]): number {
+    return Math.max(...weightOptions.map((weightOption) => weightOption.label.length), 10) + 4;
+}
 
 function isRecord(value: unknown): value is Record<string, string> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -163,6 +342,14 @@ function writeStoredOverrides(storageKey: string, overrides: Record<string, stri
     localStorage.setItem(storageKey, JSON.stringify(overrides));
 }
 
+function isFontSizeTokenKey(value: string): value is FontSizeTokenKey {
+    return value in FONT_SIZE_FIELD_CONFIG;
+}
+
+function isTrackingTokenKey(value: string): value is TrackingTokenKey {
+    return value in TRACKING_FIELD_CONFIG;
+}
+
 function normalizeColorForInput(colorValue: string): string {
     const trimmedValue = colorValue.trim();
 
@@ -185,12 +372,105 @@ function normalizeColorForInput(colorValue: string): string {
     return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
+function buildFontStorageOverrides(
+    fontValues: Record<FontTokenKey, FontName>,
+    weightValues: Record<string, string>,
+    fontSizeValues: Record<FontSizeTokenKey, string>,
+    trackingValues: Record<TrackingTokenKey, string>,
+): Record<string, string> {
+    const overrides = FONT_TOKENS.reduce((accumulator, fontToken) => {
+        const selectedFont = fontValues[fontToken.key];
+        if (selectedFont !== DEFAULT_FONT_VALUES[fontToken.key]) {
+            accumulator[fontToken.key] = selectedFont;
+        }
+
+        if (fontToken.weightKey) {
+            const selectedWeight = weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
+            if (selectedWeight !== DEFAULT_WEIGHT_VALUES[fontToken.weightKey]) {
+                accumulator[fontToken.weightKey] = selectedWeight;
+            }
+        }
+
+        return accumulator;
+    }, {} as Record<string, string>);
+
+    for (const [sizeKey, config] of Object.entries(FONT_SIZE_FIELD_CONFIG) as [FontSizeTokenKey, (typeof FONT_SIZE_FIELD_CONFIG)[FontSizeTokenKey]][]) {
+        const normalizedSize = config.normalize(fontSizeValues[sizeKey] || config.defaultValue);
+        if (normalizedSize !== config.normalize(config.defaultValue)) {
+            overrides[sizeKey] = normalizedSize;
+        }
+    }
+
+    for (const [trackingKey, config] of Object.entries(TRACKING_FIELD_CONFIG) as [TrackingTokenKey, (typeof TRACKING_FIELD_CONFIG)[TrackingTokenKey]][]) {
+        const normalizedTracking = config.normalize(trackingValues[trackingKey] || config.defaultValue);
+        if (normalizedTracking !== config.normalize(config.defaultValue)) {
+            overrides[trackingKey] = normalizedTracking;
+        }
+    }
+
+    return overrides;
+}
+
 export function applyThemeOverrides(): void {
     try {
         const fonts = localStorage.getItem('hmi-theme-fonts');
         if (fonts) {
-            const parsed = JSON.parse(fonts) as Record<string, string>;
-            for (const [key, value] of Object.entries(parsed)) {
+            const parsed = normalizeStoredFontOverrides(JSON.parse(fonts) as Record<string, string>);
+            const resolvedFontValues = { ...DEFAULT_FONT_VALUES };
+            for (const fontToken of FONT_TOKENS) {
+                const storedFontName = parsed[fontToken.key];
+                if (storedFontName && isFontName(storedFontName)) {
+                    resolvedFontValues[fontToken.key] = storedFontName;
+                }
+            }
+
+            const resolvedWeightValues = { ...DEFAULT_WEIGHT_VALUES };
+            for (const fontToken of FONT_TOKENS) {
+                if (!fontToken.weightKey) {
+                    continue;
+                }
+
+                const requestedWeight = parsed[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
+                resolvedWeightValues[fontToken.weightKey] = getClosestAvailableWeight(
+                    requestedWeight,
+                    getAvailableWeightOptions(resolvedFontValues[fontToken.key]),
+                );
+            }
+
+            const resolvedFontSizeValues = { ...DEFAULT_FONT_SIZE_VALUES };
+            for (const [sizeKey, config] of Object.entries(FONT_SIZE_FIELD_CONFIG) as [FontSizeTokenKey, (typeof FONT_SIZE_FIELD_CONFIG)[FontSizeTokenKey]][]) {
+                resolvedFontSizeValues[sizeKey] = String(config.parse(parsed[sizeKey]));
+            }
+
+            const resolvedTrackingValues = { ...DEFAULT_TRACKING_VALUES };
+            for (const [trackingKey, config] of Object.entries(TRACKING_FIELD_CONFIG) as [TrackingTokenKey, (typeof TRACKING_FIELD_CONFIG)[TrackingTokenKey]][]) {
+                resolvedTrackingValues[trackingKey] = String(config.parse(parsed[trackingKey]));
+            }
+
+            const normalizedOverrides = buildFontStorageOverrides(
+                resolvedFontValues,
+                resolvedWeightValues,
+                resolvedFontSizeValues,
+                resolvedTrackingValues,
+            );
+            writeStoredOverrides(FONT_STORAGE_KEY, normalizedOverrides);
+
+            for (const [key, value] of Object.entries(normalizedOverrides)) {
+                if ((FONT_TOKENS as readonly { key: FontTokenKey }[]).some((fontToken) => fontToken.key === key)) {
+                    document.documentElement.style.setProperty(key, resolveFontCssVariableValue(key as FontFamilyTokenKey, value));
+                    continue;
+                }
+
+                if (isFontSizeTokenKey(key)) {
+                    document.documentElement.style.setProperty(key, FONT_SIZE_FIELD_CONFIG[key].normalize(value));
+                    continue;
+                }
+
+                if (isTrackingTokenKey(key)) {
+                    document.documentElement.style.setProperty(key, TRACKING_FIELD_CONFIG[key].normalize(value));
+                    continue;
+                }
+
                 document.documentElement.style.setProperty(key, value);
             }
         }
@@ -207,46 +487,60 @@ export function applyThemeOverrides(): void {
 export default function DesignSettingsTab() {
     const [fontValues, setFontValues] = useState<Record<FontTokenKey, FontName>>(DEFAULT_FONT_VALUES);
     const [weightValues, setWeightValues] = useState<Record<string, string>>(DEFAULT_WEIGHT_VALUES);
+    const [fontSizeValues, setFontSizeValues] = useState<Record<FontSizeTokenKey, string>>(DEFAULT_FONT_SIZE_VALUES);
+    const [trackingValues, setTrackingValues] = useState<Record<TrackingTokenKey, string>>(DEFAULT_TRACKING_VALUES);
     const [colorValues, setColorValues] = useState<Record<ColorTokenKey, string>>(DEFAULT_COLOR_VALUES);
 
     useEffect(() => {
         applyThemeOverrides();
 
-        const storedFonts = readStoredOverrides(FONT_STORAGE_KEY);
+        const storedFonts = normalizeStoredFontOverrides(readStoredOverrides(FONT_STORAGE_KEY));
         const storedColors = readStoredOverrides(COLOR_STORAGE_KEY);
 
-        setFontValues({
-            ...DEFAULT_FONT_VALUES,
-            ...(storedFonts as Partial<Record<FontTokenKey, FontName>>),
-        });
-        for (const token of FONT_TOKENS) {
-            if (token.weightKey && storedFonts[token.weightKey]) {
-                setWeightValues(prev => ({ ...prev, [token.weightKey!]: storedFonts[token.weightKey!] }));
+        const nextFontValues = { ...DEFAULT_FONT_VALUES };
+        for (const fontToken of FONT_TOKENS) {
+            const storedFontName = storedFonts[fontToken.key];
+            if (storedFontName && isFontName(storedFontName)) {
+                nextFontValues[fontToken.key] = storedFontName;
             }
         }
+
+        const nextWeightValues = { ...DEFAULT_WEIGHT_VALUES };
+        for (const fontToken of FONT_TOKENS) {
+            if (!fontToken.weightKey) {
+                continue;
+            }
+
+            const selectedFont = nextFontValues[fontToken.key];
+            const requestedWeight = storedFonts[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
+            nextWeightValues[fontToken.weightKey] = getClosestAvailableWeight(requestedWeight, getAvailableWeightOptions(selectedFont));
+        }
+
+        const nextFontSizeValues = { ...DEFAULT_FONT_SIZE_VALUES };
+        for (const [sizeKey, config] of Object.entries(FONT_SIZE_FIELD_CONFIG) as [FontSizeTokenKey, (typeof FONT_SIZE_FIELD_CONFIG)[FontSizeTokenKey]][]) {
+            nextFontSizeValues[sizeKey] = String(config.parse(storedFonts[sizeKey]));
+        }
+
+        const nextTrackingValues = { ...DEFAULT_TRACKING_VALUES };
+        for (const [trackingKey, config] of Object.entries(TRACKING_FIELD_CONFIG) as [TrackingTokenKey, (typeof TRACKING_FIELD_CONFIG)[TrackingTokenKey]][]) {
+            nextTrackingValues[trackingKey] = String(config.parse(storedFonts[trackingKey]));
+        }
+
+        setFontValues(nextFontValues);
+        setWeightValues(nextWeightValues);
+        setFontSizeValues(nextFontSizeValues);
+        setTrackingValues(nextTrackingValues);
         setColorValues({
             ...DEFAULT_COLOR_VALUES,
             ...(storedColors as Partial<Record<ColorTokenKey, string>>),
         });
+
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(nextFontValues, nextWeightValues, nextFontSizeValues, nextTrackingValues));
     }, []);
 
     const fontStorageOverrides = useMemo(() => {
-        return FONT_TOKENS.reduce((accumulator, fontToken) => {
-            const selectedFont = fontValues[fontToken.key];
-            if (selectedFont !== DEFAULT_FONT_VALUES[fontToken.key]) {
-                accumulator[fontToken.key] = selectedFont;
-            }
-
-            if (fontToken.weightKey) {
-                const selectedWeight = weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
-                if (selectedWeight !== DEFAULT_WEIGHT_VALUES[fontToken.weightKey]) {
-                    accumulator[fontToken.weightKey] = selectedWeight;
-                }
-            }
-
-            return accumulator;
-        }, {} as Record<string, string>);
-    }, [fontValues, weightValues]);
+        return buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, trackingValues);
+    }, [fontSizeValues, fontValues, trackingValues, weightValues]);
 
     const colorStorageOverrides = useMemo(() => {
         return Object.entries(colorValues).reduce((accumulator, [key, value]) => {
@@ -259,37 +553,57 @@ export default function DesignSettingsTab() {
         }, {} as Record<string, string>);
     }, [colorValues]);
 
+    const fontOptions = useMemo(() => {
+        return AVAILABLE_FONTS.map((fontName) => ({
+            value: fontName,
+            label: fontName,
+        }));
+    }, []);
+
+    const gaugeWeightOptions = useMemo(() => {
+        return getAvailableWeightOptions(fontValues['--font-widget-value-gauge']).map((weightOption) => ({
+            value: weightOption.value,
+            label: `${weightOption.name} (${weightOption.value})`,
+        }));
+    }, [fontValues]);
+
+    const gaugeWeightSelectWidthCh = useMemo(() => {
+        return getWeightSelectWidthCh(gaugeWeightOptions);
+    }, [gaugeWeightOptions]);
+
     const handleFontChange = (fontKey: FontTokenKey, nextFont: FontName) => {
         const nextValues = {
             ...fontValues,
             [fontKey]: nextFont,
         } satisfies Record<FontTokenKey, FontName>;
 
+        const fontToken = FONT_TOKENS.find((token) => token.key === fontKey);
+        const nextWeights = { ...weightValues };
+
+        if (fontToken?.weightKey) {
+            const currentWeight = weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
+            nextWeights[fontToken.weightKey] = getClosestAvailableWeight(currentWeight, getAvailableWeightOptions(nextFont));
+        }
+
         setFontValues(nextValues);
+        setWeightValues(nextWeights);
 
         if (nextFont === DEFAULT_FONT_VALUES[fontKey]) {
             document.documentElement.style.removeProperty(fontKey);
         } else {
-            document.documentElement.style.setProperty(fontKey, nextFont);
+            document.documentElement.style.setProperty(fontKey, resolveFontCssVariableValue(fontKey as FontFamilyTokenKey, nextFont));
         }
 
-        const nextOverrides = FONT_TOKENS.reduce((accumulator, fontToken) => {
-            const selectedFont = nextValues[fontToken.key];
-            if (selectedFont !== DEFAULT_FONT_VALUES[fontToken.key]) {
-                accumulator[fontToken.key] = selectedFont;
+        if (fontToken?.weightKey) {
+            const nextWeight = nextWeights[fontToken.weightKey];
+            if (nextWeight === DEFAULT_WEIGHT_VALUES[fontToken.weightKey]) {
+                document.documentElement.style.removeProperty(fontToken.weightKey);
+            } else {
+                document.documentElement.style.setProperty(fontToken.weightKey, nextWeight);
             }
+        }
 
-            if (fontToken.weightKey) {
-                const selectedWeight = weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey];
-                if (selectedWeight !== DEFAULT_WEIGHT_VALUES[fontToken.weightKey]) {
-                    accumulator[fontToken.weightKey] = selectedWeight;
-                }
-            }
-
-            return accumulator;
-        }, {} as Record<string, string>);
-
-        writeStoredOverrides(FONT_STORAGE_KEY, nextOverrides);
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(nextValues, nextWeights, fontSizeValues, trackingValues));
     };
 
     const handleColorChange = (colorKey: ColorTokenKey, nextColor: string) => {
@@ -322,16 +636,102 @@ export default function DesignSettingsTab() {
     };
 
     const handleWeightChange = (weightKey: string, nextWeight: string) => {
-        setWeightValues(prev => ({ ...prev, [weightKey]: nextWeight }));
-        document.documentElement.style.setProperty(weightKey, nextWeight);
+        const relatedFontToken = FONT_TOKENS.find((fontToken) => fontToken.weightKey === weightKey);
+        const selectedFont = relatedFontToken ? fontValues[relatedFontToken.key] : DEFAULT_FONT_VALUES['--font-system'];
+        const resolvedWeight = getClosestAvailableWeight(nextWeight, getAvailableWeightOptions(selectedFont));
+        const nextWeightValues = { ...weightValues, [weightKey]: resolvedWeight };
 
-        const currentFontOverrides = readStoredOverrides(FONT_STORAGE_KEY);
-        if (nextWeight === DEFAULT_WEIGHT_VALUES[weightKey]) {
-            delete currentFontOverrides[weightKey];
+        setWeightValues(nextWeightValues);
+
+        if (resolvedWeight === DEFAULT_WEIGHT_VALUES[weightKey]) {
+            document.documentElement.style.removeProperty(weightKey);
         } else {
-            currentFontOverrides[weightKey] = nextWeight;
+            document.documentElement.style.setProperty(weightKey, resolvedWeight);
         }
-        writeStoredOverrides(FONT_STORAGE_KEY, currentFontOverrides);
+
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, nextWeightValues, fontSizeValues, trackingValues));
+    };
+
+    const handleFontSizeChange = (sizeKey: FontSizeTokenKey, nextValue: string) => {
+        const trimmedValue = nextValue.trim();
+        if (!trimmedValue) {
+            setFontSizeValues((currentValues) => ({
+                ...currentValues,
+                [sizeKey]: '',
+            }));
+            return;
+        }
+
+        const config = FONT_SIZE_FIELD_CONFIG[sizeKey];
+        const normalizedSize = config.normalize(trimmedValue);
+        const nextSizeValues = {
+            ...fontSizeValues,
+            [sizeKey]: normalizedSize.replace('px', ''),
+        } satisfies Record<FontSizeTokenKey, string>;
+
+        setFontSizeValues(nextSizeValues);
+        document.documentElement.style.setProperty(sizeKey, normalizedSize);
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, nextSizeValues, trackingValues));
+    };
+
+    const handleFontSizeBlur = (sizeKey: FontSizeTokenKey) => {
+        const config = FONT_SIZE_FIELD_CONFIG[sizeKey];
+        const normalizedSize = config.normalize(fontSizeValues[sizeKey] || config.defaultValue);
+        const nextSizeValues = {
+            ...fontSizeValues,
+            [sizeKey]: normalizedSize.replace('px', ''),
+        } satisfies Record<FontSizeTokenKey, string>;
+
+        setFontSizeValues(nextSizeValues);
+
+        if (normalizedSize === config.normalize(config.defaultValue)) {
+            document.documentElement.style.removeProperty(sizeKey);
+        } else {
+            document.documentElement.style.setProperty(sizeKey, normalizedSize);
+        }
+
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, nextSizeValues, trackingValues));
+    };
+
+    const handleTrackingChange = (trackingKey: TrackingTokenKey, nextValue: string) => {
+        const trimmedValue = nextValue.trim();
+        if (!trimmedValue) {
+            setTrackingValues((currentValues) => ({
+                ...currentValues,
+                [trackingKey]: '',
+            }));
+            return;
+        }
+
+        const config = TRACKING_FIELD_CONFIG[trackingKey];
+        const normalizedTracking = config.normalize(trimmedValue);
+        const nextTrackingValues = {
+            ...trackingValues,
+            [trackingKey]: normalizedTracking.replace('px', ''),
+        } satisfies Record<TrackingTokenKey, string>;
+
+        setTrackingValues(nextTrackingValues);
+        document.documentElement.style.setProperty(trackingKey, normalizedTracking);
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, nextTrackingValues));
+    };
+
+    const handleTrackingBlur = (trackingKey: TrackingTokenKey) => {
+        const config = TRACKING_FIELD_CONFIG[trackingKey];
+        const normalizedTracking = config.normalize(trackingValues[trackingKey] || config.defaultValue);
+        const nextTrackingValues = {
+            ...trackingValues,
+            [trackingKey]: normalizedTracking.replace('px', ''),
+        } satisfies Record<TrackingTokenKey, string>;
+
+        setTrackingValues(nextTrackingValues);
+
+        if (normalizedTracking === config.normalize(config.defaultValue)) {
+            document.documentElement.style.removeProperty(trackingKey);
+        } else {
+            document.documentElement.style.setProperty(trackingKey, normalizedTracking);
+        }
+
+        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, nextTrackingValues));
     };
 
     const handleResetFonts = () => {
@@ -342,8 +742,16 @@ export default function DesignSettingsTab() {
                 document.documentElement.style.removeProperty(fontToken.weightKey);
             }
         }
+        for (const sizeKey of Object.keys(FONT_SIZE_FIELD_CONFIG) as FontSizeTokenKey[]) {
+            document.documentElement.style.removeProperty(sizeKey);
+        }
+        for (const trackingKey of Object.keys(TRACKING_FIELD_CONFIG) as TrackingTokenKey[]) {
+            document.documentElement.style.removeProperty(trackingKey);
+        }
         setFontValues(DEFAULT_FONT_VALUES);
         setWeightValues(DEFAULT_WEIGHT_VALUES);
+        setFontSizeValues(DEFAULT_FONT_SIZE_VALUES);
+        setTrackingValues(DEFAULT_TRACKING_VALUES);
     };
 
     const handleReset = () => {
@@ -356,6 +764,12 @@ export default function DesignSettingsTab() {
                 document.documentElement.style.removeProperty(fontToken.weightKey);
             }
         }
+        for (const sizeKey of Object.keys(FONT_SIZE_FIELD_CONFIG) as FontSizeTokenKey[]) {
+            document.documentElement.style.removeProperty(sizeKey);
+        }
+        for (const trackingKey of Object.keys(TRACKING_FIELD_CONFIG) as TrackingTokenKey[]) {
+            document.documentElement.style.removeProperty(trackingKey);
+        }
 
         for (const group of COLOR_GROUPS) {
             for (const color of group.colors) {
@@ -365,65 +779,187 @@ export default function DesignSettingsTab() {
 
         setFontValues(DEFAULT_FONT_VALUES);
         setWeightValues(DEFAULT_WEIGHT_VALUES);
+        setFontSizeValues(DEFAULT_FONT_SIZE_VALUES);
+        setTrackingValues(DEFAULT_TRACKING_VALUES);
         setColorValues(DEFAULT_COLOR_VALUES);
     };
 
     return (
         <div className="max-h-[55vh] overflow-y-auto hmi-scrollbar pr-1">
             <section>
-                <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-industrial-muted">
-                        Tipografias
-                    </h4>
-                    <p className={`mt-1 ${ADMIN_SIDEBAR_HINT_CLS}`}>
-                        Personaliza las familias tipograficas de la interfaz sin tocar los tokens base.
-                    </p>
-                </div>
-
-                <div className="mt-3 space-y-3">
-                    {FONT_TOKENS.map((fontToken) => {
+                <div className="space-y-3">
+                    {FONT_TOKENS.filter((fontToken) => fontToken.key !== '--font-widget-value-gauge').map((fontToken) => {
                         const selectedFont = fontValues[fontToken.key];
+                        const availableWeights = fontToken.weightKey
+                            ? getAvailableWeightOptions(selectedFont)
+                            : [];
+                        const weightOptions = availableWeights.map((weightOption) => ({
+                            value: weightOption.value,
+                            label: `${weightOption.name} (${weightOption.value})`,
+                        }));
+                        const weightSelectWidthCh = getWeightSelectWidthCh(weightOptions);
 
                         return (
-                            <div key={fontToken.key} className="space-y-1.5">
-                                <label className={`${ADMIN_SIDEBAR_LABEL_CLS} block`}>
-                                    {fontToken.label}
-                                </label>
-                                <select
-                                    value={selectedFont}
-                                    onChange={(event) => handleFontChange(fontToken.key, event.target.value as FontName)}
-                                    className={`${ADMIN_SIDEBAR_INPUT_CLS} w-full px-3 py-2 text-sm`}
-                                    style={{ fontFamily: selectedFont }}
-                                >
-                                    {AVAILABLE_FONTS.map((fontName) => (
-                                        <option key={fontName} value={fontName} style={{ fontFamily: fontName }}>
-                                            {fontName}
-                                        </option>
-                                    ))}
-                                </select>
-                                {fontToken.weightKey && (
-                                    <div className="flex items-center justify-end gap-2 mt-1">
-                                        <span className="text-[10px] text-industrial-muted uppercase tracking-wider">Peso</span>
-                                        <select
-                                            value={weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey]}
-                                            onChange={(e) => handleWeightChange(fontToken.weightKey!, e.target.value)}
-                                            className={`${ADMIN_SIDEBAR_INPUT_CLS} max-w-[10rem] px-2 py-1 text-xs`}
-                                        >
-                                            {AVAILABLE_WEIGHTS.map((w) => (
-                                                <option key={w.value} value={w.value}>{w.name} ({w.value})</option>
-                                            ))}
-                                        </select>
+                            <TypographySection
+                                key={fontToken.key}
+                                header={fontToken.key === '--font-widget-value' ? (
+                                    <>
+                                        <span>{fontToken.label}</span>
+                                        <AdminTag label="METRIC-CARD" variant="admin" />
+                                    </>
+                                ) : (
+                                    fontToken.label
+                                )}
+                            >
+                                <div className={TYPOGRAPHY_SECTION_ROW_CLS}>
+                                    <AdminSelect
+                                        value={selectedFont}
+                                        options={fontOptions}
+                                        onChange={(value) => handleFontChange(fontToken.key, value as FontName)}
+                                        className="min-w-fit"
+                                        style={{ width: `${FONT_SELECT_WIDTH_CH}ch` }}
+                                        placeholder="Seleccionar fuente"
+                                    />
+                                    {fontToken.sizeKey && (
+                                        <div className="flex items-center gap-2">
+                                            <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tamaño</span>
+                                            <AdminNumberInput
+                                                value={fontSizeValues[fontToken.sizeKey] ?? FONT_SIZE_FIELD_CONFIG[fontToken.sizeKey].defaultValue}
+                                                onChange={(value) => handleFontSizeChange(fontToken.sizeKey!, value)}
+                                                onBlur={() => handleFontSizeBlur(fontToken.sizeKey!)}
+                                                min={FONT_SIZE_FIELD_CONFIG[fontToken.sizeKey].range.min}
+                                                max={FONT_SIZE_FIELD_CONFIG[fontToken.sizeKey].range.max}
+                                                className="shrink-0"
+                                                className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                                aria-label={`${fontToken.label} tamaño base`}
+                                            />
+                                        </div>
+                                    )}
+                                    {fontToken.trackingKey && (
+                                        <div className="flex items-center gap-2">
+                                            <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tracking</span>
+                                            <AdminNumberInput
+                                                value={trackingValues[fontToken.trackingKey] ?? TRACKING_FIELD_CONFIG[fontToken.trackingKey].defaultValue}
+                                                onChange={(value) => handleTrackingChange(fontToken.trackingKey!, value)}
+                                                onBlur={() => handleTrackingBlur(fontToken.trackingKey!)}
+                                                min={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.min}
+                                                max={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.max}
+                                                step={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.step}
+                                                className="shrink-0"
+                                                className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                                aria-label={`${fontToken.label} tracking`}
+                                            />
+                                        </div>
+                                    )}
+                                    {fontToken.weightKey && (
+                                        <div className="flex items-center gap-2">
+                                            <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Peso</span>
+                                            <AdminSelect
+                                                value={weightValues[fontToken.weightKey] ?? DEFAULT_WEIGHT_VALUES[fontToken.weightKey]}
+                                                onChange={(value) => handleWeightChange(fontToken.weightKey!, value)}
+                                                options={weightOptions}
+                                                className="shrink-0"
+                                                style={{ width: `${weightSelectWidthCh}ch` }}
+                                                placeholder="Seleccionar peso"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {fontToken.key === '--font-widget-value' && (
+                                    <div className={TYPOGRAPHY_SECTION_ROW_CLS}>
+                                        <div className="flex items-center gap-2">
+                                            <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tamaño de las unidades</span>
+                                            <AdminNumberInput
+                                                value={fontSizeValues['--font-size-widget-unit'] ?? FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit'].defaultValue}
+                                                onChange={(value) => handleFontSizeChange('--font-size-widget-unit', value)}
+                                                onBlur={() => handleFontSizeBlur('--font-size-widget-unit')}
+                                                min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit'].range.min}
+                                                max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit'].range.max}
+                                                className="shrink-0"
+                                                className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                                aria-label="METRIC-CARD tamaño de las unidades"
+                                            />
+                                        </div>
                                     </div>
                                 )}
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className={ADMIN_SIDEBAR_HINT_CLS}>{fontToken.description}</p>
-                                    <span className="text-[10px] text-industrial-muted" style={{ fontFamily: selectedFont }}>
-                                        {selectedFont}
-                                    </span>
-                                </div>
-                            </div>
+                            </TypographySection>
                         );
                     })}
+
+                    <TypographySection
+                        header={(
+                            <>
+                                <span>VALORES NUMERICOS MOSTRADOS POR:</span>
+                                <AdminTag label="KPI" variant="admin" />
+                                <AdminTag label="MACHINE-ACTIVITY" variant="admin" />
+                            </>
+                        )}
+                    >
+                        <div className={TYPOGRAPHY_SECTION_ROW_CLS}>
+                            <AdminSelect
+                                value={fontValues['--font-widget-value-gauge']}
+                                options={fontOptions}
+                                onChange={(value) => handleFontChange('--font-widget-value-gauge', value as FontName)}
+                                className="min-w-fit"
+                                style={{ width: `${FONT_SELECT_WIDTH_CH}ch` }}
+                                placeholder="Seleccionar fuente"
+                            />
+                            <div className="flex items-center gap-2">
+                                <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tamaño</span>
+                                <AdminNumberInput
+                                    value={fontSizeValues['--font-size-widget-value-gauge'] ?? FONT_SIZE_FIELD_CONFIG['--font-size-widget-value-gauge'].defaultValue}
+                                    onChange={(value) => handleFontSizeChange('--font-size-widget-value-gauge', value)}
+                                    onBlur={() => handleFontSizeBlur('--font-size-widget-value-gauge')}
+                                    min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-value-gauge'].range.min}
+                                    max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-value-gauge'].range.max}
+                                    className="shrink-0"
+                                    className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                    aria-label="VALORES EN KPI / MACHINE-ACTIVITY tamaño base"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tracking</span>
+                                <AdminNumberInput
+                                    value={trackingValues['--tracking-widget-value-gauge'] ?? TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].defaultValue}
+                                    onChange={(value) => handleTrackingChange('--tracking-widget-value-gauge', value)}
+                                    onBlur={() => handleTrackingBlur('--tracking-widget-value-gauge')}
+                                    min={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.min}
+                                    max={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.max}
+                                    step={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.step}
+                                    className="shrink-0"
+                                    className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                    aria-label="VALORES EN KPI / MACHINE-ACTIVITY tracking"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Peso</span>
+                                <AdminSelect
+                                    value={weightValues['--font-weight-widget-value-gauge'] ?? DEFAULT_WEIGHT_VALUES['--font-weight-widget-value-gauge']}
+                                    onChange={(value) => handleWeightChange('--font-weight-widget-value-gauge', value)}
+                                    options={gaugeWeightOptions}
+                                    className="shrink-0"
+                                    style={{ width: `${gaugeWeightSelectWidthCh}ch` }}
+                                    placeholder="Seleccionar peso"
+                                />
+                            </div>
+                        </div>
+                        <div className={TYPOGRAPHY_SECTION_ROW_CLS}>
+                            <div className="flex items-center gap-2">
+                                <span className={TYPOGRAPHY_CONTROL_LABEL_CLS}>Tamaño de las unidades</span>
+                                <AdminNumberInput
+                                    value={fontSizeValues['--font-size-widget-unit-gauge'] ?? FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit-gauge'].defaultValue}
+                                    onChange={(value) => handleFontSizeChange('--font-size-widget-unit-gauge', value)}
+                                    onBlur={() => handleFontSizeBlur('--font-size-widget-unit-gauge')}
+                                    min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit-gauge'].range.min}
+                                    max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit-gauge'].range.max}
+                                    className="shrink-0"
+                                    className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
+                                    aria-label="VALORES EN KPI / MACHINE-ACTIVITY tamaño de las unidades"
+                                />
+                            </div>
+                        </div>
+                    </TypographySection>
                 </div>
 
                 <div className="mt-3 flex justify-end">
@@ -439,7 +975,7 @@ export default function DesignSettingsTab() {
 
             <section className="border-t border-white/5 pt-4 mt-4">
                 <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-industrial-muted">
+                    <h4 className="uppercase text-industrial-muted">
                         Colores
                     </h4>
                     <p className={`mt-1 ${ADMIN_SIDEBAR_HINT_CLS}`}>
@@ -450,7 +986,7 @@ export default function DesignSettingsTab() {
                 <div className="mt-3 space-y-4">
                     {COLOR_GROUPS.map((group) => (
                         <div key={group.title} className="space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-industrial-muted">
+                            <p className="uppercase text-industrial-muted">
                                 {group.title}
                             </p>
 
@@ -469,8 +1005,7 @@ export default function DesignSettingsTab() {
                                                 aria-hidden="true"
                                             />
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-medium text-white">{color.label}</p>
-                                                <p className={ADMIN_SIDEBAR_HINT_CLS}>{color.key}</p>
+                                                <p className="text-white">{color.label}</p>
                                             </div>
                                             <input
                                                 type="color"

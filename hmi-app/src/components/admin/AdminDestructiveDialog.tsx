@@ -66,21 +66,21 @@ export default function AdminDestructiveDialog({
             <div className="space-y-3">
                 <div className="flex items-start gap-2 rounded-md border border-status-warning bg-status-warning/10 px-3 py-2.5">
                     <AlertTriangle size={16} className="mt-px shrink-0 text-status-warning" />
-                    <p className="text-xs text-industrial-text">
+                    <p className="text-industrial-text">
                         {warningMessage}
                     </p>
                 </div>
 
                 {affectedItems.length > 0 && (
                     <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        <p className="uppercase text-industrial-muted">
                             {affectedLabel}
                         </p>
                         <ul className="space-y-2 rounded-md border border-white/10 bg-white/5 p-3">
                             {affectedItems.map((item) => (
                                 <li key={item.id} className="flex items-center justify-between gap-3">
-                                    <span className="truncate text-xs font-bold text-white">{item.name}</span>
-                                    <span className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`} style={{ fontWeight: 'var(--font-weight-mono)' }}>{item.id}</span>
+                                    <span className="truncate text-white">{item.name}</span>
+                                    <span className={`font-mono ${ADMIN_SIDEBAR_HINT_CLS}`}>{item.id}</span>
                                 </li>
                             ))}
                         </ul>
@@ -89,7 +89,7 @@ export default function AdminDestructiveDialog({
 
                 {children}
 
-                <p className="text-xs text-industrial-muted">
+                <p className="text-industrial-muted">
                     {confirmMessage}
                 </p>
             </div>

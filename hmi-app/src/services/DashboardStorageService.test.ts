@@ -43,15 +43,15 @@ describe('DashboardStorageService', () => {
         }));
     });
 
-    it('creates empty dashboards with aspect 16:9, cols 20, and rows 12 by default', async () => {
+    it('creates empty dashboards with aspect 16:9, cols 40, and rows 24 by default', async () => {
         const dashboardPromise = dashboardStorage.createEmptyDashboard('Nuevo dashboard');
 
         await vi.advanceTimersByTimeAsync(400);
         const dashboard = await dashboardPromise;
 
         expect(dashboard.aspect).toBe('16:9');
-        expect(dashboard.cols).toBe(20);
-        expect(dashboard.rows).toBe(12);
+        expect(dashboard.cols).toBe(40);
+        expect(dashboard.rows).toBe(24);
 
         const persistedDashboards = JSON.parse(localStorage.getItem(DASHBOARDS_STORAGE_KEY) ?? '[]');
         expect(persistedDashboards).toEqual(
@@ -59,8 +59,8 @@ describe('DashboardStorageService', () => {
                 expect.objectContaining({
                     id: dashboard.id,
                     aspect: '16:9',
-                    cols: 20,
-                    rows: 12,
+                    cols: 40,
+                    rows: 24,
                 }),
             ]),
         );
@@ -203,6 +203,7 @@ describe('DashboardStorageService', () => {
         const dashboard = makeDashboard({
             id: 'dashboard-target',
             aspect: '16:9',
+            cols: 20,
             rows: 6,
             widgets: [makeWidget({ id: 'existing-widget', title: 'Viejo widget' })],
             layout: [makeLayout({ widgetId: 'existing-widget', x: 0, y: 0, w: 2, h: 2 })],

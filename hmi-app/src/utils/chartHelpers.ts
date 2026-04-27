@@ -62,6 +62,30 @@ function getTextWidth(text: string, font: string): number {
     return measureCtx.measureText(text).width;
 }
 
+function getRootCssVariableValue(variableName: string, fallbackValue: string): string {
+    if (typeof document === 'undefined') return fallbackValue;
+
+    const resolvedValue = getComputedStyle(document.documentElement)
+        .getPropertyValue(variableName)
+        .trim();
+
+    return resolvedValue || fallbackValue;
+}
+
+export function getChartTextFont(): string {
+    const fontWeight = getRootCssVariableValue('--font-weight-chart', '400');
+    const fontSize = getRootCssVariableValue('--font-size-chart', '12px');
+    const fontFamily = getRootCssVariableValue('--font-chart', '"IBMPlexMono", monospace');
+
+    return `${fontWeight} ${fontSize} ${fontFamily}`;
+}
+
+export function getChartLetterSpacingPx(): number {
+    const letterSpacing = getRootCssVariableValue('--tracking-chart', '0px');
+    const parsedValue = Number.parseFloat(letterSpacing);
+    return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
 /**
  * Compute which X-axis label indices should be visible to avoid overlap.
  *
@@ -79,15 +103,20 @@ function getTextWidth(text: string, font: string): number {
 export function computeVisibleLabelIndices(
     labels: string[],
     positions: number[],
-    font: string = '600 10px IBMPlexMono, monospace',
+    font: string = getChartTextFont(),
     minGap: number = 8,
     plotRight?: number,
+    letterSpacing: number = 0,
 ): Set<number> {
     const count = Math.min(labels.length, positions.length);
     if (count === 0) return new Set();
     if (count === 1) return new Set([0]);
 
-    const widths = labels.slice(0, count).map((label) => getTextWidth(label, font));
+    const widths = labels.slice(0, count).map((label) => {
+        const baseWidth = getTextWidth(label, font);
+        const spacingWidth = Math.max(label.length - 1, 0) * letterSpacing;
+        return Math.max(baseWidth + spacingWidth, 0);
+    });
     const visible = new Set<number>();
 
     // Greedy left-to-right: place a label if its left edge doesn't overlap

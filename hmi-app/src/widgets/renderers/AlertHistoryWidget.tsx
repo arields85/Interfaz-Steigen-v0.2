@@ -217,7 +217,7 @@ export default function AlertHistoryWidget({
             <div className="mt-auto border-t border-[var(--color-industrial-border)] -mx-5 px-5 pt-2 flex items-center justify-between">
                 <button
                     type="button"
-                    className="text-[11px] font-semibold text-industrial-muted hover:text-industrial-text transition-colors duration-200 cursor-default"
+                    className="text-industrial-muted hover:text-industrial-text transition-colors duration-200 cursor-default"
                     aria-label="Ver historial completo (funcionalidad pendiente)"
                     tabIndex={-1}
                 >
@@ -291,22 +291,19 @@ function AlertEntryRow({ entry }, ref) {
                         />
                     )}
                     <span
-                        className="text-[9px] font-black uppercase tracking-widest"
+                        className="uppercase"
                         style={{ color: accentColor }}
                     >
                         {isCritical ? 'Crítica' : 'Advertencia'}
                     </span>
-                    <span
-                        className="text-[9px] font-medium"
-                        style={{ color: 'var(--color-industrial-muted)' }}
-                    >
+                    <span style={{ color: 'var(--color-industrial-muted)' }}>
                         · <RelativeTime iso={entry.detectedAt} />
                     </span>
                 </div>
             </div>
 
             {/* Título del widget que disparó la alerta */}
-            <span className="text-[12px] font-bold leading-tight text-industrial-text truncate">
+            <span className="leading-tight text-industrial-text truncate">
                 {entry.widgetTitle.toUpperCase()}
             </span>
 
@@ -318,8 +315,8 @@ function AlertEntryRow({ entry }, ref) {
                         style={{ color: 'var(--color-industrial-muted)', flexShrink: 0 }}
                     />
                     <span
-                        className="text-[9px] font-mono"
-                        style={{ color: 'var(--color-industrial-muted)', fontWeight: 'var(--font-weight-mono)' }}
+                        className="font-mono"
+                        style={{ color: 'var(--color-industrial-muted)' }}
                     >
                         Valor: {typeof entry.value === 'number' && entry.value % 1 !== 0
                             ? entry.value.toFixed(2)
@@ -344,7 +341,7 @@ function EmptyState() {
                 style={{ color: 'var(--color-industrial-muted)', opacity: 0.4 }}
             />
             <span
-                className="text-[10px] font-semibold uppercase tracking-wider text-center"
+                className="uppercase text-center"
                 style={{ color: 'var(--color-industrial-muted)', opacity: 0.6 }}
             >
                 Sin alertas recientes

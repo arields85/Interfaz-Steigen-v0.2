@@ -306,7 +306,7 @@ describe('Node-RED null renderer fallbacks', () => {
 
         expect(title).toHaveClass('text-center');
         expect(title.parentElement).toHaveClass('w-full');
-        expect(label).toHaveClass('text-[10px]', 'font-black', 'uppercase', 'tracking-normal', 'text-industrial-muted');
+        expect(label).toHaveClass('uppercase', 'text-industrial-muted');
         expect(freshness.parentElement).toHaveClass('mt-0.5', 'flex', 'items-center', 'justify-center', 'gap-1.5');
         expect(container.firstChild).toHaveClass('flex', 'h-full', 'w-full', 'flex-col');
         expect(label.parentElement).toHaveClass('flex', 'flex-1', 'flex-col', 'items-center', 'justify-center');
@@ -353,7 +353,7 @@ describe('Node-RED null renderer fallbacks', () => {
 
         expect(container.firstChild).toHaveClass('glass-panel', 'flex', 'h-full', 'w-full', 'flex-col');
         expect(onlineLabel.parentElement).toHaveClass('flex', 'flex-1', 'flex-col', 'items-center', 'justify-center');
-        expect(onlineLabel).toHaveClass('text-[10px]', 'font-black', 'uppercase', 'tracking-normal', 'text-industrial-muted');
+        expect(onlineLabel).toHaveClass('uppercase', 'text-industrial-muted');
         expect(freshness.parentElement).toHaveClass('mt-0.5', 'flex', 'items-center', 'justify-center', 'gap-1.5');
         expect(screen.getByTestId('connection-status-icon-online')).toHaveClass('lucide-wifi');
 

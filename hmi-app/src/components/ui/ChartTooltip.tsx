@@ -54,7 +54,7 @@ export default function ChartTooltip({ label, series, x, containerWidth, childre
             }}
             className="rounded-lg border border-industrial-border bg-industrial-surface/95 backdrop-blur-sm px-3 py-2 shadow-lg"
         >
-            <div className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted mb-1">
+            <div className="uppercase text-industrial-muted mb-1">
                 {label}
             </div>
             {series.map((s) => (
@@ -63,7 +63,7 @@ export default function ChartTooltip({ label, series, x, containerWidth, childre
                         className={`h-2 w-2 shrink-0 ${s.shape === 'square' ? 'rounded-[2px]' : 'rounded-full'}`}
                         style={{ backgroundColor: s.color }}
                     />
-                    <span className="text-[10px] font-bold text-white">
+                    <span className="text-white">
                         {s.value}
                     </span>
                 </div>

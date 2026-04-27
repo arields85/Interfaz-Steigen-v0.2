@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import AnchoredOverlay from '../ui/AnchoredOverlay';
 import { ADMIN_SIDEBAR_INPUT_CLS } from './adminSidebarStyles';
@@ -24,9 +24,10 @@ interface AdminSelectProps {
     className?: string;
     placeholder?: string;
     disabled?: boolean;
+    style?: CSSProperties;
 }
 
-export default function AdminSelect({ value, options, onChange, className = '', placeholder, disabled = false }: AdminSelectProps) {
+export default function AdminSelect({ value, options, onChange, className = '', placeholder, disabled = false, style }: AdminSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -49,7 +50,7 @@ export default function AdminSelect({ value, options, onChange, className = '', 
     const selectedLabel = selected?.label || placeholder || '—';
 
     return (
-        <div className={`relative ${className}`}>
+        <div className={`relative ${className}`} style={style}>
             <button
                 ref={triggerRef}
                 type="button"
@@ -91,7 +92,7 @@ export default function AdminSelect({ value, options, onChange, className = '', 
                                     setIsOpen(false);
                                 }
                             }}
-                            className={`block w-full text-left px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
+                            className={`block w-full text-left px-3 py-1.5 whitespace-nowrap transition-colors ${
                                 opt.disabled
                                     ? 'text-white/20 cursor-not-allowed'
                                     : value === opt.value

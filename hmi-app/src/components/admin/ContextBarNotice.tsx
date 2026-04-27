@@ -12,7 +12,7 @@ export interface ContextBarNoticeProps {
 export default function ContextBarNotice({ icon: Icon, label, className }: ContextBarNoticeProps) {
     return (
         <div
-            className={`flex items-center gap-1.5 rounded bg-[color:color-mix(in_srgb,var(--color-status-warning)_10%,transparent)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-status-warning${className ? ` ${className}` : ''}`}
+            className={`flex items-center gap-1.5 rounded bg-[color:color-mix(in_srgb,var(--color-status-warning)_10%,transparent)] px-2 py-1 uppercase text-status-warning${className ? ` ${className}` : ''}`}
         >
             <Icon size={12} />
             {label}

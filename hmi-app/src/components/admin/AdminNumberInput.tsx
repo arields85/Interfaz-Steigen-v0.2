@@ -20,6 +20,8 @@ interface AdminNumberInputProps {
     placeholder?: string;
     disabled?: boolean;
     className?: string;
+    inputClassName?: string;
+    onBlur?: () => void;
     /** When true, onChange fires only on blur and nudge — not on every keystroke.
      *  Use for config values like thresholds where intermediate values cause side effects. */
     commitOnBlur?: boolean;
@@ -39,6 +41,8 @@ export default function AdminNumberInput({
     placeholder,
     disabled = false,
     className = '',
+    inputClassName = '',
+    onBlur,
     commitOnBlur = false,
     prefix,
 }: AdminNumberInputProps) {
@@ -79,6 +83,7 @@ export default function AdminNumberInput({
     const handleBlur = () => {
         setIsFocused(false);
         commit();
+        onBlur?.();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -99,7 +104,7 @@ export default function AdminNumberInput({
     return (
         <div className={`relative flex items-center ${className}`}>
             {prefix && (
-                <span className={`absolute left-2 text-[10px] pointer-events-none ${disabled ? 'text-industrial-muted/40' : 'text-industrial-muted'}`}>
+                <span className={`absolute left-2 pointer-events-none ${disabled ? 'text-industrial-muted/40' : 'text-industrial-muted'}`}>
                     {prefix}
                 </span>
             )}
@@ -116,7 +121,7 @@ export default function AdminNumberInput({
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
-                className={`${ADMIN_SIDEBAR_INPUT_CLS} w-16 ${prefix ? 'pl-6' : 'pl-2'} pr-5 ${
+                className={`${ADMIN_SIDEBAR_INPUT_CLS} w-full ${inputClassName} ${prefix ? 'pl-6' : 'pl-2'} pr-5 ${
                     disabled ? 'text-white/30 cursor-not-allowed' : 'text-white'
                 }`}
             />

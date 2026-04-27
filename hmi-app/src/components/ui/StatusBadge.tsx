@@ -67,7 +67,7 @@ export default function StatusBadge({ status, label, compact = false, className 
                 className={`w-2 h-2 rounded-full shrink-0 ${config.dotClass} ${config.animate ? 'animate-pulse-slow' : ''}`}
             />
             {!compact && (
-                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${config.textClass}`}>
+                <span className={`uppercase ${config.textClass}`}>
                     {resolvedLabel}
                 </span>
             )}

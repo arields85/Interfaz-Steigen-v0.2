@@ -32,7 +32,7 @@ export default function DockInfoBox({ text, variant }: DockInfoBoxProps) {
     return (
         <div className={`flex items-start gap-2 rounded border px-2 py-1.5 ${containerClass}`}>
             <Icon size={14} className={`mt-0.5 shrink-0 ${iconClass}`} />
-            <span className="text-[10px] font-bold text-industrial-muted">{text}</span>
+            <span className="text-industrial-muted">{text}</span>
         </div>
     );
 }

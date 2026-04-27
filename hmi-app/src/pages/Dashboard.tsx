@@ -124,8 +124,8 @@ export default function Dashboard() {
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-2">
                 <Link2Off size={32} className="text-industrial-muted/50" />
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">Sin Vistas Publicadas</h2>
-            <p className="text-sm font-medium text-center max-w-sm">
+            <h2 className="text-white">Sin Vistas Publicadas</h2>
+            <p className="text-center max-w-sm">
                 No hay ningún dashboard operativo configurado como público.
                 Contacte a un administrador para publicar una vista desde el Gestor de Dashboards.
             </p>
@@ -136,7 +136,7 @@ export default function Dashboard() {
         return (
             <div className="h-full flex items-center justify-center text-industrial-muted gap-3">
                 <Loader2 className="animate-spin" size={24} />
-                <span className="font-bold uppercase tracking-widest text-sm">Iniciando Visor Operativo...</span>
+                <span className="uppercase">Iniciando Visor Operativo...</span>
             </div>
         );
     }

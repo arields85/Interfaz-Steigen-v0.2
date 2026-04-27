@@ -19,7 +19,6 @@ describe('CursorTooltip', () => {
             'bg-industrial-surface/90',
             'px-2',
             'py-1',
-            'text-xs',
             'text-white',
             'whitespace-nowrap',
         );

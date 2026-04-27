@@ -29,7 +29,7 @@ export default function CursorTooltip({
         <div
             role="tooltip"
             className={[
-                'pointer-events-none fixed z-50 whitespace-nowrap rounded border border-white bg-industrial-surface/90 px-2 py-1 text-xs text-white',
+                'pointer-events-none fixed z-50 whitespace-nowrap rounded border border-white bg-industrial-surface/90 px-2 py-1 text-white',
                 className,
             ].join(' ')}
             style={{

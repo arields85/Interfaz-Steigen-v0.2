@@ -77,17 +77,17 @@ export default function AlertsPage() {
             {/* HEADER */}
             <div className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-5xl font-black tracking-tight text-industrial-text mb-2">
+                    <h1 className="text-5xl text-industrial-text mb-2">
                         Alertas y Eventos
                     </h1>
-                    <p className="text-industrial-muted text-[11px] font-bold uppercase tracking-widest mt-1">
+                    <p className="text-industrial-muted uppercase mt-1">
                         Registro de condiciones observadas en planta.
                     </p>
                 </div>
                 {criticalCount > 0 && (
                     <div className="flex items-center gap-2 px-4 py-2 bg-[#1a0b0f] border border-accent-ruby/30 rounded-2xl">
                         <AlertTriangle size={16} className="text-accent-ruby animate-pulse-slow" strokeWidth={2} />
-                        <span className="text-accent-ruby text-xs font-black uppercase tracking-widest">
+                        <span className="text-accent-ruby uppercase">
                             {criticalCount} crítica{criticalCount > 1 ? 's' : ''} activa{criticalCount > 1 ? 's' : ''}
                         </span>
                     </div>
@@ -99,13 +99,13 @@ export default function AlertsPage() {
                 {/* Severidad */}
                 <div className="flex items-center gap-2">
                     <Filter size={14} className="text-industrial-muted" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-industrial-muted mr-1">Severidad</span>
+                    <span className="uppercase text-industrial-muted mr-1">Severidad</span>
                     <div className="flex gap-1">
                         {SEVERITY_FILTERS.map((f) => (
                             <button
                                 key={f.value}
                                 onClick={() => setSeverityFilter(f.value)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors border ${severityFilter === f.value
+                                className={`px-3 py-1.5 rounded-lg uppercase transition-colors border ${severityFilter === f.value
                                     ? 'bg-white/8 border-industrial-border text-white'
                                     : 'border-transparent text-industrial-muted hover:text-industrial-text hover:bg-industrial-hover'
                                     }`}
@@ -118,13 +118,13 @@ export default function AlertsPage() {
 
                 {/* Estado */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-industrial-muted mr-1">Estado</span>
+                    <span className="uppercase text-industrial-muted mr-1">Estado</span>
                     <div className="flex gap-1">
                         {STATUS_FILTERS.map((f) => (
                             <button
                                 key={f.value}
                                 onClick={() => setStatusFilter(f.value)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors border ${statusFilter === f.value
+                                className={`px-3 py-1.5 rounded-lg uppercase transition-colors border ${statusFilter === f.value
                                     ? 'bg-white/8 border-industrial-border text-white'
                                     : 'border-transparent text-industrial-muted hover:text-industrial-text hover:bg-industrial-hover'
                                     }`}
@@ -176,10 +176,10 @@ export default function AlertsPage() {
 
                             <div className="flex-1 p-4 flex flex-col gap-1">
                                 <div className="flex items-center justify-between">
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${cfg.textClass}`}>
+                                    <span className={`uppercase ${cfg.textClass}`}>
                                         {cfg.label} · {formatRelativeTime(alert.createdAt)}
                                     </span>
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${alert.status === 'active'
+                                    <span className={`uppercase px-2 py-0.5 rounded border ${alert.status === 'active'
                                         ? 'text-accent-ruby border-accent-ruby/30 bg-accent-ruby/10'
                                         : alert.status === 'acknowledged'
                                             ? 'text-accent-amber border-accent-amber/30 bg-accent-amber/10'
@@ -188,13 +188,13 @@ export default function AlertsPage() {
                                         {alert.status === 'active' ? 'Activa' : alert.status === 'acknowledged' ? 'Reconocida' : 'Resuelta'}
                                     </span>
                                 </div>
-                                <p className="text-sm font-bold text-industrial-text leading-snug">{alert.title}</p>
+                                <p className="text-industrial-text leading-snug">{alert.title}</p>
                                 {alert.description && (
-                                    <p className="text-xs text-industrial-muted">{alert.description}</p>
+                                    <p className="text-industrial-muted">{alert.description}</p>
                                 )}
                                 {alert.source && (
-                                    <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mt-1" style={{ fontWeight: 'var(--font-weight-mono)' }}>
-                                        Fuente: {alert.source}
+                                    <p className="text-slate-500 uppercase mt-1">
+                                        Fuente: <span className="font-mono">{alert.source}</span>
                                     </p>
                                 )}
                             </div>
@@ -205,7 +205,7 @@ export default function AlertsPage() {
 
             {/* CONTADOR FINAL */}
             {!isLoading && !isError && filtered.length > 0 && (
-                <p className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted pb-6">
+                <p className="uppercase text-industrial-muted pb-6">
                     {filtered.length} evento{filtered.length !== 1 ? 's' : ''} · filtro activo: {severityFilter === 'all' ? 'todas las severidades' : severityFilter} / {statusFilter === 'all' ? 'todos los estados' : statusFilter}
                 </p>
             )}

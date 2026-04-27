@@ -13,8 +13,8 @@ export const mockTemplates: Template[] = [
         name: 'Comprimidora Estándar',
         type: 'dashboard',
         aspect: '16:9',
-        cols: 20,
-        rows: 12,
+        cols: 40,
+        rows: 24,
         dashboardType: 'equipment',
         status: 'active',
         widgetPresets: [

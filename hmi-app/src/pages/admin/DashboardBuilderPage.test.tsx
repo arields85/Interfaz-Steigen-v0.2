@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardBuilderPage from './DashboardBuilderPage';
 import { makeDashboard, makeLayout, makeWidget } from '../../test/fixtures/dashboard.fixture';
 import { useUIStore } from '../../store/ui.store';
-import { buildTemplateAspectMismatchMessage } from '../../utils/templateAspectMismatch';
 import type { ConnectionHealth, ContractMachine } from '../../domain/dataContract.types';
 import { HEADER_WIDGET_DRAG_MIME } from '../../utils/headerWidgets';
 
@@ -357,7 +356,7 @@ describe('DashboardBuilderPage', () => {
         );
     });
 
-    it('toggles the persisted grid preference and opens/closes the settings panel from the context bar', async () => {
+    it('keeps only the grid toggle next to Volver and persists its preference', async () => {
         const user = userEvent.setup();
         const firstRender = await renderBuilderPage();
         const viewport = screen.getByTestId('dashboard-builder-canvas-viewport');
@@ -366,6 +365,8 @@ describe('DashboardBuilderPage', () => {
 
         const gridButton = screen.getByRole('button', { name: 'Ocultar grid' });
         expect(gridButton).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.queryByRole('button', { name: 'Aplicar template' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Configurar dashboard' })).not.toBeInTheDocument();
 
         await user.click(gridButton);
 
@@ -374,13 +375,6 @@ describe('DashboardBuilderPage', () => {
         expect(localStorage.getItem('interfaz-laboratorio-ui')).toBe(
             JSON.stringify({ state: { isGridVisible: false }, version: 0 }),
         );
-
-        const settingsButton = screen.getByRole('button', { name: 'Configurar dashboard' });
-        await user.click(settingsButton);
-        expect(screen.getByText('Configuración del dashboard')).toBeInTheDocument();
-
-        await user.click(settingsButton);
-        expect(screen.queryByText('Configuración del dashboard')).not.toBeInTheDocument();
 
         firstRender.unmount();
         useUIStore.setState(useUIStore.getInitialState());
@@ -397,7 +391,7 @@ describe('DashboardBuilderPage', () => {
         expect(screen.getByRole('button', { name: 'Mostrar grid' })).toHaveAttribute('aria-pressed', 'false');
     });
 
-    it('shows hover tooltips for the dashboard context-bar icon actions', async () => {
+    it('shows hover tooltips only for the remaining grid action', async () => {
         const user = userEvent.setup();
 
         await renderBuilderPage();
@@ -409,17 +403,6 @@ describe('DashboardBuilderPage', () => {
         await waitFor(() => {
             expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
         });
-
-        await user.hover(screen.getByRole('button', { name: 'Aplicar template' }));
-        expect(await screen.findByRole('tooltip')).toHaveTextContent('Aplicar template');
-
-        await user.unhover(screen.getByRole('button', { name: 'Aplicar template' }));
-        await waitFor(() => {
-            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
-        });
-
-        await user.hover(screen.getByRole('button', { name: 'Configurar dashboard' }));
-        expect(await screen.findByRole('tooltip')).toHaveTextContent('Configurar dashboard');
     });
 
     it('keeps the builder surface stretchable so sidebar and header widget additions can become visible', async () => {
@@ -696,120 +679,30 @@ describe('DashboardBuilderPage', () => {
         expect(contentColumn).toHaveClass('px-8');
     });
 
-    it('uses a horizontal-scroll builder viewport shell so measured-canvas overflow stays reachable', async () => {
+    it('uses a clipped builder viewport shell so the measured canvas stays fully contained', async () => {
         await renderBuilderPage();
 
         const viewport = screen.getByTestId('dashboard-builder-canvas-viewport');
 
-        expect(viewport).toHaveClass('overflow-x-auto');
-        expect(viewport).toHaveClass('overflow-y-auto');
-        expect(viewport).toHaveClass('hmi-scrollbar');
-        expect(viewport).toHaveClass('pt-10');
-        expect(viewport).toHaveClass('pl-3');
-        expect(viewport).toHaveClass('pr-3');
+        expect(viewport).toHaveClass('overflow-hidden');
+        expect(viewport).not.toHaveClass('overflow-x-auto');
+        expect(viewport).not.toHaveClass('overflow-y-auto');
         expect(viewport).toHaveClass('pb-3');
+        expect(viewport).toHaveClass('pt-2');
     });
 
-    it('applies cols changes immediately when no widget needs clamping', async () => {
-        const user = userEvent.setup();
-        await renderBuilderPage();
-
-        await user.click(screen.getByRole('button', { name: 'Configurar dashboard' }));
-        const colsInput = screen.getByRole('textbox', { name: 'COLUMNAS' });
-        await user.clear(colsInput);
-        await user.type(colsInput, '24{enter}');
-
-        await waitFor(() => {
-            expect(getBuilderCanvasSnapshot().cols).toBe(24);
-        });
-
-        expect(screen.queryByRole('dialog', { name: 'Confirmar ajuste de widgets' })).not.toBeInTheDocument();
-    });
-
-    it('asks for confirmation before clamping widgets and only commits after continuing', async () => {
-        const user = userEvent.setup();
-        await renderBuilderPage(
-            makeDashboard({
-                id: 'dashboard-1',
-                cols: 20,
-                rows: 12,
-                widgets: [makeWidget({ id: 'widget-1', title: 'Widget 1' })],
-                layout: [makeLayout({ widgetId: 'widget-1', x: 0, y: 10, w: 4, h: 3 })],
-            }),
-        );
-
-        await user.click(screen.getByRole('button', { name: 'Configurar dashboard' }));
-
-        const rowsInput = screen.getByRole('textbox', { name: 'Filas' });
-        await user.clear(rowsInput);
-        await user.type(rowsInput, '6{enter}');
-
-        expect(screen.getByRole('dialog', { name: 'Confirmar ajuste de widgets' })).toBeInTheDocument();
-        expect(screen.getByText('Este cambio ajustará la posición/tamaño de 1 widget al nuevo área. ¿Continuar?')).toBeInTheDocument();
-
-        await user.click(screen.getByRole('button', { name: 'Cancelar' }));
-
-        await waitFor(() => {
-            expect(getBuilderCanvasSnapshot().rows).toBe(12);
-        });
-        expect(screen.queryByRole('dialog', { name: 'Confirmar ajuste de widgets' })).not.toBeInTheDocument();
-
-        await user.clear(rowsInput);
-        await user.type(rowsInput, '6{enter}');
-        await user.click(screen.getByRole('button', { name: 'Continuar' }));
-
-        await waitFor(() => {
-            const snapshot = getBuilderCanvasSnapshot();
-            expect(snapshot.rows).toBe(6);
-            expect(snapshot.layout).toEqual([
-                { widgetId: 'widget-1', x: 0, y: 3, w: 4, h: 3 },
-            ]);
-        });
-    });
-
-    it('disables mismatched templates with a tooltip and does nothing on click', async () => {
-        const user = userEvent.setup();
-        const dashboard = makeDashboard({
+    it('renders canonical 40x24 bounds when the dashboard omits persisted grid dimensions', async () => {
+        await renderBuilderPage(makeDashboard({
             id: 'dashboard-1',
-            cols: 20,
-            rows: 12,
+            cols: undefined as unknown as number,
+            rows: undefined as unknown as number,
+        }));
+
+        await waitFor(() => {
+            expect(getBuilderCanvasSnapshot()).toMatchObject({
+                cols: 40,
+                rows: 24,
+            });
         });
-        const mismatchMessage = buildTemplateAspectMismatchMessage('21:9', '16:9');
-
-        templateStorageMock.getTemplates.mockResolvedValue([
-            {
-                id: 'template-match',
-                name: 'Template compatible',
-                type: 'dashboard',
-                aspect: '16:9',
-                rows: 12,
-                status: 'active',
-                widgetPresets: [],
-                layoutPreset: [],
-            },
-            {
-                id: 'template-mismatch',
-                name: 'Template 21:9',
-                type: 'dashboard',
-                aspect: '21:9',
-                rows: 12,
-                status: 'active',
-                widgetPresets: [],
-                layoutPreset: [],
-            },
-        ]);
-
-        await renderBuilderPage(dashboard);
-
-        await user.click(screen.getByRole('button', { name: 'Aplicar template' }));
-
-        const mismatchButton = await screen.findByRole('button', { name: 'Aplicar template Template 21:9' });
-        expect(mismatchButton).toBeDisabled();
-        expect(mismatchButton).toHaveAttribute('title', mismatchMessage);
-
-        await user.click(mismatchButton);
-
-        expect(dashboardStorageMock.applyTemplate).not.toHaveBeenCalled();
-        expect(screen.getByRole('button', { name: 'Aplicar template Template compatible' })).not.toBeDisabled();
     });
 });

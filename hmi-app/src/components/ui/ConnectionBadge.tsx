@@ -66,10 +66,10 @@ export default function ConnectionBadge({ state, lastUpdateAt, className = '' }:
     return (
         <span className={`inline-flex items-center gap-1.5 ${className}`}>
             <Icon size={12} className={`shrink-0 ${config.colorClass}`} strokeWidth={2} />
-            <span className={`text-[9px] font-bold uppercase tracking-widest ${config.colorClass}`}>
+            <span className={`uppercase ${config.colorClass}`}>
                 {config.label}
                 {relativeTime && (
-                    <span className="text-industrial-muted ml-1 font-normal normal-case tracking-normal">
+                    <span className="text-industrial-muted ml-1 normal-case">
                         · {relativeTime}
                     </span>
                 )}

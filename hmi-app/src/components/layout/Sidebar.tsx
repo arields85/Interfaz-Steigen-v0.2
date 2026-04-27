@@ -22,7 +22,7 @@ export default function Sidebar() {
                         {({ isActive }) => (
                             <>
                                 <item.icon size={20} className={isActive ? "text-admin-accent drop-shadow-[0_0_8px_var(--color-admin-accent)]" : ""} />
-                                <span className={`font-medium text-sm ${isActive ? 'text-white' : ''}`}>{item.label}</span>
+                                <span className={isActive ? 'text-white' : ''}>{item.label}</span>
                             </>
                         )}
                     </NavLink>
@@ -32,7 +32,7 @@ export default function Sidebar() {
             <div className="p-4 border-t border-[var(--color-industrial-border)] shrink-0">
                 <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-industrial-muted hover:bg-industrial-hover hover:text-industrial-text transition-colors duration-200 border border-transparent">
                     <Settings size={20} />
-                    <span className="font-medium text-sm">Configuración</span>
+                    <span>Configuración</span>
                 </button>
             </div>
         </aside>

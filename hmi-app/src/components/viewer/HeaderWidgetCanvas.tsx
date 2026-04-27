@@ -76,7 +76,7 @@ function HeaderSlotContextMenu({ triggerRef, isOpen, onClose, onSelect }: Header
                 }}
             >
                 <div className="px-3 pb-1.5 pt-0.5 mb-1 border-b border-white/5">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-industrial-muted">
+                    <span className="uppercase text-industrial-muted">
                         Agregar widget de header
                     </span>
                 </div>
@@ -99,12 +99,12 @@ function HeaderSlotContextMenu({ triggerRef, isOpen, onClose, onSelect }: Header
                         </span>
                         <span className="flex flex-col gap-0.5">
                             <span
-                                className="text-[11px] font-bold leading-tight transition-colors group-hover/opt:text-white"
+                                className="leading-tight transition-colors group-hover/opt:text-white"
                                 style={{ color: 'var(--color-industrial-text)' }}
                             >
                                 {opt.label}
                             </span>
-                            <span className="text-[9px] leading-tight" style={{ color: 'var(--color-industrial-muted)' }}>
+                            <span className="leading-tight" style={{ color: 'var(--color-industrial-muted)' }}>
                                 {opt.description}
                             </span>
                         </span>
@@ -298,7 +298,7 @@ export default function HeaderWidgetCanvas({
                     <div className="flex items-start justify-between gap-2">
                         {hasDisplayTitle ? (
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-industrial-muted">
+                                <p className="truncate uppercase text-industrial-muted">
                                     {resolveDisplayTitle(widget)}
                                 </p>
                             </div>

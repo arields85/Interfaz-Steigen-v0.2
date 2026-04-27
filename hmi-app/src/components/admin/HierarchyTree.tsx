@@ -77,7 +77,7 @@ function TreeNode({
     return (
         <div>
             <button
-                className={`w-full flex items-center gap-1.5 py-1.5 pr-3 rounded-md text-sm text-left transition-all group ${
+                className={`w-full flex items-center gap-1.5 py-1.5 pr-3 rounded-md text-left transition-all group ${
                     isSelected
                         ? 'bg-admin-accent/10 text-admin-accent border border-admin-accent/20'
                         : 'text-industrial-muted hover:bg-white/[0.04] hover:text-industrial-text'
@@ -103,7 +103,7 @@ function TreeNode({
                 <NodeIcon type={node.type} isOpen={isOpen} nodeTypes={nodeTypes} />
 
                 {/* Nombre */}
-                <span className="flex-1 truncate font-medium text-xs">
+                <span className="flex-1 truncate">
                     {node.name}
                 </span>
 

@@ -38,8 +38,8 @@ export default function WidgetSegmentedControl<T extends string>({
                             onClick={() => onChange(option.value)}
                             aria-pressed={isActive}
                             className={isActive
-                                ? 'rounded-md border border-admin-accent/30 bg-admin-accent/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-admin-accent transition-colors'
-                                : 'rounded-md px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-industrial-muted transition-colors hover:text-industrial-text'}
+                                ? 'rounded-md border border-admin-accent/30 bg-admin-accent/10 px-2.5 py-1 uppercase text-admin-accent transition-colors'
+                                : 'rounded-md px-2.5 py-1 uppercase text-industrial-muted transition-colors hover:text-industrial-text'}
                         >
                             {option.label}
                         </button>

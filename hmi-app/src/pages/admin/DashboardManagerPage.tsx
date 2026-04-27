@@ -362,7 +362,7 @@ export default function DashboardManagerPage() {
                             value={dashboardSearch}
                             onChange={(event) => setDashboardSearch(event.target.value)}
                             placeholder="Buscar dashboards"
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} h-9 pl-9 pr-3 text-xs font-medium`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} h-9 pl-9 pr-3`}
                             aria-label="Buscar dashboards por nombre, subtítulo o descripción"
                         />
                     </label>
@@ -435,7 +435,7 @@ export default function DashboardManagerPage() {
                                                             onBlur={() => {
                                                                 void handleCommitTemplateRename(template);
                                                             }}
-                                                            className="w-full rounded border border-admin-accent/50 bg-black/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white transition-colors focus:outline-none"
+                                                            className="w-full rounded border border-admin-accent/50 bg-black/40 px-2 py-1 uppercase text-white transition-colors focus:outline-none"
                                                         />
                                                         <HoverTooltip label="Guardar nombre del template" position="right" className="flex">
                                                             <button
@@ -457,14 +457,14 @@ export default function DashboardManagerPage() {
                                                         onClick={() => handleStartTemplateRename(template)}
                                                         className="group flex w-full items-center gap-2 text-left"
                                                     >
-                                                        <h3 className="truncate text-[10px] font-black uppercase tracking-widest text-industrial-muted transition-colors group-hover:text-admin-accent">
+                                                        <h3 className="truncate uppercase text-industrial-muted transition-colors group-hover:text-admin-accent">
                                                             {template.name}
                                                         </h3>
                                                         <Edit2 size={12} className="shrink-0 text-white/20 transition-colors group-hover:text-admin-accent" />
                                                     </button>
                                                 )}
 
-                                                <p className="mt-0.5 text-[10px] font-mono font-semibold text-industrial-muted" style={{ fontWeight: 'var(--font-weight-mono)' }}>
+                                                <p className="mt-0.5 text-industrial-muted font-mono">
                                                     {getWidgetCountLabel(widgetCount)} · {templateDashboardTypeLabel}
                                                 </p>
                                             </div>
@@ -511,7 +511,7 @@ export default function DashboardManagerPage() {
             {/* === TABLA DE DASHBOARDS === */}
             <section className="flex min-h-0 flex-1 flex-col">
                 <div className="hmi-scrollbar min-h-0 flex-1 overflow-y-auto">
-                    <div className={`sticky top-0 z-10 grid ${DASHBOARD_LIST_GRID_CLS} items-center gap-4 border-b border-white/5 bg-industrial-bg px-4 py-4 text-[10px] font-black uppercase tracking-widest text-industrial-muted`}>
+                    <div className={`sticky top-0 z-10 grid ${DASHBOARD_LIST_GRID_CLS} items-center gap-4 border-b border-white/5 bg-industrial-bg px-4 py-4 uppercase text-industrial-muted`}>
                         <div className="w-8"></div>
                         <div>Título / Subtítulo</div>
                         <div className="text-center">Asignación</div>
@@ -568,14 +568,14 @@ export default function DashboardManagerPage() {
                             </div>
 
                             <div>
-                                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                                <h3 className="text-[length:inherit] font-[weight:inherit] text-white flex items-center gap-2">
                                     {headerTitle}
                                     {sourceDashboardIds.has(dash.id) && (
                                         <AdminTag label="TEMPLATE" variant="pink" />
                                     )}
                                 </h3>
                                 {headerSubtitle && (
-                                    <p className="text-xs font-medium text-industrial-muted truncate mt-1">
+                                    <p className="text-industrial-muted truncate mt-1">
                                         {headerSubtitle}
                                     </p>
                                 )}
@@ -700,7 +700,7 @@ export default function DashboardManagerPage() {
                     )}
                 >
                     <div>
-                        <label className="mb-1.5 block w-auto text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        <label className="mb-1.5 block w-auto uppercase text-industrial-muted">
                             Nombre
                         </label>
                         <input
@@ -708,7 +708,7 @@ export default function DashboardManagerPage() {
                             value={templateName}
                             onChange={e => setTemplateName(e.target.value)}
                             placeholder="Nombre del template"
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                             autoFocus
                         />
                     </div>
@@ -745,7 +745,7 @@ export default function DashboardManagerPage() {
                     )}
                 >
                     <div>
-                        <label className="mb-1.5 block w-auto text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                        <label className="mb-1.5 block w-auto uppercase text-industrial-muted">
                             NOMBRE
                         </label>
                         <input
@@ -753,7 +753,7 @@ export default function DashboardManagerPage() {
                             value={duplicateName}
                             onChange={e => setDuplicateName(e.target.value)}
                             placeholder="Nombre del dashboard"
-                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2 text-sm`}
+                            className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
                             autoFocus
                         />
                     </div>
@@ -794,7 +794,7 @@ export default function DashboardManagerPage() {
                             </>
                         )}
                     >
-                        <p className="text-xs text-industrial-muted">¿Eliminar este dashboard? Esta acción no se puede deshacer.</p>
+                        <p className="text-industrial-muted">¿Eliminar este dashboard? Esta acción no se puede deshacer.</p>
                     </AdminDialog>
                 );
             })()}
@@ -817,7 +817,7 @@ export default function DashboardManagerPage() {
                     </>
                 )}
             >
-                <p className="text-xs text-industrial-muted">¿Eliminar este template?</p>
+                <p className="text-industrial-muted">¿Eliminar este template?</p>
             </AdminDialog>
 
                         </>

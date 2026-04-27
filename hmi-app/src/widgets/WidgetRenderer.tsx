@@ -168,15 +168,13 @@ export default function WidgetRenderer({
 function UnsupportedWidget({ type, title }: { type: string; title?: string }) {
     return (
         <div className="glass-panel p-4 flex flex-col gap-1 opacity-50">
-            <span className="text-[9px] font-black uppercase tracking-widest text-industrial-muted">
+            <span className="uppercase text-industrial-muted">
                 Widget no implementado
             </span>
-            <span className="text-xs text-industrial-muted font-mono" style={{ fontWeight: 'var(--font-weight-mono)' }}>
+            <span className="text-industrial-muted font-mono">
                 type: {type}
             </span>
-            {title && (
-                <span className="text-xs text-slate-500">{title}</span>
-            )}
+            {title && <span className="text-slate-500">{title}</span>}
         </div>
     );
 }

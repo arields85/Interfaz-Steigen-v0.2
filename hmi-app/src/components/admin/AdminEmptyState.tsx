@@ -9,7 +9,7 @@ export default function AdminEmptyState({ icon: Icon, message }: AdminEmptyState
     return (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <Icon size={22} className="text-industrial-muted" />
-            <p className="text-xs font-semibold tracking-wide text-industrial-muted">
+            <p className="text-industrial-muted">
                 {message}
             </p>
         </div>

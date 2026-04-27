@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Reset heading user-agent styles — all headings inherit from --font-system */
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 @font-face {
   font-family: "Mojang";
   src: url("./assets/fonts/Mojang-Regular.ttf") format("truetype");
@@ -238,8 +244,9 @@
   /* Borde de selección de widgets en el canvas */
   --color-admin-selection-from: #60a5fa;
   --color-admin-selection-to: #927bec;
-  --color-canvas-grid-major: color-mix(in srgb, var(--color-admin-accent) 18%, transparent);
-  --color-canvas-grid-minor: color-mix(in srgb, var(--color-industrial-muted) 12%, transparent);
+  --color-canvas-bg: var(--color-industrial-bg);
+  --color-canvas-grid-major: color-mix(in srgb, var(--color-admin-accent) 26%, transparent);
+  --color-canvas-grid-minor: color-mix(in srgb, var(--color-industrial-muted) 16%, transparent);
 
   /* Degradado base de métricas (KPI, barras, arcos sin colorizado dinámico) */
   /*--color-widget-gradient-from: #3b82f6;*/
@@ -278,16 +285,36 @@
   --color-state-producing-from: var(--color-accent-green);
   --color-state-producing-to: var(--color-accent-green-glow);
 
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-system: "JetBrainsMono";
+  --font-sans: var(--font-system);
   --font-mono: "IBMPlexMono", monospace;
   --font-chart: "IBMPlexMono", monospace;
-  --font-dashboard-title: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-widget-value: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-weight-sans: 400;
+  --font-dashboard-title: "Magistral";
+  --font-widget-value: "Magistral";
+  --font-widget-value-gauge: var(--font-widget-value);
+  --font-weight-system: 400;
+  --font-weight-sans: var(--font-weight-system);
   --font-weight-mono: 400;
   --font-weight-chart: 400;
-  --font-weight-dashboard-title: 900;
-  --font-weight-widget-value: 900;
+  --font-weight-dashboard-title: 400;
+  --font-weight-widget-value: 400;
+  --font-weight-widget-value-gauge: var(--font-weight-widget-value);
+  --font-size-system: 11px;
+  --font-size-mono: 10px;
+  --font-size-chart: 10px;
+  --font-size-dashboard-title: 48px;
+  --font-size-widget-value: 35px;
+  --font-size-widget-unit: 20px;
+  --font-size-widget-value-gauge: 60px;
+  --font-size-widget-unit-gauge: 20px;
+  --tracking-system: 0px;
+  --tracking-mono: 0px;
+  --tracking-chart: 0px;
+  --tracking-dashboard-title: 0.2px;
+  --tracking-widget-value: 0.2px;
+  --tracking-widget-value-gauge: 0px;
+  --text-xs: var(--font-size-system);
+  --text-sm: calc(var(--font-size-system) * 7 / 6);
   --widget-spacing: 0.5rem;
 
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -311,9 +338,10 @@
   body {
     background-color: var(--color-industrial-bg);
     color: var(--color-industrial-text);
-    font-family: var(--font-sans);
-    font-weight: var(--font-weight-sans);
-    letter-spacing: -0.01em;
+    font-family: var(--font-system);
+    font-size: var(--font-size-system);
+    font-weight: var(--font-weight-system);
+    letter-spacing: var(--tracking-system);
   }
 
   /* ── Dark-theme native dropdown styling ── */
@@ -340,6 +368,19 @@
 }
 
 @layer utilities {
+
+  .font-mono {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-mono);
+    font-weight: var(--font-weight-mono);
+    letter-spacing: var(--tracking-mono);
+  }
+
+  .font-system {
+    font-family: var(--font-system);
+    font-weight: var(--font-weight-system);
+    letter-spacing: var(--tracking-system);
+  }
 
   /* ── Admin ghost button/badge ── */
   /* Un solo color para texto, borde, SVG y fondo translúcido */

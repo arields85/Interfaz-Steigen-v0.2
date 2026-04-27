@@ -25,8 +25,8 @@ const router = createBrowserRouter([
             { path: 'equipment/:equipmentId', element: <EquipmentDetail /> },
             { path: 'alerts', element: <AlertsPage /> },
             { path: 'trends', element: <TrendsPage /> },
-            { path: 'explorer', element: <div className="text-industrial-text p-6 text-xl font-bold">Explorador — próximamente</div> },
-            { path: 'traceability', element: <div className="text-industrial-text p-6 text-xl font-bold">Trazabilidad — próximamente</div> },
+            { path: 'explorer', element: <div className="text-industrial-text p-6">Explorador — próximamente</div> },
+            { path: 'traceability', element: <div className="text-industrial-text p-6">Trazabilidad — próximamente</div> },
         ],
     },
     {
@@ -44,4 +44,3 @@ const router = createBrowserRouter([
 export default function AppRouter() {
     return <RouterProvider router={router} />;
 }
-

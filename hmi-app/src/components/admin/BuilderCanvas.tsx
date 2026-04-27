@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, Trash2, ArrowUp, LayoutDashboard } from 'lucide-react';
 import { WidgetRenderer } from '../../widgets';
 import type { WidgetConfig, WidgetLayout } from '../../domain/admin.types';
@@ -52,6 +52,9 @@ interface BuilderCanvasProps {
 
 const DRAG_THRESHOLD_PX = 3;
 const RESIZE_TOOLTIP_OFFSET_PX = 12;
+const GRID_MAJOR_INTERVAL_CELLS = 2;
+const GRID_MAJOR_DASH_LENGTH_PX = 8;
+const GRID_MAJOR_DASH_GAP_PX = 6;
 
 interface InteractionState {
     widgetId: string;
@@ -62,19 +65,6 @@ interface InteractionState {
     startBounds: WidgetPixelBounds;
     tentativeBounds: WidgetPixelBounds;
     hasExceededThreshold: boolean;
-}
-
-interface PanState {
-    startPointer: { x: number; y: number };
-    startScroll: { left: number; top: number };
-}
-
-function isInputElement(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
-    return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
-}
-
-function isSpaceKey(event: Pick<KeyboardEvent, 'code' | 'key'> | Pick<React.KeyboardEvent<HTMLDivElement>, 'code' | 'key'>): boolean {
-    return event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar';
 }
 
 function isFiniteLayout(layout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>): boolean {
@@ -182,6 +172,8 @@ export default function BuilderCanvas({
 }: BuilderCanvasProps) {
     const widgetCornerRadius = '1.5rem';
     const widgetMap = new Map(widgets.map((widget) => [widget.id, widget]));
+    const rightEdgeUsesMajorLine = cols % GRID_MAJOR_INTERVAL_CELLS === 0;
+    const bottomEdgeUsesMajorLine = rows % GRID_MAJOR_INTERVAL_CELLS === 0;
     const isGridVisible = useUIStore((state) => state.isGridVisible);
     const { containerRef, width, height, rowHeight, cellWidth } = useCanvasReference({
         cols,
@@ -190,78 +182,42 @@ export default function BuilderCanvas({
 
     const metrics: WidgetInteractionMetrics = { cellWidth, rowHeight };
     const [interaction, setInteraction] = useState<InteractionState | null>(null);
-    const [isPanMode, setIsPanMode] = useState(false);
-    const [panState, setPanState] = useState<PanState | null>(null);
+    const [bodyCursor, setBodyCursor] = useState<string | null>(null);
 
     const interactionRef = useRef<InteractionState | null>(null);
     const interactionCleanupRef = useRef<(() => void) | null>(null);
-    const isBuilderFocusedRef = useRef(false);
-    const panStateRef = useRef<PanState | null>(null);
-    const panCleanupRef = useRef<(() => void) | null>(null);
 
-    const clearPan = () => {
-        panCleanupRef.current?.();
-        panCleanupRef.current = null;
-        panStateRef.current = null;
-        setPanState(null);
-    };
-
-    const activatePanMode = () => {
-        setIsPanMode(true);
-    };
-
-    const deactivatePanMode = () => {
-        setIsPanMode(false);
-        clearPan();
-    };
-
-    const handleSpaceKeyDown = (event: KeyboardEvent | React.KeyboardEvent<HTMLDivElement>) => {
-        if (!isSpaceKey(event) || event.repeat || !isBuilderFocusedRef.current || isInputElement(event.target)) {
-            return;
-        }
-
-        event.preventDefault();
-        activatePanMode();
-    };
-
-    const handleSpaceKeyUp = (event: KeyboardEvent | React.KeyboardEvent<HTMLDivElement>) => {
-        if (!isSpaceKey(event)) {
-            return;
-        }
-
-        deactivatePanMode();
-    };
-
-    const clearInteraction = () => {
+    const clearInteraction = useCallback(() => {
         interactionCleanupRef.current?.();
         interactionCleanupRef.current = null;
         interactionRef.current = null;
         setInteraction(null);
-        document.body.style.cursor = '';
-    };
-
-    useEffect(() => () => {
-        clearPan();
-        clearInteraction();
+        setBodyCursor(null);
     }, []);
 
     useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            handleSpaceKeyDown(event);
-        };
+        const previousCursor = document.body.style.getPropertyValue('cursor');
 
-        const handleKeyUp = (event: KeyboardEvent) => {
-            handleSpaceKeyUp(event);
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
+        if (bodyCursor) {
+            document.body.style.setProperty('cursor', bodyCursor);
+        }
+        else {
+            document.body.style.removeProperty('cursor');
+        }
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
+            if (previousCursor) {
+                document.body.style.setProperty('cursor', previousCursor);
+            }
+            else {
+                document.body.style.removeProperty('cursor');
+            }
         };
-    }, []);
+    }, [bodyCursor]);
+
+    useEffect(() => () => {
+        clearInteraction();
+    }, [clearInteraction]);
 
     const commitLayout = (widgetId: string, nextLayout: Pick<WidgetLayout, 'x' | 'y' | 'w' | 'h'>) => {
         onLayoutCommit?.({ widgetId, ...nextLayout });
@@ -276,10 +232,6 @@ export default function BuilderCanvas({
         item: WidgetLayout,
         type: WidgetInteractionType,
     ) => {
-        if (isPanMode) {
-            return;
-        }
-
         if (event.button !== 0) {
             return;
         }
@@ -304,7 +256,7 @@ export default function BuilderCanvas({
 
         interactionRef.current = initialInteraction;
         setInteraction(initialInteraction);
-        document.body.style.cursor = resizeCursor(type);
+        setBodyCursor(resizeCursor(type));
         onWidgetDragChange?.(null);
 
         const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -376,51 +328,6 @@ export default function BuilderCanvas({
         };
     };
 
-    const beginPan = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (!isPanMode || event.button !== 0) {
-            return;
-        }
-
-        const scrollContainer = containerRef.current?.parentElement;
-
-        if (!(scrollContainer instanceof HTMLElement)) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        const nextPanState: PanState = {
-            startPointer: { x: event.clientX, y: event.clientY },
-            startScroll: { left: scrollContainer.scrollLeft, top: scrollContainer.scrollTop },
-        };
-
-        panStateRef.current = nextPanState;
-        setPanState(nextPanState);
-
-        const handlePointerMove = (moveEvent: PointerEvent) => {
-            const currentPanState = panStateRef.current;
-
-            if (!currentPanState) {
-                return;
-            }
-
-            scrollContainer.scrollLeft = currentPanState.startScroll.left - (moveEvent.clientX - currentPanState.startPointer.x);
-            scrollContainer.scrollTop = currentPanState.startScroll.top - (moveEvent.clientY - currentPanState.startPointer.y);
-        };
-
-        const handlePointerUp = () => {
-            clearPan();
-        };
-
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-        panCleanupRef.current = () => {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        };
-    };
-
     const resizeTooltipLayout = interaction && isResizeInteraction(interaction.type) && interaction.hasExceededThreshold
         ? resolveCommittedLayout({ interaction, metrics, cols, rows })
         : null;
@@ -429,31 +336,9 @@ export default function BuilderCanvas({
         <div
             ref={containerRef}
             data-testid="builder-canvas-root"
-            tabIndex={0}
-            className="flex h-full w-full items-start justify-start overflow-visible"
-            style={{ cursor: panState ? 'grabbing' : isPanMode ? 'grab' : undefined }}
-            onFocusCapture={() => {
-                isBuilderFocusedRef.current = true;
-            }}
-            onBlurCapture={(event) => {
-                const nextFocused = event.relatedTarget;
-
-                if (containerRef.current?.contains(nextFocused as Node | null)) {
-                    return;
-                }
-
-                isBuilderFocusedRef.current = false;
-                deactivatePanMode();
-            }}
-            onKeyDownCapture={handleSpaceKeyDown}
-            onKeyUpCapture={handleSpaceKeyUp}
-            onPointerDownCapture={(event) => {
-                if (!isInputElement(event.target)) {
-                    isBuilderFocusedRef.current = true;
-                    containerRef.current?.focus({ preventScroll: true });
-                }
-
-                beginPan(event);
+            className="flex h-full min-h-0 min-w-0 w-full items-start justify-start overflow-visible"
+            style={{
+                outline: 'none',
             }}
         >
             <div
@@ -468,21 +353,112 @@ export default function BuilderCanvas({
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-0 transition-opacity"
                     style={{
-                        backgroundImage: isGridVisible
-                            ? [
-                                'repeating-linear-gradient(to right, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc((100% / var(--canvas-cols)) * 2))',
-                                'repeating-linear-gradient(to bottom, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc((100% / var(--canvas-rows)) * 2))',
-                                'repeating-linear-gradient(to right, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent calc(100% / var(--canvas-cols)))',
-                                'repeating-linear-gradient(to bottom, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent calc(100% / var(--canvas-rows)))',
-                            ].join(', ')
-                            : 'none',
                         opacity: isGridVisible ? 1 : 0,
                         ['--canvas-cols' as string]: String(cols),
                         ['--canvas-rows' as string]: String(rows),
                         ['--cell-width-px' as string]: `${cellWidth}px`,
                         ['--row-height-px' as string]: `${rowHeight}px`,
+                        ['--canvas-major-interval-cols' as string]: String(GRID_MAJOR_INTERVAL_CELLS),
+                        ['--canvas-major-dash-length' as string]: `${GRID_MAJOR_DASH_LENGTH_PX}px`,
+                        ['--canvas-major-dash-gap' as string]: `${GRID_MAJOR_DASH_GAP_PX}px`,
                     }}
-                />
+                >
+                    <div
+                        data-testid="builder-canvas-grid-minor-overlay"
+                        className="absolute inset-0"
+                        style={{
+                            backgroundImage: [
+                                'repeating-linear-gradient(to right, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent var(--cell-width-px))',
+                                'repeating-linear-gradient(to bottom, var(--color-canvas-grid-minor) 0px, var(--color-canvas-grid-minor) 1px, transparent 1px, transparent var(--row-height-px))',
+                            ].join(', '),
+                            opacity: isGridVisible ? 1 : 0,
+                        }}
+                    />
+
+                    <div
+                        data-testid="builder-canvas-grid-major-eraser-overlay"
+                        className="absolute inset-0"
+                        style={{
+                            opacity: isGridVisible ? 1 : 0,
+                        }}
+                    >
+                        <div
+                            data-testid="builder-canvas-grid-major-eraser-vertical-overlay"
+                            className="absolute inset-0"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(to right, var(--color-canvas-bg) 0px, var(--color-canvas-bg) 1px, transparent 1px, transparent calc(var(--cell-width-px) * var(--canvas-major-interval-cols)))',
+                            }}
+                        />
+                        <div
+                            data-testid="builder-canvas-grid-major-eraser-horizontal-overlay"
+                            className="absolute inset-0"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(to bottom, var(--color-canvas-bg) 0px, var(--color-canvas-bg) 1px, transparent 1px, transparent calc(var(--row-height-px) * var(--canvas-major-interval-cols)))',
+                            }}
+                        />
+                    </div>
+
+                    <div
+                        data-testid="builder-canvas-grid-major-overlay"
+                        className="absolute inset-0"
+                        style={{
+                            opacity: isGridVisible ? 1 : 0,
+                        }}
+                    >
+                        <div
+                            data-testid="builder-canvas-grid-major-vertical-overlay"
+                            className="absolute inset-0"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(to right, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc(var(--cell-width-px) * var(--canvas-major-interval-cols)))',
+                                maskImage: 'repeating-linear-gradient(to bottom, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))',
+                                WebkitMaskImage: 'repeating-linear-gradient(to bottom, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))',
+                            }}
+                        />
+                        <div
+                            data-testid="builder-canvas-grid-major-horizontal-overlay"
+                            className="absolute inset-0"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(to bottom, var(--color-canvas-grid-major) 0px, var(--color-canvas-grid-major) 1px, transparent 1px, transparent calc(var(--row-height-px) * var(--canvas-major-interval-cols)))',
+                                maskImage: 'repeating-linear-gradient(to right, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))',
+                                WebkitMaskImage: 'repeating-linear-gradient(to right, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))',
+                            }}
+                        />
+                    </div>
+
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-0 right-0 h-full w-px"
+                        style={{
+                            opacity: isGridVisible ? 1 : 0,
+                            backgroundColor: rightEdgeUsesMajorLine
+                                ? 'var(--color-canvas-grid-major)'
+                                : 'var(--color-canvas-grid-minor)',
+                            maskImage: rightEdgeUsesMajorLine
+                                ? 'repeating-linear-gradient(to bottom, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))'
+                                : undefined,
+                            WebkitMaskImage: rightEdgeUsesMajorLine
+                                ? 'repeating-linear-gradient(to bottom, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))'
+                                : undefined,
+                        }}
+                    />
+
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-0 bottom-0 left-0 h-px"
+                        style={{
+                            opacity: isGridVisible ? 1 : 0,
+                            backgroundColor: bottomEdgeUsesMajorLine
+                                ? 'var(--color-canvas-grid-major)'
+                                : 'var(--color-canvas-grid-minor)',
+                            maskImage: bottomEdgeUsesMajorLine
+                                ? 'repeating-linear-gradient(to right, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))'
+                                : undefined,
+                            WebkitMaskImage: bottomEdgeUsesMajorLine
+                                ? 'repeating-linear-gradient(to right, #000 0px, #000 var(--canvas-major-dash-length), transparent var(--canvas-major-dash-length), transparent calc(var(--canvas-major-dash-length) + var(--canvas-major-dash-gap)))'
+                                : undefined,
+                        }}
+                    />
+                </div>
 
                 <div
                     className="relative z-10 grid h-full w-full"

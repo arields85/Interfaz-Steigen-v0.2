@@ -32,7 +32,17 @@ import ChartTooltip from '../../components/ui/ChartTooltip';
 import type { ChartTooltipSeries } from '../../components/ui/ChartTooltip';
 import ChartHoverLayer from '../../components/ui/ChartHoverLayer';
 import WidgetSegmentedControl from '../../components/ui/WidgetSegmentedControl';
-import { smoothPath, buildAreaPath, formatTick, clamp, round2, computeVisibleLabelIndices, type Point } from '../../utils/chartHelpers';
+import {
+    smoothPath,
+    buildAreaPath,
+    formatTick,
+    clamp,
+    round2,
+    computeVisibleLabelIndices,
+    getChartLetterSpacingPx,
+    getChartTextFont,
+    type Point,
+} from '../../utils/chartHelpers';
 
 // Resolución de ícono del header por nombre declarado en `displayOptions.icon`.
 // El set disponible coincide con el selector de íconos del PropertyDock, así que
@@ -342,9 +352,10 @@ function ProdHistoryBarsSvg({
                 y={margin.top - 12}
                 textAnchor="middle"
                 fill={TOKEN.muted}
-                fontSize={9}
+                fontSize="var(--font-size-chart)"
                 fontFamily="var(--font-chart)"
                 fontWeight="var(--font-weight-chart)"
+                letterSpacing="var(--tracking-chart)"
                 opacity={0.8}
             >
                 {productionUnit}
@@ -464,9 +475,10 @@ function ProdHistoryBarsSvg({
                 const visibleIndices = computeVisibleLabelIndices(
                     xLabels,
                     xPositions,
-                    '600 10px IBMPlexMono, monospace',
+                    getChartTextFont(),
                     8,
                     margin.left + plotWidth,
+                    getChartLetterSpacingPx(),
                 );
                 return data.map((item, index) => {
                     if (!visibleIndices.has(index)) return null;
@@ -477,9 +489,10 @@ function ProdHistoryBarsSvg({
                             y={margin.top + plotHeight + 16}
                             textAnchor="middle"
                             fill={TOKEN.muted}
-                            fontSize={10}
+                            fontSize="var(--font-size-chart)"
                             fontFamily="var(--font-chart)"
                             fontWeight="var(--font-weight-chart)"
+                            letterSpacing="var(--tracking-chart)"
                         >
                             {item.label}
                         </text>
@@ -495,9 +508,10 @@ function ProdHistoryBarsSvg({
                     dy={4}
                     textAnchor="end"
                     fill={TOKEN.muted}
-                    fontSize={10}
+                    fontSize="var(--font-size-chart)"
                     fontFamily="var(--font-chart)"
                     fontWeight="var(--font-weight-chart)"
+                    letterSpacing="var(--tracking-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>
@@ -511,9 +525,10 @@ function ProdHistoryBarsSvg({
                     dy={4}
                     textAnchor="start"
                     fill={TOKEN.muted}
-                    fontSize={10}
+                    fontSize="var(--font-size-chart)"
                     fontFamily="var(--font-chart)"
                     fontWeight="var(--font-weight-chart)"
+                    letterSpacing="var(--tracking-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>
@@ -660,7 +675,7 @@ export default function ProdHistoryWidget({
     if (isLoadingData) {
         return (
             <div className={`glass-panel p-5 w-full h-full flex items-center justify-center ${className ?? ''}`}>
-                <div className="animate-pulse text-industrial-muted text-xs font-bold uppercase tracking-widest">
+                <div className="animate-pulse text-industrial-muted uppercase">
                     Cargando datos...
                 </div>
             </div>
@@ -679,7 +694,7 @@ export default function ProdHistoryWidget({
                 <button
                     type="button"
                     onClick={() => setShowOee((current) => !current)}
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-widest transition-colors ${showOee
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 uppercase transition-colors ${showOee
                         ? 'border-admin-accent/30 bg-admin-accent/10 text-admin-accent'
                         : 'border-industrial-border text-industrial-muted hover:text-industrial-text'
                         }`}
@@ -700,13 +715,13 @@ export default function ProdHistoryWidget({
             <div className="mb-3 flex items-center gap-4">
                 <div className="flex items-center gap-1">
                     <span className={`h-2 w-2 shrink-0 ${productionChartMode === 'bars' ? 'rounded-[2px]' : 'rounded-full'}`} style={{ backgroundColor: TOKEN.production }} />
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">{productionLabel}</span>
+                    <span className="uppercase text-industrial-muted">{productionLabel}</span>
                 </div>
 
                 {showOee && (
                     <div className="flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: TOKEN.oee }} />
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">{oeeLabel}</span>
+                        <span className="uppercase text-industrial-muted">{oeeLabel}</span>
                     </div>
                 )}
             </div>

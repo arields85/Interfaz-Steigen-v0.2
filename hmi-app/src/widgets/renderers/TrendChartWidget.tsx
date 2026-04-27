@@ -12,7 +12,16 @@ import { isDataHistoryEnabled } from '../../config/dataConnection.config';
 import { useDataHistory } from '../../queries/useDataHistory';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { generateTrendData } from '../../utils/trendDataGenerator';
-import { smoothPath, buildAreaPath, formatTick, clamp, computeVisibleLabelIndices, type Point } from '../../utils/chartHelpers';
+import {
+    smoothPath,
+    buildAreaPath,
+    formatTick,
+    clamp,
+    computeVisibleLabelIndices,
+    getChartLetterSpacingPx,
+    getChartTextFont,
+    type Point,
+} from '../../utils/chartHelpers';
 import WidgetHeader from '../../components/ui/WidgetHeader';
 import WidgetSegmentedControl from '../../components/ui/WidgetSegmentedControl';
 import type { SegmentedOption } from '../../components/ui/WidgetSegmentedControl';
@@ -245,9 +254,10 @@ function TrendChartSvg({
                             y={ty - 6}
                             textAnchor="end"
                             fill={color}
-                            fontSize={9}
+                            fontSize="var(--font-size-chart)"
                             fontFamily="var(--font-chart)"
                             fontWeight="var(--font-weight-chart)"
+                            letterSpacing="var(--tracking-chart)"
                         >
                             {t.label || (t.severity === 'critical' ? 'CRIT' : 'WARN')}
                         </text>
@@ -301,9 +311,10 @@ function TrendChartSvg({
                 const visibleIndices = computeVisibleLabelIndices(
                     xLabels,
                     xPositions,
-                    '600 10px IBMPlexMono, monospace',
+                    getChartTextFont(),
                     8,
                     margin.left + plotWidth,
+                    getChartLetterSpacingPx(),
                 );
                 return data.map((item, index) => {
                     if (!visibleIndices.has(index)) return null;
@@ -314,9 +325,10 @@ function TrendChartSvg({
                             y={margin.top + plotHeight + 16}
                             textAnchor="middle"
                             fill={TOKEN.muted}
-                            fontSize={10}
+                            fontSize="var(--font-size-chart)"
                             fontFamily="var(--font-chart)"
                             fontWeight="var(--font-weight-chart)"
+                            letterSpacing="var(--tracking-chart)"
                         >
                             {item.time}
                         </text>
@@ -332,9 +344,10 @@ function TrendChartSvg({
                     dy={4}
                     textAnchor="end"
                     fill={TOKEN.muted}
-                    fontSize={10}
+                    fontSize="var(--font-size-chart)"
                     fontFamily="var(--font-chart)"
                     fontWeight="var(--font-weight-chart)"
+                    letterSpacing="var(--tracking-chart)"
                 >
                     {formatTick(tick.value)}
                 </text>
@@ -502,7 +515,7 @@ export default function TrendChartWidget({
     if (isLoadingData || isRealLoading) {
         return (
             <div className={`glass-panel p-5 w-full h-full flex items-center justify-center ${className ?? ''}`}>
-                <div className="animate-pulse text-industrial-muted text-xs font-bold uppercase tracking-widest">
+                <div className="animate-pulse text-industrial-muted uppercase">
                     Cargando datos...
                 </div>
             </div>
@@ -528,18 +541,18 @@ export default function TrendChartWidget({
 
             {historyData?.summary && chartData === historyTrendData && historyTrendData.length > 0 && (
                 <div className="mb-3 flex items-center justify-center gap-4 shrink-0">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">Min {formatSummaryValue(historyData.summary.min)}</span>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">Max {formatSummaryValue(historyData.summary.max)}</span>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-industrial-muted">Avg {formatSummaryValue(historyData.summary.avg)}</span>
+                    <span className="uppercase text-industrial-muted">Min {formatSummaryValue(historyData.summary.min)}</span>
+                    <span className="uppercase text-industrial-muted">Max {formatSummaryValue(historyData.summary.max)}</span>
+                    <span className="uppercase text-industrial-muted">Avg {formatSummaryValue(historyData.summary.avg)}</span>
                 </div>
             )}
 
             <div className="flex-1 min-h-0 -mx-3 -mb-3 relative">
                 {isNoData ? (
                     <div className="h-full w-full flex flex-col items-center justify-center gap-2">
-                        <span className="text-6xl font-black text-white leading-none tracking-tighter">--</span>
+                        <span className="text-white leading-none">--</span>
                         {!isSimulated && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-industrial-muted">
+                            <span className="uppercase text-industrial-muted">
                                 {isHistoryError ? 'Error al cargar datos' : 'Sin datos'}
                             </span>
                         )}

@@ -1,11 +1,38 @@
 import '@testing-library/jest-dom/vitest';
-import { act, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContractMachine } from '../../domain/dataContract.types';
 import type { MachineActivityWidgetConfig } from '../../domain/admin.types';
 import MachineActivityWidget from './MachineActivityWidget';
 
 const equipmentMap = new Map();
+
+class MockResizeObserver implements ResizeObserver {
+    public constructor(private readonly callback: ResizeObserverCallback) {}
+
+    public observe(target: Element) {
+        this.callback([
+            {
+                target,
+                contentRect: {
+                    width: 200,
+                    height: 200,
+                    x: 0,
+                    y: 0,
+                    top: 0,
+                    left: 0,
+                    right: 200,
+                    bottom: 200,
+                    toJSON: () => ({}),
+                },
+            } as ResizeObserverEntry,
+        ], this);
+    }
+
+    public unobserve() {}
+
+    public disconnect() {}
+}
 
 function makeWidget(overrides?: Partial<MachineActivityWidgetConfig>): MachineActivityWidgetConfig {
     return {
@@ -50,8 +77,15 @@ function makeMachines(value: number | null): ContractMachine[] {
 }
 
 describe('MachineActivityWidget', () => {
+    beforeEach(() => {
+        document.documentElement.style.removeProperty('--font-size-widget-value-gauge');
+        document.documentElement.style.removeProperty('--font-size-widget-unit-gauge');
+        vi.stubGlobal('ResizeObserver', MockResizeObserver);
+    });
+
     afterEach(() => {
         vi.useRealTimers();
+        vi.unstubAllGlobals();
     });
 
     it('renders with valid power data', () => {
@@ -69,13 +103,16 @@ describe('MachineActivityWidget', () => {
         expect(screen.getByText('Detenida')).toBeInTheDocument();
         const gauge = screen.getByTestId('gauge-circular');
         const value = screen.getByText('0');
+        const unit = screen.getByText('kW');
         const gaugeLayer = gauge.parentElement;
-        const valueLayer = value.parentElement;
+        const centerContent = screen.getByTestId('gauge-circular-center-content');
 
         expect(gauge).toBeInTheDocument();
         expect(gaugeLayer).toHaveClass('relative', 'flex', 'items-center', 'justify-center', 'w-full', 'h-full', 'min-h-[140px]');
-        expect(valueLayer).toHaveClass('absolute', 'inset-0', 'flex', 'flex-col', 'items-center', 'justify-center');
-        expect(gaugeLayer).toBe(valueLayer?.parentElement);
+        expect(centerContent.tagName.toLowerCase()).toBe('g');
+        expect(gauge).toContainElement(centerContent);
+        expect(value.tagName.toLowerCase()).toBe('text');
+        expect(unit.tagName.toLowerCase()).toBe('text');
         expect(gauge).toHaveClass('w-full', 'h-full');
         expect(gauge.style.width).toBe('');
         expect(gauge.style.height).toBe('');
@@ -356,5 +393,31 @@ describe('MachineActivityWidget', () => {
         expect(screen.getByText('75')).toBeInTheDocument();
         expect(screen.getByText('30.00 °F')).toBeInTheDocument();
         expect(screen.getByText('°F')).toBeInTheDocument();
+    });
+
+    it('updates circular gauge text sizing when the shared gauge font variables change', async () => {
+        render(
+            <MachineActivityWidget
+                widget={makeWidget()}
+                equipmentMap={equipmentMap}
+                machines={makeMachines(0.1)}
+            />,
+        );
+
+        const gauge = screen.getByTestId('gauge-circular');
+        const [valueText, unitText] = Array.from(gauge.querySelectorAll('text'));
+
+        expect(valueText).toHaveAttribute('font-size', '60');
+        expect(unitText).toHaveAttribute('font-size', '20');
+
+        act(() => {
+            document.documentElement.style.setProperty('--font-size-widget-value-gauge', '76px');
+            document.documentElement.style.setProperty('--font-size-widget-unit-gauge', '26px');
+        });
+
+        await waitFor(() => {
+            expect(valueText).toHaveAttribute('font-size', '76');
+            expect(unitText).toHaveAttribute('font-size', '26');
+        });
     });
 });

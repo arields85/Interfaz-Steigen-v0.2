@@ -1,6 +1,6 @@
 import { Edit2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { DragEvent, KeyboardEvent } from 'react';
+import type { CSSProperties, DragEvent, KeyboardEvent } from 'react';
 import type { Dashboard, WidgetType } from '../../domain/admin.types';
 import type { ConnectionHealth, ContractMachine } from '../../domain/dataContract.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
@@ -23,6 +23,8 @@ interface InlineEditableTextProps {
     emptyClassName?: string;
     inputClassName: string;
     multiline?: boolean;
+    textStyle?: CSSProperties;
+    inputStyle?: CSSProperties;
 }
 
 function InlineEditableText({
@@ -34,6 +36,8 @@ function InlineEditableText({
     emptyClassName,
     inputClassName,
     multiline = false,
+    textStyle,
+    inputStyle,
 }: InlineEditableTextProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [draftValue, setDraftValue] = useState(value ?? '');
@@ -75,6 +79,7 @@ function InlineEditableText({
                     onKeyDown={handleKeyDown}
                     placeholder={fallback ?? placeholder}
                     className={inputClassName}
+                    style={inputStyle}
                 />
             );
         }
@@ -88,6 +93,7 @@ function InlineEditableText({
                 onKeyDown={handleKeyDown}
                 placeholder={fallback ?? placeholder}
                 className={inputClassName}
+                style={inputStyle}
             />
         );
     }
@@ -99,7 +105,7 @@ function InlineEditableText({
             className="group flex items-center gap-2 text-left"
             title="Editar directamente en el preview"
         >
-            <span className={`${className} ${!displayValue ? emptyClassName ?? '' : ''}`}>
+            <span className={`${className} ${!displayValue ? emptyClassName ?? '' : ''}`} style={textStyle}>
                 {displayValue || placeholder}
             </span>
             <Edit2 size={14} className="shrink-0 text-industrial-muted/50 transition-colors group-hover:text-admin-accent" />
@@ -202,38 +208,48 @@ export default function DashboardHeader({
 
     const isPreview = mode === 'preview';
     const isEditablePreview = isPreview && Boolean(onTitleChange) && Boolean(onSubtitleChange);
+    const dashboardTitleTypography: CSSProperties = {
+        fontFamily: 'var(--font-dashboard-title)',
+        fontWeight: 'var(--font-weight-dashboard-title)',
+        fontSize: 'var(--font-size-dashboard-title)',
+        letterSpacing: 'var(--tracking-dashboard-title)',
+    };
 
     return (
         <div className="flex justify-between items-end gap-6 shrink-0">
             <div className="min-w-0 flex-1">
                 {isEditablePreview ? (
-                    <div className="space-y-1.5" style={{ fontFamily: 'var(--font-dashboard-title)', fontWeight: 'var(--font-weight-dashboard-title)' }}>
-                        <InlineEditableText
-                            value={title}
-                            placeholder="Título del header"
-                            onCommit={(value) => onTitleChange?.(value)}
-                            className="text-5xl tracking-tight text-industrial-text leading-none"
-                            emptyClassName="text-industrial-muted/60"
-                            inputClassName="w-full min-w-[20rem] bg-transparent text-5xl tracking-tight text-industrial-text leading-none border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
-                        />
+                    <div className="space-y-1.5">
+                        <div>
+                            <InlineEditableText
+                                value={title}
+                                placeholder="Título del header"
+                                onCommit={(value) => onTitleChange?.(value)}
+                                className="text-industrial-text leading-none"
+                                emptyClassName="text-industrial-muted/60"
+                                inputClassName="w-full min-w-[20rem] bg-transparent text-industrial-text leading-none border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
+                                textStyle={dashboardTitleTypography}
+                                inputStyle={dashboardTitleTypography}
+                            />
+                        </div>
                         <InlineEditableText
                             value={headerConfig?.subtitle}
                             fallback={dashboard.description}
                             placeholder="Subtítulo del header"
                             onCommit={(value) => onSubtitleChange?.(value)}
-                            className="text-industrial-muted text-[11px] font-bold uppercase tracking-widest"
+                            className="text-industrial-muted uppercase"
                             emptyClassName="text-industrial-muted/50"
-                            inputClassName="w-full min-w-[20rem] resize-none bg-transparent text-industrial-muted text-[11px] font-bold uppercase tracking-widest border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
+                            inputClassName="w-full min-w-[20rem] resize-none bg-transparent text-industrial-muted uppercase border-b border-white/10 focus:border-admin-accent/60 focus:outline-none"
                             multiline
                         />
                     </div>
                 ) : (
                     <>
-                        <h1 className="text-5xl tracking-tight text-industrial-text mb-1 leading-none" style={{ fontFamily: 'var(--font-dashboard-title)', fontWeight: 'var(--font-weight-dashboard-title)' }}>
+                        <h1 className="text-industrial-text mb-1 leading-none" style={dashboardTitleTypography}>
                             {title}
                         </h1>
                         {subtitle && (
-                            <p className="text-industrial-muted text-[11px] font-bold uppercase tracking-widest mt-1">
+                            <p className="text-industrial-muted uppercase mt-1">
                                 {subtitle}
                             </p>
                         )}

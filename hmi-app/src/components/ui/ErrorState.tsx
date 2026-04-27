@@ -26,15 +26,15 @@ export default function ErrorState({
                 <AlertCircle size={24} className="text-accent-ruby" strokeWidth={1.5} />
             </div>
             <div className="flex flex-col gap-1">
-                <p className="text-sm font-bold text-industrial-text">{title}</p>
+                <p className="text-industrial-text">{title}</p>
                 {message && (
-                    <p className="text-xs text-industrial-muted max-w-xs">{message}</p>
+                    <p className="text-industrial-muted max-w-xs">{message}</p>
                 )}
             </div>
             {onRetry && (
                 <button
                     onClick={onRetry}
-                    className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-industrial-hover border border-industrial-border text-xs font-bold text-industrial-muted hover:text-industrial-text hover:bg-industrial-surface transition-colors"
+                    className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-industrial-hover border border-industrial-border text-industrial-muted hover:text-industrial-text hover:bg-industrial-surface transition-colors"
                 >
                     <RefreshCw size={14} />
                     Reintentar

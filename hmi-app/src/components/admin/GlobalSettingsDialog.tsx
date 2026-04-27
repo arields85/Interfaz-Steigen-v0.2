@@ -54,7 +54,7 @@ export default function GlobalSettingsDialog({ open, onClose }: GlobalSettingsDi
                                 type="button"
                                 onClick={() => setActiveTab(id)}
                                 className={[
-                                    'flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors',
+                                    'flex items-center gap-2 px-4 py-2 uppercase transition-colors',
                                     isActive
                                         ? 'border-b-2 border-admin-accent text-white'
                                         : 'text-industrial-muted hover:text-white',
