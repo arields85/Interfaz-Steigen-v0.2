@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, Settings } from 'lucide-react';
 import GlobalSettingsDialog from '../components/admin/GlobalSettingsDialog';
+import { HmiButton } from '../components/ui';
 import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation';
+import { useAuthStore } from '../store/auth.store';
 
 // =============================================================================
 // AdminLayout
@@ -15,8 +17,11 @@ import { ADMIN_SECTIONS, getAdminSectionByPath } from '../utils/adminNavigation'
 
 export default function AdminLayout() {
     const location = useLocation();
+    const navigate = useNavigate();
     const activeSectionKey = getAdminSectionByPath(location.pathname)?.key;
     const [isNodeRedSettingsOpen, setIsNodeRedSettingsOpen] = useState(false);
+    const session = useAuthStore((state) => state.session);
+    const logout = useAuthStore((state) => state.logout);
 
     return (
         <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-industrial-bg text-industrial-text">
@@ -50,25 +55,29 @@ export default function AdminLayout() {
                 <div className="flex items-center gap-4">
                     <button
                         aria-label="Configuracion general"
-                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-industrial-muted transition-colors hover:bg-white/5 hover:text-white"
+                        className="rounded-lg p-2 text-industrial-muted transition-colors hover:bg-industrial-hover hover:text-industrial-text"
                         title="Configuracion general"
                         type="button"
                         onClick={() => setIsNodeRedSettingsOpen(true)}
                     >
-                        <Settings size={14} />
+                        <Settings size={20} />
                     </button>
                     <span className="text-admin-accent/80 flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-admin-accent animate-pulse" />
-                        SESIÓN ADMIN ACTIVA
+                        SESIÓN ADMIN ACTIVA · {session.user?.displayName ?? 'Admin'}
                     </span>
                     <div className="h-4 w-px bg-industrial-border" />
-                    <NavLink 
-                        to="/" 
-                        className="flex items-center gap-2 text-industrial-muted hover:text-white transition-colors"
+                    <HmiButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            logout();
+                            navigate('/');
+                        }}
                     >
-                        Salir al visor
+                        Cerrar sesion
                         <LogOut size={14} />
-                    </NavLink>
+                    </HmiButton>
                 </div>
             </header>
 

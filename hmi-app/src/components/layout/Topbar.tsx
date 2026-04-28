@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { Bell, Search, User, Home, FolderTree, Activity, AlertTriangle, Box, Settings, LayoutDashboard, Stethoscope, ScrollText } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Bell, Search, User, Home, FolderTree, Activity, AlertTriangle, Box, Settings, LayoutDashboard, Stethoscope, ScrollText, Palette } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import LoginOverlay from '../auth/LoginOverlay';
 import ShaderSettingsPanel from './ShaderSettingsPanel';
+import { useAuthStore } from '../../store/auth.store';
 
 const navLeftItems = [
     { icon: Home, label: 'Visión General', path: '/' },
@@ -26,8 +28,8 @@ function NavIconLink({ icon: Icon, label, path }: { icon: typeof Home; label: st
             className={({ isActive }) =>
                 `p-2 rounded-lg transition-colors ${
                     isActive
-                        ? 'text-admin-accent drop-shadow-[0_0_8px_var(--color-admin-accent)] hover:bg-white/5'
-                        : 'text-industrial-muted hover:text-white hover:bg-white/5'
+                        ? 'text-admin-accent hover:bg-industrial-hover'
+                        : 'text-industrial-muted hover:bg-industrial-hover hover:text-industrial-text'
                 }`
             }
         >
@@ -38,13 +40,21 @@ function NavIconLink({ icon: Icon, label, path }: { icon: typeof Home; label: st
 
 export default function Topbar() {
     const [shaderPanelOpen, setShaderPanelOpen] = useState(false);
+    const [loginOverlayOpen, setLoginOverlayOpen] = useState(false);
+    const userButtonRef = useRef<HTMLButtonElement>(null);
+    const isHydrated = useAuthStore((state) => state.isHydrated);
+    const hasAdminAccess = useAuthStore((state) => state.hasPermission('admin:access'));
+    const navigate = useNavigate();
+    const shouldShowAdminActions = isHydrated && hasAdminAccess;
+
+    const iconButtonClassName = 'relative rounded-lg p-2 text-industrial-muted transition-colors hover:bg-industrial-hover hover:text-industrial-text';
 
     return (
         <>
-            <header className="relative z-50 sticky top-0 flex items-center justify-between border-b border-white/5 bg-black/40 px-6 py-4 backdrop-blur-xl lg:px-10">
+            <header className="relative z-50 sticky top-0 flex items-center justify-between border-b border-industrial-border bg-industrial-surface/80 px-6 py-4 backdrop-blur-xl lg:px-10">
                 {/* Left: Logo */}
-                <h2 className="text-white uppercase shrink-0">
-                    Core <span className="text-gradient">Analytics</span>
+                <h2 className="shrink-0 text-xl uppercase text-industrial-text">
+                    Core<span className="text-gradient">Analytics</span>
                 </h2>
 
                 {/* Center: Nav Left + Search + Nav Right */}
@@ -55,10 +65,10 @@ export default function Topbar() {
                         ))}
                     </nav>
 
-                    <div className="hidden lg:flex items-center bg-white/5 border border-white/5 rounded-2xl px-4 py-2 w-80">
-                        <Search className="text-slate-500 shrink-0" size={20} />
+                    <div className="hidden w-80 items-center rounded-2xl border border-industrial-border bg-industrial-hover px-4 py-2 lg:flex">
+                        <Search className="shrink-0 text-industrial-muted" size={20} />
                         <input
-                            className="bg-transparent border-none focus:ring-0 focus:outline-none w-full placeholder:text-slate-600 ml-2 text-white"
+                            className="ml-2 w-full border-none bg-transparent text-industrial-text placeholder:text-industrial-muted focus:outline-none focus:ring-0"
                             placeholder="Analyze equipment..."
                             type="text"
                         />
@@ -73,22 +83,38 @@ export default function Topbar() {
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-1">
-                    <button title="Notificaciones" className="relative p-2 rounded-lg text-industrial-muted hover:text-white hover:bg-white/5 transition-colors">
-                        <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"></span>
+                    <button title="Notificaciones" className={iconButtonClassName}>
+                        <span className="led-glow-red absolute right-1 top-1 size-2 rounded-full bg-status-critical"></span>
                         <Bell size={20} />
                     </button>
+                    {shouldShowAdminActions ? (
+                        <button
+                            title="Personalizar fondo"
+                            className={`p-2 rounded-lg transition-colors ${
+                                shaderPanelOpen
+                                    ? 'bg-industrial-hover text-admin-accent'
+                                    : iconButtonClassName
+                            }`}
+                            onClick={() => setShaderPanelOpen((value) => !value)}
+                        >
+                            <Palette size={20} />
+                        </button>
+                    ) : null}
+                    {shouldShowAdminActions ? (
+                        <button
+                            title="Administracion"
+                            className={iconButtonClassName}
+                            onClick={() => window.open('/admin', '_blank')}
+                        >
+                            <Settings size={20} />
+                        </button>
+                    ) : null}
                     <button
-                        title="Configuracion de fondo"
-                        className={`p-2 rounded-lg transition-colors ${
-                            shaderPanelOpen
-                                ? 'text-admin-accent bg-white/10'
-                                : 'text-industrial-muted hover:text-white hover:bg-white/5'
-                        }`}
-                        onClick={() => setShaderPanelOpen((value) => !value)}
+                        ref={userButtonRef}
+                        title="Usuario"
+                        className={iconButtonClassName}
+                        onClick={() => setLoginOverlayOpen((value) => !value)}
                     >
-                        <Settings size={20} />
-                    </button>
-                    <button title="Usuario" className="p-2 rounded-lg text-industrial-muted hover:text-white hover:bg-white/5 transition-colors">
                         <User size={20} />
                     </button>
                 </div>
@@ -96,6 +122,11 @@ export default function Topbar() {
             <ShaderSettingsPanel
                 open={shaderPanelOpen}
                 onClose={() => setShaderPanelOpen(false)}
+            />
+            <LoginOverlay
+                triggerRef={userButtonRef}
+                isOpen={loginOverlayOpen}
+                onClose={() => setLoginOverlayOpen(false)}
             />
         </>
     );

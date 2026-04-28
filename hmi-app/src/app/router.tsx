@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import AdminLayout from '../layouts/AdminLayout';
+import RequirePermission from '../components/auth/RequirePermission';
 import DashboardManagerPage from '../pages/admin/DashboardManagerPage';
 import DashboardBuilderPage from '../pages/admin/DashboardBuilderPage';
 import HierarchyPage from '../pages/admin/HierarchyPage';
@@ -8,6 +9,11 @@ import Dashboard from '../pages/Dashboard';
 import EquipmentDetail from '../pages/EquipmentDetail';
 import AlertsPage from '../pages/AlertsPage';
 import TrendsPage from '../pages/TrendsPage';
+import ExplorerPage from '../pages/ExplorerPage';
+import TraceabilityPage from '../pages/TraceabilityPage';
+import OverviewPage from '../pages/OverviewPage';
+import DiagnosticsPage from '../pages/DiagnosticsPage';
+import LogsPage from '../pages/LogsPage';
 
 // =============================================================================
 // APP ROUTER
@@ -25,13 +31,20 @@ const router = createBrowserRouter([
             { path: 'equipment/:equipmentId', element: <EquipmentDetail /> },
             { path: 'alerts', element: <AlertsPage /> },
             { path: 'trends', element: <TrendsPage /> },
-            { path: 'explorer', element: <div className="text-industrial-text p-6">Explorador — próximamente</div> },
-            { path: 'traceability', element: <div className="text-industrial-text p-6">Trazabilidad — próximamente</div> },
+            { path: 'explorer', element: <ExplorerPage /> },
+            { path: 'traceability', element: <TraceabilityPage /> },
+            { path: 'overview', element: <OverviewPage /> },
+            { path: 'diagnostics', element: <DiagnosticsPage /> },
+            { path: 'logs', element: <LogsPage /> },
         ],
     },
     {
         path: '/admin',
-        element: <AdminLayout />,
+        element: (
+            <RequirePermission permission="admin:access">
+                <AdminLayout />
+            </RequirePermission>
+        ),
         children: [
             { index: true, element: <Navigate to="dashboards" replace /> },
             { path: 'dashboards', element: <DashboardManagerPage /> },

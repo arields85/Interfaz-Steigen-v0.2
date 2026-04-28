@@ -16,3 +16,5 @@ export { default as HoverTooltip } from './HoverTooltip';
 export type { HoverTooltipProps } from './HoverTooltip';
 export { default as CursorTooltip } from './CursorTooltip';
 export type { CursorTooltipProps } from './CursorTooltip';
+export { default as HmiButton } from './HmiButton';
+export type { HmiButtonProps } from './HmiButton';
