@@ -53,7 +53,7 @@ export default function Topbar() {
         <>
             <header className="relative z-50 sticky top-0 flex items-center justify-between border-b border-industrial-border bg-industrial-surface/80 px-6 py-4 backdrop-blur-xl lg:px-10">
                 {/* Left: Logo */}
-                <h2 className="shrink-0 text-xl uppercase text-industrial-text">
+                <h2 className="shrink-0 uppercase text-industrial-text" style={{ fontSize: 'var(--font-size-logo)' }}>
                     Core<span className="text-gradient">Analytics</span>
                 </h2>
 

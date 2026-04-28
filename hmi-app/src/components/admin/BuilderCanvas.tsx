@@ -36,7 +36,7 @@ interface BuilderCanvasProps {
     connection?: ConnectionHealth;
     machines?: ContractMachine[];
     hierarchyContext?: HierarchyContext;
-    onWidgetSelect?: (widgetId: string) => void;
+    onWidgetSelect?: (widgetId: string | undefined) => void;
     selectedWidgetId?: string;
     onResize?: (widgetId: string, w: number, h: number) => void;
     onLayoutCommit?: (layout: WidgetLayout) => void;
@@ -170,7 +170,7 @@ export default function BuilderCanvas({
     cols = DEFAULT_COLS,
     rows = DEFAULT_ROWS,
 }: BuilderCanvasProps) {
-    const widgetCornerRadius = '1.5rem';
+    const getWidgetCornerRadius = (type: WidgetConfig['type']) => (type === 'text-title' ? '0px' : '1.5rem');
     const widgetMap = new Map(widgets.map((widget) => [widget.id, widget]));
     const rightEdgeUsesMajorLine = cols % GRID_MAJOR_INTERVAL_CELLS === 0;
     const bottomEdgeUsesMajorLine = rows % GRID_MAJOR_INTERVAL_CELLS === 0;
@@ -336,6 +336,13 @@ export default function BuilderCanvas({
         <div
             ref={containerRef}
             data-testid="builder-canvas-root"
+            tabIndex={0}
+            onPointerDown={(event) => {
+                if (event.button === 0 && !(event.target as Element).closest('[data-testid^="builder-canvas-item-"]')) {
+                    event.currentTarget.focus();
+                    onWidgetSelect?.(undefined);
+                }
+            }}
             className="flex h-full min-h-0 min-w-0 w-full items-start justify-start overflow-visible"
             style={{
                 outline: 'none',
@@ -500,14 +507,14 @@ export default function BuilderCanvas({
                             <div
                                 key={widget.id}
                                 data-testid={`builder-canvas-item-${widget.id}`}
-                                className="relative group cursor-grab rounded-xl transition-opacity duration-200"
+                                className={`relative group cursor-grab transition-opacity duration-200 ${widget.type === 'text-title' ? 'rounded-none' : 'rounded-xl'}`}
                                 style={itemStyle}
                                 onPointerDown={(event) => beginInteraction(event, item, 'move')}
                             >
                                 <GridSelectionFrame
                                     isSelected={isSelected}
                                     isHighlighted={false}
-                                    radius={widgetCornerRadius}
+                                    radius={getWidgetCornerRadius(widget.type)}
                                 />
 
                                 <WidgetHoverActions

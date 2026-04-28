@@ -32,7 +32,7 @@ const DEFAULTS = {
     powerMin: 0,
     powerMax: 1,
     labelStopped: 'Detenida',
-    labelCalibrating: 'Calibrando',
+    labelCalibrating: 'Setup',
     labelProducing: 'Produciendo',
 } as const;
 

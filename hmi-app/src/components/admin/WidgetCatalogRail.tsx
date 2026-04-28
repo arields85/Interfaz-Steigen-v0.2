@@ -1,4 +1,4 @@
-import { Activity, BarChart2, Gauge, History, LineChart, PlugZap, TrendingUp } from 'lucide-react';
+import { Activity, BarChart2, Gauge, HeartPulse, LineChart, Siren, TrendingUp, Type, Wifi } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { WidgetType } from '../../domain/admin.types';
 import HoverTooltip from '../ui/HoverTooltip';
@@ -15,13 +15,14 @@ interface RailAction {
 
 const ACTIONS: RailAction[] = [
     { type: 'kpi', label: 'Indicador (KPI)', icon: Gauge },
-    { type: 'machine-activity', label: 'Actividad de Máquina', icon: Activity },
+    { type: 'machine-activity', label: 'Actividad de Máquina', icon: HeartPulse },
     { type: 'metric-card', label: 'Tarjeta de Métrica', icon: BarChart2 },
     { type: 'trend-chart', label: 'Gráfico de Tendencia', icon: TrendingUp },
     { type: 'prod-history', label: 'Producción Histórica', icon: LineChart },
     { type: 'status', label: 'Estado de Equipo', icon: Activity },
-    { type: 'connection-status', label: 'Estado de Conexión', icon: PlugZap },
-    { type: 'alert-history', label: 'Histórico de Alertas', icon: History },
+    { type: 'connection-status', label: 'Estado de Conexión', icon: Wifi },
+    { type: 'alert-history', label: 'Histórico de Alertas', icon: Siren },
+    { type: 'text-title', label: 'Título de Texto', icon: Type },
 ];
 
 export default function WidgetCatalogRail({ onAddWidget }: WidgetCatalogRailProps) {

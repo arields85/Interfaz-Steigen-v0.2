@@ -35,7 +35,7 @@ const widget: MachineActivityWidgetConfig = {
         showDynamicColor: true,
         showStateAnimation: true,
         labelStopped: 'Detenida',
-        labelCalibrating: 'Calibrando',
+        labelCalibrating: 'Setup',
         labelProducing: 'Produciendo',
     },
 };

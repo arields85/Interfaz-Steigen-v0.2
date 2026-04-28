@@ -303,57 +303,187 @@ export default function EventHorizonBackground() {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const gl = canvas.getContext('webgl', {
-            antialias: false,
-            premultipliedAlpha: false,
-            powerPreference: 'high-performance',
-        });
-        if (!gl) {
-            canvas.style.display = 'none';
-            return;
-        }
-
-        if (gl.isContextLost()) return;
-
-        gl.clearColor(0.02, 0.027, 0.04, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        const prog = createProgram(gl, VERT, FRAG);
-        if (!prog) {
-            canvas.style.display = 'none';
-            return;
-        }
-
-        const buf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-
-        // Resolve all uniform locations once
-        const uRes = gl.getUniformLocation(prog, 'u_res');
-        const uTime = gl.getUniformLocation(prog, 'u_time');
-        const uMouse = gl.getUniformLocation(prog, 'u_mouse');
-        const uMouseNeb = gl.getUniformLocation(prog, 'u_mouseNeb');
-        const uMouseCursorNeb = gl.getUniformLocation(prog, 'u_mouseCursorNeb');
-        const uMouseHalo = gl.getUniformLocation(prog, 'u_mouseHalo');
-        const uPress = gl.getUniformLocation(prog, 'u_press');
-        const uClicks = gl.getUniformLocation(prog, 'u_clicks[0]');
-
-        const paramUniforms: Partial<Record<keyof ShaderParams, WebGLUniformLocation | null>> = {};
-        for (const key of Object.keys(UNIFORM_MAP) as (keyof ShaderParams)[]) {
-            paramUniforms[key] = gl.getUniformLocation(prog, UNIFORM_MAP[key]);
-        }
-
+        // --- Mutable state shared across init/frame/cleanup ---
         const mouse = { x: 0.5, y: 0.5 };
         const smoothMouseNeb = { x: 0.5, y: 0.5 };
         const smoothMouseCursorNeb = { x: 0.5, y: 0.5 };
         const smoothMouseHalo = { x: 0.5, y: 0.5 };
         const clicks: { x: number; y: number; t: number; strength: number }[] = [];
-        const startTime = performance.now();
+        let startTime = performance.now();
         let rafId = 0;
         let prevT = 0;
+        let gl: WebGLRenderingContext | null = null;
+        let prog: WebGLProgram | null = null;
+        let buf: WebGLBuffer | null = null;
+        let uRes: WebGLUniformLocation | null = null;
+        let uTime: WebGLUniformLocation | null = null;
+        let uMouse: WebGLUniformLocation | null = null;
+        let uMouseNeb: WebGLUniformLocation | null = null;
+        let uMouseCursorNeb: WebGLUniformLocation | null = null;
+        let uMouseHalo: WebGLUniformLocation | null = null;
+        let uPress: WebGLUniformLocation | null = null;
+        let uClicks: WebGLUniformLocation | null = null;
+        let paramUniforms: Partial<Record<keyof ShaderParams, WebGLUniformLocation | null>> = {};
 
+
+        // --- Resize helper (returns false if canvas has no size) ---
+        function resize() {
+            if (!gl || !canvas) return false;
+            const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+            const w = Math.floor(canvas.clientWidth * dpr);
+            const h = Math.floor(canvas.clientHeight * dpr);
+            if (w === 0 || h === 0) return false;
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+                gl.viewport(0, 0, w, h);
+            }
+            return true;
+        }
+
+        // --- Full GL init (called on mount AND on context restore) ---
+        function initGL(): boolean {
+            gl = canvas!.getContext('webgl', {
+                antialias: false,
+                premultipliedAlpha: false,
+                powerPreference: 'high-performance',
+            });
+            if (!gl) return false;
+            if (gl.isContextLost()) return false;
+
+            gl.clearColor(0.02, 0.027, 0.04, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            prog = createProgram(gl, VERT, FRAG);
+            if (!prog) return false;
+
+            buf = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+            uRes = gl.getUniformLocation(prog, 'u_res');
+            uTime = gl.getUniformLocation(prog, 'u_time');
+            uMouse = gl.getUniformLocation(prog, 'u_mouse');
+            uMouseNeb = gl.getUniformLocation(prog, 'u_mouseNeb');
+            uMouseCursorNeb = gl.getUniformLocation(prog, 'u_mouseCursorNeb');
+            uMouseHalo = gl.getUniformLocation(prog, 'u_mouseHalo');
+            uPress = gl.getUniformLocation(prog, 'u_press');
+            uClicks = gl.getUniformLocation(prog, 'u_clicks[0]');
+
+            paramUniforms = {};
+            for (const key of Object.keys(UNIFORM_MAP) as (keyof ShaderParams)[]) {
+                paramUniforms[key] = gl.getUniformLocation(prog, UNIFORM_MAP[key]!);
+            }
+
+            // ── SYNCHRONOUS FIRST DRAW — eliminates blank frame on mount ──
+            if (resize()) {
+                const p = paramsRef.current;
+                gl.useProgram(prog);
+                if (uRes) gl.uniform2f(uRes, canvas!.width, canvas!.height);
+                if (uTime) gl.uniform1f(uTime, 0);
+                if (uMouse) gl.uniform2f(uMouse, 0.5, 0.5);
+                if (uMouseNeb) gl.uniform2f(uMouseNeb, 0.5, 0.5);
+                if (uMouseCursorNeb) gl.uniform2f(uMouseCursorNeb, 0.5, 0.5);
+                if (uMouseHalo) gl.uniform2f(uMouseHalo, 0.5, 0.5);
+                if (uPress) gl.uniform1f(uPress, 0);
+                for (const key of Object.keys(paramUniforms) as (keyof ShaderParams)[]) {
+                    const loc = paramUniforms[key];
+                    if (loc) gl.uniform1f(loc, p[key]);
+                }
+                if (uClicks) gl.uniform4fv(uClicks, new Float32Array(32));
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+            }
+
+            return true;
+        }
+
+        // --- Context lost/restored handlers ---
+        const handleContextLost = (e: Event) => {
+            e.preventDefault();
+            cancelAnimationFrame(rafId);
+        };
+        const handleContextRestored = () => {
+            if (initGL()) {
+                startTime = performance.now();
+                prevT = 0;
+                rafId = requestAnimationFrame(frame);
+            }
+        };
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+        // --- Frame loop ---
+        function frame(now: number) {
+            if (!gl || gl.isContextLost() || !prog) return;
+            if (!resize()) {
+                rafId = requestAnimationFrame(frame);
+                return;
+            }
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            const t = (now - startTime) / 1000;
+            const p = paramsRef.current;
+            const lensSpeed = p.lensDriftSpeed;
+            const autoLensX = 0.5 + 0.35 * Math.sin(t * 0.1 * lensSpeed) * Math.cos(t * 0.07 * lensSpeed);
+            const autoLensY = 0.5 + 0.3 * Math.cos(t * 0.08 * lensSpeed) * Math.sin(t * 0.13 * lensSpeed);
+            smoothMouseNeb.x += (mouse.x - smoothMouseNeb.x) * p.nebMouseLag;
+            smoothMouseNeb.y += (mouse.y - smoothMouseNeb.y) * p.nebMouseLag;
+            smoothMouseCursorNeb.x += (mouse.x - smoothMouseCursorNeb.x) * p.cursorNebLag;
+            smoothMouseCursorNeb.y += (mouse.y - smoothMouseCursorNeb.y) * p.cursorNebLag;
+            smoothMouseHalo.x += (mouse.x - smoothMouseHalo.x) * p.haloLag;
+            smoothMouseHalo.y += (mouse.y - smoothMouseHalo.y) * p.haloLag;
+
+            const dt = Math.min(0.05, t - (prevT || t));
+            for (const c of clicks) { c.t += dt; c.strength *= Math.pow(0.35, dt); }
+            for (let i = clicks.length - 1; i >= 0; i--) {
+                if (clicks[i].t > 4.5 || clicks[i].strength < 0.02) clicks.splice(i, 1);
+            }
+
+            gl.useProgram(prog);
+            if (uRes) gl.uniform2f(uRes, canvas!.width, canvas!.height);
+            if (uTime) gl.uniform1f(uTime, t);
+            if (uMouse) gl.uniform2f(uMouse, autoLensX, autoLensY);
+            if (uMouseNeb) gl.uniform2f(uMouseNeb, smoothMouseNeb.x, smoothMouseNeb.y);
+            if (uMouseCursorNeb) gl.uniform2f(uMouseCursorNeb, smoothMouseCursorNeb.x, smoothMouseCursorNeb.y);
+            if (uMouseHalo) gl.uniform2f(uMouseHalo, smoothMouseHalo.x, smoothMouseHalo.y);
+            if (uPress) gl.uniform1f(uPress, 0);
+
+            let effectiveLensOpacity = p.lensOpacity;
+            if (p.lensAutoOpacity > 0.5) {
+                const s = p.lensAutoSpeed;
+                const breath = 0.5 + 0.25 * Math.sin(t * s) + 0.15 * Math.sin(t * s * 1.7) + 0.1 * Math.sin(t * s * 0.6);
+                effectiveLensOpacity = p.lensOpacity * Math.max(0, Math.min(1, breath));
+            }
+
+            for (const key of Object.keys(paramUniforms) as (keyof ShaderParams)[]) {
+                const loc = paramUniforms[key];
+                if (loc) gl.uniform1f(loc, p[key]);
+            }
+
+            if (uClicks) {
+                const arr = new Float32Array(8 * 4);
+                for (let i = 0; i < clicks.length && i < 8; i++) {
+                    arr[i * 4 + 0] = clicks[i].x;
+                    arr[i * 4 + 1] = clicks[i].y;
+                    arr[i * 4 + 2] = clicks[i].t;
+                    arr[i * 4 + 3] = clicks[i].strength;
+                }
+                gl.uniform4fv(uClicks, arr);
+            }
+
+            const uLensOpacityLoc = paramUniforms.lensOpacity;
+            if (uLensOpacityLoc) gl.uniform1f(uLensOpacityLoc, effectiveLensOpacity);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+
+
+            prevT = t;
+            rafId = requestAnimationFrame(frame);
+        }
+
+        // --- Input handlers ---
         const handleMouseMove = (e: MouseEvent) => {
             mouse.x = e.clientX / window.innerWidth;
             mouse.y = 1 - e.clientY / window.innerHeight;
@@ -368,96 +498,26 @@ export default function EventHorizonBackground() {
         };
         window.addEventListener('pointerdown', handleClick);
 
-        function resize() {
-            const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-            const w = Math.floor(canvas!.clientWidth * dpr);
-            const h = Math.floor(canvas!.clientHeight * dpr);
-            if (canvas!.width !== w || canvas!.height !== h) {
-                canvas!.width = w;
-                canvas!.height = h;
-                gl!.viewport(0, 0, w, h);
-            }
-        }
-
-        function frame(now: number) {
-            resize();
-            gl!.clear(gl!.COLOR_BUFFER_BIT);
-            const t = (now - startTime) / 1000;
-            const p = paramsRef.current;
-            const lensSpeed = p.lensDriftSpeed;
-            const autoLensX = 0.5 + 0.35 * Math.sin(t * 0.1 * lensSpeed) * Math.cos(t * 0.07 * lensSpeed);
-            const autoLensY = 0.5 + 0.3 * Math.cos(t * 0.08 * lensSpeed) * Math.sin(t * 0.13 * lensSpeed);
-            // Nebula drift mouse
-            smoothMouseNeb.x += (mouse.x - smoothMouseNeb.x) * p.nebMouseLag;
-            smoothMouseNeb.y += (mouse.y - smoothMouseNeb.y) * p.nebMouseLag;
-            // Cursor nebula mouse
-            smoothMouseCursorNeb.x += (mouse.x - smoothMouseCursorNeb.x) * p.cursorNebLag;
-            smoothMouseCursorNeb.y += (mouse.y - smoothMouseCursorNeb.y) * p.cursorNebLag;
-            // Cursor halo mouse
-            smoothMouseHalo.x += (mouse.x - smoothMouseHalo.x) * p.haloLag;
-            smoothMouseHalo.y += (mouse.y - smoothMouseHalo.y) * p.haloLag;
-
-            // Update click rings
-            const dt = Math.min(0.05, t - (prevT || t));
-            for (const c of clicks) {
-                c.t += dt;
-                c.strength *= Math.pow(0.35, dt);
-            }
-            // Remove expired clicks
-            for (let i = clicks.length - 1; i >= 0; i--) {
-                if (clicks[i].t > 4.5 || clicks[i].strength < 0.02) clicks.splice(i, 1);
-            }
-
-            gl!.useProgram(prog);
-            if (uRes) gl!.uniform2f(uRes, canvas!.width, canvas!.height);
-            if (uTime) gl!.uniform1f(uTime, t);
-            if (uMouse) gl!.uniform2f(uMouse, autoLensX, autoLensY);
-            if (uMouseNeb) gl!.uniform2f(uMouseNeb, smoothMouseNeb.x, smoothMouseNeb.y);
-            if (uMouseCursorNeb) gl!.uniform2f(uMouseCursorNeb, smoothMouseCursorNeb.x, smoothMouseCursorNeb.y);
-            if (uMouseHalo) gl!.uniform2f(uMouseHalo, smoothMouseHalo.x, smoothMouseHalo.y);
-            if (uPress) gl!.uniform1f(uPress, 0);
-
-            // Auto-breathing for lensing opacity
-            let effectiveLensOpacity = p.lensOpacity;
-            if (p.lensAutoOpacity > 0.5) {
-                const s = p.lensAutoSpeed;
-                const breath = 0.5 + 0.25 * Math.sin(t * s) + 0.15 * Math.sin(t * s * 1.7) + 0.1 * Math.sin(t * s * 0.6);
-                effectiveLensOpacity = p.lensOpacity * Math.max(0, Math.min(1, breath));
-            }
-
-            // Push all params as uniforms
-            for (const key of Object.keys(paramUniforms) as (keyof ShaderParams)[]) {
-                const loc = paramUniforms[key];
-                if (loc) gl!.uniform1f(loc, p[key]);
-            }
-
-            // Send click data
-            if (uClicks) {
-                const arr = new Float32Array(8 * 4);
-                for (let i = 0; i < clicks.length && i < 8; i++) {
-                    arr[i * 4 + 0] = clicks[i].x;
-                    arr[i * 4 + 1] = clicks[i].y;
-                    arr[i * 4 + 2] = clicks[i].t;
-                    arr[i * 4 + 3] = clicks[i].strength;
-                }
-                gl.uniform4fv(uClicks, arr);
-            }
-
-            // Override lensOpacity with computed breathing value
-            const uLensOpacityLoc = paramUniforms.lensOpacity;
-            if (uLensOpacityLoc) gl!.uniform1f(uLensOpacityLoc, effectiveLensOpacity);
-
-            gl!.drawArrays(gl!.TRIANGLES, 0, 3);
-            prevT = t;
+        // --- Init and start ---
+        if (initGL()) {
             rafId = requestAnimationFrame(frame);
         }
 
-        rafId = requestAnimationFrame(frame);
-
+        // --- Cleanup (StrictMode safe: releases GL resources) ---
         return () => {
             cancelAnimationFrame(rafId);
             window.removeEventListener('pointermove', handleMouseMove);
             window.removeEventListener('pointerdown', handleClick);
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+            canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+
+            if (gl && !gl.isContextLost()) {
+                if (prog) gl.deleteProgram(prog);
+                if (buf) gl.deleteBuffer(buf);
+            }
+            gl = null;
+            prog = null;
+            buf = null;
         };
     }, []);
 
@@ -465,7 +525,7 @@ export default function EventHorizonBackground() {
         <canvas
             ref={canvasRef}
             className="fixed inset-0 w-full h-full"
-            style={{ zIndex: 0, pointerEvents: 'none' }}
+            style={{ zIndex: 1, pointerEvents: 'none', backgroundColor: 'var(--color-industrial-bg)' }}
             aria-hidden="true"
         />
     );

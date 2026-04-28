@@ -6,7 +6,7 @@ import ConnectionBadge from '../../components/ui/ConnectionBadge';
 import { resolveBinding } from '../resolvers/bindingResolver';
 import { resolveHierarchyBinding, type HierarchyContext } from '../resolvers/hierarchyResolver';
 import { toCardStatus } from '../resolvers/thresholdEvaluator';
-import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import { Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, HeartPulse, Siren, Wifi, BarChart2, LineChart, type LucideIcon } from 'lucide-react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
     'Gauge': Gauge,
@@ -17,7 +17,12 @@ const ICON_MAP: Record<string, LucideIcon> = {
     'Wind': Wind,
     'Settings': Settings,
     'Fan': Fan,
-    'FoldVertical': FoldVertical
+    'FoldVertical': FoldVertical,
+    'HeartPulse': HeartPulse,
+    'Siren': Siren,
+    'Wifi': Wifi,
+    'BarChart2': BarChart2,
+    'LineChart': LineChart,
 };
 // =============================================================================
 // MetricWidget

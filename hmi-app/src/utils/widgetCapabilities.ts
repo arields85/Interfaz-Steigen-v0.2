@@ -11,23 +11,30 @@ export interface WidgetCapabilities {
     catalogVariable: boolean;
     /** Widget can aggregate values from hierarchy children. */
     hierarchy: boolean;
+    /** Default grid size (columns × rows) when the widget is first placed. */
+    defaultSize: { w: number; h: number };
+    /** Default icon name (Lucide string) when the widget is first placed. Null means no icon. */
+    defaultIcon: string | null;
 }
 
 const WIDGET_CAPABILITIES: Partial<Record<WidgetType, WidgetCapabilities>> = {
-    'metric-card': { catalogVariable: true, hierarchy: true },
-    'kpi': { catalogVariable: false, hierarchy: false },
-    'machine-activity': { catalogVariable: false, hierarchy: false },
-    'trend-chart': { catalogVariable: false, hierarchy: false },
-    'connection-status': { catalogVariable: false, hierarchy: false },
-    'status': { catalogVariable: false, hierarchy: false },
-    'alert-history': { catalogVariable: false, hierarchy: false },
-    'prod-history': { catalogVariable: false, hierarchy: false },
+    'kpi': { catalogVariable: false, hierarchy: false, defaultSize: { w: 6, h: 10 }, defaultIcon: 'Gauge' },
+    'machine-activity': { catalogVariable: false, hierarchy: false, defaultSize: { w: 6, h: 10 }, defaultIcon: 'HeartPulse' },
+    'metric-card': { catalogVariable: true, hierarchy: true, defaultSize: { w: 6, h: 5 }, defaultIcon: 'BarChart2' },
+    'trend-chart': { catalogVariable: false, hierarchy: false, defaultSize: { w: 11, h: 9 }, defaultIcon: 'TrendingUp' },
+    'prod-history': { catalogVariable: false, hierarchy: false, defaultSize: { w: 11, h: 9 }, defaultIcon: 'LineChart' },
+    'status': { catalogVariable: false, hierarchy: false, defaultSize: { w: 4, h: 4 }, defaultIcon: null },
+    'connection-status': { catalogVariable: false, hierarchy: false, defaultSize: { w: 5, h: 5 }, defaultIcon: null },
+    'alert-history': { catalogVariable: false, hierarchy: false, defaultSize: { w: 8, h: 8 }, defaultIcon: 'Siren' },
+    'text-title': { catalogVariable: false, hierarchy: false, defaultSize: { w: 5, h: 2 }, defaultIcon: null },
 };
 
 /** Default capabilities for unknown widget types. */
 const DEFAULT_CAPABILITIES: WidgetCapabilities = {
     catalogVariable: false,
     hierarchy: false,
+    defaultSize: { w: 4, h: 3 },
+    defaultIcon: null,
 };
 
 /**
@@ -49,4 +56,18 @@ export function supportsCatalogVariable(widgetType: string): boolean {
  */
 export function supportsHierarchy(widgetType: string): boolean {
     return getWidgetCapabilities(widgetType).hierarchy;
+}
+
+/**
+ * Returns the default grid size (w × h) for the given widget type.
+ */
+export function getDefaultSize(widgetType: string): { w: number; h: number } {
+    return getWidgetCapabilities(widgetType).defaultSize;
+}
+
+/**
+ * Returns the default icon for the given widget type.
+ */
+export function getDefaultIcon(widgetType: string): string | null {
+    return getWidgetCapabilities(widgetType).defaultIcon;
 }

@@ -10,6 +10,7 @@ import KpiWidget from './renderers/KpiWidget';
 import MachineActivityWidget from './renderers/MachineActivityWidget';
 import AlertHistoryWidget from './renderers/AlertHistoryWidget';
 import ProdHistoryWidget from './renderers/ProduccionHistoricaWidget';
+import TextTitleWidget from './renderers/TextTitleWidget';
 
 // =============================================================================
 // WidgetRenderer — Dispatcher central
@@ -149,6 +150,9 @@ export default function WidgetRenderer({
                     className={className}
                 />
             );
+
+        case 'text-title':
+            return <TextTitleWidget widget={widget} className={className} />;
 
         // -----------------------------------------------------------------------
         // Tipos pendientes de implementación — placeholder elegante.

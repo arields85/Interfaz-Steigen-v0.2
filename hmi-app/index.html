@@ -3,6 +3,15 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="color-scheme" content="dark" />
+  <!-- Static dark fallback — parsed before any JS, guarantees no white flash on load -->
+  <style>
+    html, body, #root, canvas { background-color: #05070a }
+  </style>
+  <!-- Define --color-industrial-bg early (persisted or default) so any var() ref resolves immediately -->
+  <script>
+    (function(){try{var c=JSON.parse(localStorage.getItem('hmi-theme-colors')||'{}');var bg=c['--color-industrial-bg']||'#05070a';var s=document.documentElement.style;s.setProperty('--color-industrial-bg',bg);s.backgroundColor=bg}catch(e){}})();
+  </script>
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +32,7 @@
       </linearGradient>
     </defs>
   </svg>
+
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

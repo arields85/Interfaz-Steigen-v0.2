@@ -182,6 +182,7 @@ export type WidgetType =
     | 'multi-metric'
     | 'ai-summary'
     | 'section-title'
+    | 'text-title'
     | 'machine-activity';
 
 // --- AGREGACIÓN JERÁRQUICA ---
@@ -423,6 +424,14 @@ export interface BaseDisplayOptions {
     // Sin opciones activas para este tipo de widget en esta versión.
 }
 
+export type TextTitleColor = 'white' | 'soft' | 'muted';
+
+export interface TextTitleDisplayOptions {
+    fontSize?: number;
+    textAlign?: 'left' | 'center' | 'right';
+    textColor?: TextTitleColor;
+}
+
 // =============================================================================
 // WIDGET CONFIG — Unión discriminada por tipo
 //
@@ -517,9 +526,14 @@ export interface MachineActivityWidgetConfig extends WidgetConfigBase {
     displayOptions?: MachineActivityDisplayOptions;
 }
 
+export interface TextTitleWidgetConfig extends WidgetConfigBase {
+    type: 'text-title';
+    displayOptions?: TextTitleDisplayOptions;
+}
+
 /** Variante genérica para todos los tipos de widget sin displayOptions específicos. */
 export interface GenericWidgetConfig extends WidgetConfigBase {
-    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status' | 'machine-activity'>;
+    type: Exclude<WidgetType, 'kpi' | 'metric-card' | 'trend-chart' | 'prod-history' | 'alert-history' | 'connection-status' | 'status' | 'machine-activity' | 'text-title'>;
     displayOptions?: BaseDisplayOptions;
 }
 
@@ -536,6 +550,7 @@ export type WidgetConfig =
     | ConnectionStatusWidgetConfig
     | StatusWidgetConfig
     | MachineActivityWidgetConfig
+    | TextTitleWidgetConfig
     | GenericWidgetConfig;
 
 // =============================================================================

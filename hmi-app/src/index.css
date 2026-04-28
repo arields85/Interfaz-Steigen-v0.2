@@ -221,6 +221,7 @@ h1, h2, h3, h4, h5, h6 {
   --color-industrial-border: rgba(255, 255, 255, 0.08);
 
   --color-industrial-text: #f1f5f9;
+  --color-industrial-text-soft: #c5c9d1;
   --color-industrial-muted: #94a3b8;
   --color-chart-grid: color-mix(in srgb, var(--color-industrial-muted) 35%, transparent);
 
@@ -274,16 +275,16 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Machine Activity — Productive State Colors */
   --color-state-stopped: var(--color-industrial-muted);
-  --color-state-stopped-from: var(--color-industrial-muted);
+  --color-state-stopped-from: var(--color-accent-purple);
   --color-state-stopped-to: var(--color-accent-blue);
 
-  --color-state-calibrating: var(--color-accent-blue);
-  --color-state-calibrating-from: var(--color-accent-blue);
-  --color-state-calibrating-to: var(--color-accent-purple);
+  --color-state-calibrating: var(--color-accent-blue-glow);
+  --color-state-calibrating-from: var(--color-accent-purple);
+  --color-state-calibrating-to: var(--color-accent-blue);
 
   --color-state-producing: var(--color-status-normal);
-  --color-state-producing-from: var(--color-accent-green);
-  --color-state-producing-to: var(--color-accent-green-glow);
+  --color-state-producing-from: var(--color-accent-green-glow);
+  --color-state-producing-to: var(--color-accent-green);
 
   --font-system: "JetBrainsMono";
   --font-sans: var(--font-system);
@@ -306,6 +307,7 @@ h1, h2, h3, h4, h5, h6 {
   --font-size-widget-value: 35px;
   --font-size-widget-unit: 20px;
   --font-size-widget-value-gauge: 60px;
+  --font-size-logo: 20px;
   --font-size-widget-unit-gauge: 20px;
   --tracking-system: 0px;
   --tracking-mono: 0px;

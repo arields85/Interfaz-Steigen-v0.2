@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode, type RefObject } from 'react';
+import { useState, useRef, useEffect, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 // =============================================================================

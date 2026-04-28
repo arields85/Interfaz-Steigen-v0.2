@@ -7,6 +7,7 @@ import BuilderCanvas from './BuilderCanvas';
 import DashboardViewer from '../viewer/DashboardViewer';
 import { makeDashboard, makeLayout, makeWidget } from '../../test/fixtures/dashboard.fixture';
 import { useUIStore } from '../../store/ui.store';
+import type { WidgetConfig } from '../../domain/admin.types';
 
 type ResizeObserverCallback = (entries: ResizeObserverEntry[], observer: ResizeObserver) => void;
 
@@ -650,5 +651,64 @@ describe('BuilderCanvas', () => {
         await releasePointer(user, document.body, { clientX: 180, clientY: 225 });
 
         expect(onLayoutCommit).toHaveBeenCalledWith({ widgetId: 'widget-1', x: 3, y: 3, w: 3, h: 2 });
+    });
+
+    it('uses a square selection frame for text-title while keeping rounded widgets unchanged', async () => {
+        const widgets: WidgetConfig[] = [
+            {
+                id: 'text-title-1',
+                type: 'text-title',
+                title: 'Sector A',
+                position: { x: 0, y: 0 },
+                size: { w: 4, h: 2 },
+                displayOptions: { fontSize: 48 },
+            },
+            {
+                id: 'metric-card-1',
+                type: 'metric-card',
+                title: 'Métrica',
+                position: { x: 0, y: 0 },
+                size: { w: 4, h: 2 },
+                displayOptions: {},
+            },
+        ];
+
+        const dashboard = makeDashboard({
+            widgets,
+            layout: [
+                makeLayout({ widgetId: 'text-title-1', x: 0, y: 0, w: 4, h: 2 }),
+                makeLayout({ widgetId: 'metric-card-1', x: 4, y: 0, w: 4, h: 2 }),
+            ],
+        });
+
+        const { container } = render(
+            <div style={{ width: '1200px', height: '675px' }}>
+                <BuilderCanvas
+                    widgets={dashboard.widgets}
+                    layout={dashboard.layout}
+                    equipmentMap={new Map()}
+                    cols={dashboard.cols}
+                    rows={dashboard.rows}
+                />
+            </div>,
+        );
+
+        const builderRoot = container.querySelector('[data-testid="builder-canvas-root"]');
+
+        if (!builderRoot) {
+            throw new Error('Builder root was not rendered.');
+        }
+
+        await syncCanvasMetrics(builderRoot, 1200, 675);
+
+        const dashboardTitleItem = screen.getByTestId('builder-canvas-item-text-title-1');
+        const metricCardItem = screen.getByTestId('builder-canvas-item-metric-card-1');
+        const dashboardTitleFrame = dashboardTitleItem.firstElementChild as HTMLElement | null;
+        const metricCardFrame = metricCardItem.firstElementChild as HTMLElement | null;
+
+        expect(dashboardTitleItem).toHaveClass('rounded-none');
+        expect(metricCardItem).toHaveClass('rounded-xl');
+        expect(dashboardTitleFrame?.style.borderRadius).toBe('0px');
+        expect(metricCardFrame?.style.borderRadius).toBe('24px');
     });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, forwardRef } from 'react';
-import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, Trash2, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Clock, History, Gauge, Activity, Thermometer, Zap, Droplet, Wind, Settings, Fan, FoldVertical, HelpCircle, Trash2, HeartPulse, Siren, Wifi, BarChart2, LineChart, type LucideIcon } from 'lucide-react';
 import type { AlertHistoryWidgetConfig, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
@@ -54,6 +54,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
     Settings,
     Fan,
     FoldVertical,
+    HeartPulse,
+    Siren,
+    Wifi,
+    BarChart2,
+    LineChart,
 };
 
 export default function AlertHistoryWidget({

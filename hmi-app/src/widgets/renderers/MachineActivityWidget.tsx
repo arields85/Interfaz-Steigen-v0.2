@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { MachineActivityDisplayOptions, MachineActivityWidgetConfig } from '../../domain/admin.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
-import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, HeartPulse, Siren, Wifi, BarChart2, LineChart, type LucideIcon } from 'lucide-react';
 import GaugeDisplay, { CIRCULAR_VIEWBOX_SIZE } from '../../components/ui/GaugeDisplay';
 import WidgetHeader from '../../components/ui/WidgetHeader';
 import WidgetCenteredContentLayout from '../../components/ui/WidgetCenteredContentLayout';
 import { useMachineActivity } from '../../hooks/useMachineActivity';
+import { getStateVisuals } from '../utils/machineActivity';
 import { resolveBinding } from '../resolvers/bindingResolver';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -19,6 +20,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
     Settings,
     Fan,
     FoldVertical,
+    HeartPulse,
+    Siren,
+    Wifi,
+    BarChart2,
+    LineChart,
 };
 
 interface MachineActivityWidgetProps {
@@ -59,6 +65,8 @@ const DEFAULT_CIRCULAR_TEXT_SIZING = {
     value: 0,
     unit: 0,
 } as const;
+
+const CALIBRATING_VISUALS = getStateVisuals('calibrating');
 
 function resolveCappedSvgFontSize(desiredPixels: number, renderedSize: number) {
     if (!(desiredPixels > 0)) {
@@ -174,6 +182,12 @@ export default function MachineActivityWidget({
             ? 'simulated'
             : `${widget.binding?.bindingVersion ?? 'legacy'}:${widget.binding?.assetId ?? ''}:${widget.binding?.machineId ?? ''}:${widget.binding?.variableKey ?? ''}`,
     });
+    const prevProductiveStateRef = useRef(productiveState);
+    const justEnteredSetupRef = useRef(false);
+    const lastSetupNormalizedRef = useRef(0);
+    const [retractingFromSetup, setRetractingFromSetup] = useState(false);
+    const [expandAnim, setExpandAnim] = useState<{ value: number; opacity: number } | null>(null);
+    const [retractAnim, setRetractAnim] = useState<{ value: number; opacity: number } | null>(null);
 
     if (isLoadingData) {
         return (
@@ -184,23 +198,31 @@ export default function MachineActivityWidget({
         );
     }
 
+    if (productiveState === 'calibrating') {
+        lastSetupNormalizedRef.current = activityIndex / 100;
+    }
+    const isRetractingFromSetup = (retractingFromSetup && productiveState === 'stopped')
+        || (prevProductiveStateRef.current === 'calibrating' && productiveState === 'stopped');
     const gaugePrimaryColor = usesDynamicColor
         ? stateVisuals.primary
         : 'color-mix(in srgb, var(--color-accent-purple) 40%, transparent)';
     const gaugeColor = {
         primary: gaugePrimaryColor,
         gradient: usesDynamicColor
-            ? stateVisuals.gradientColors
+            ? (isRetractingFromSetup ? CALIBRATING_VISUALS.gradientColors : stateVisuals.gradientColors)
             : ['var(--color-widget-gradient-from)', 'var(--color-widget-gradient-to)'] as [string, string],
     };
+    const effectiveAnimationIntensity = (isRetractingFromSetup
+        ? 'subtle'
+        : productiveState === 'producing'
+            ? 'active'
+            : productiveState === 'calibrating'
+                ? 'subtle'
+                : 'none') as 'none' | 'subtle' | 'active';
     const gaugeAnimation = showsAnimation
         ? {
             enabled: true,
-            intensity: productiveState === 'producing'
-                ? 'active'
-                : productiveState === 'calibrating'
-                    ? 'subtle'
-                    : 'none',
+            intensity: effectiveAnimationIntensity,
             durationMs: stateVisuals.animationDuration,
         } as const
         : {
@@ -208,6 +230,30 @@ export default function MachineActivityWidget({
             intensity: 'none',
             durationMs: 0,
         } as const;
+    const thresholdStopped = opts.thresholdStopped ?? 0.15;
+    const thresholdProducing = opts.thresholdProducing ?? 0.25;
+
+    if (productiveState === 'calibrating' && prevProductiveStateRef.current === 'stopped' && expandAnim === null) {
+        justEnteredSetupRef.current = true;
+    }
+
+    if (expandAnim !== null) {
+        justEnteredSetupRef.current = false;
+    }
+
+    const arcOpacity = expandAnim !== null
+        ? expandAnim.opacity
+        : (retractAnim !== null
+            ? retractAnim.opacity
+            : (justEnteredSetupRef.current ? 0 : 1));
+    const gaugeNormalized = expandAnim !== null
+        ? expandAnim.value
+        : (retractAnim !== null
+            ? retractAnim.value
+            : (justEnteredSetupRef.current ? 0 : (isRetractingFromSetup ? lastSetupNormalizedRef.current : activityIndex / 100)));
+    const gaugeGradientNormalized = (isRetractingFromSetup || retractAnim !== null)
+        ? lastSetupNormalizedRef.current
+        : undefined;
     const activityIndexLabel = isValid ? String(Math.round(activityIndex)) : '--';
 
     useEffect(() => {
@@ -260,6 +306,100 @@ export default function MachineActivityWidget({
         };
     }, [mode]);
 
+    useEffect(() => {
+        if (!isRetractingFromSetup) {
+            setRetractAnim(null);
+            return undefined;
+        }
+
+        const startValue = lastSetupNormalizedRef.current;
+        if (startValue <= 0) {
+            setRetractAnim(null);
+            return undefined;
+        }
+
+        const startTime = performance.now();
+        const duration = stateVisuals.animationDuration || 900;
+        let frameId: number;
+
+        const animate = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(progress, 2);
+            setRetractAnim({
+                value: startValue * eased,
+                opacity: Math.max(0, 1 - progress * 2),
+            });
+
+            if (progress < 1) {
+                frameId = requestAnimationFrame(animate);
+            } else {
+                setRetractAnim({ value: 0, opacity: 0 });
+            }
+        };
+
+        frameId = requestAnimationFrame(animate);
+
+        return () => cancelAnimationFrame(frameId);
+    }, [isRetractingFromSetup, stateVisuals.animationDuration]);
+
+    useEffect(() => {
+        const enteringSetup = productiveState === 'calibrating' && prevProductiveStateRef.current === 'stopped';
+
+        if (!enteringSetup) {
+            return undefined;
+        }
+
+        const targetValue = activityIndex / 100;
+        if (targetValue <= 0) {
+            return undefined;
+        }
+
+        setRetractAnim(null);
+        setRetractingFromSetup(false);
+
+        const startTime = performance.now();
+        const duration = stateVisuals.animationDuration || 550;
+        let frameId: number;
+
+        const animate = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 2);
+            setExpandAnim({
+                value: targetValue * eased,
+                opacity: Math.min(1, progress * 2),
+            });
+
+            if (progress < 1) {
+                frameId = requestAnimationFrame(animate);
+            } else {
+                setExpandAnim(null);
+            }
+        };
+
+        frameId = requestAnimationFrame(animate);
+
+        return () => cancelAnimationFrame(frameId);
+    }, [productiveState, activityIndex, stateVisuals.animationDuration]);
+
+    useEffect(() => {
+        const prevState = prevProductiveStateRef.current;
+
+        if (prevState === 'calibrating' && productiveState === 'stopped') {
+            setRetractingFromSetup(true);
+            const timer = setTimeout(() => setRetractingFromSetup(false), (stateVisuals.animationDuration || 900) + 50);
+            prevProductiveStateRef.current = productiveState;
+            return () => clearTimeout(timer);
+        }
+
+        if (productiveState !== 'stopped') {
+            setRetractingFromSetup(false);
+        }
+
+        prevProductiveStateRef.current = productiveState;
+    }, [productiveState, stateVisuals.animationDuration]);
+
     return (
         <div className={`p-5 glass-panel group relative w-full h-full ${className ?? ''}`} data-state={productiveState}>
             <WidgetCenteredContentLayout
@@ -280,10 +420,12 @@ export default function MachineActivityWidget({
                     {mode === 'circular' ? (
                         <div ref={circularGaugeContainerRef} className="relative flex flex-1 items-center justify-center w-full h-full min-h-0">
                             <GaugeDisplay
-                                normalizedValue={activityIndex / 100}
+                                normalizedValue={gaugeNormalized}
+                                gradientNormalized={gaugeGradientNormalized}
                                 color={gaugeColor}
                                 mode="circular"
                                 animation={gaugeAnimation}
+                                arcOpacity={arcOpacity}
                                 circularContent={renderCircularGaugeText(activityIndexLabel, displayUnit, isValid, circularTextSizing)}
                             />
                         </div>
@@ -299,10 +441,12 @@ export default function MachineActivityWidget({
                                 {displayUnit && isValid && <span className="text-industrial-muted uppercase" style={WIDGET_UNIT_TEXT_STYLE}>{displayUnit}</span>}
                             </div>
                             <GaugeDisplay
-                                normalizedValue={activityIndex / 100}
+                                normalizedValue={gaugeNormalized}
+                                gradientNormalized={gaugeGradientNormalized}
                                 color={gaugeColor}
                                 mode="bar"
                                 animation={gaugeAnimation}
+                                arcOpacity={arcOpacity}
                             />
                         </div>
                     )}

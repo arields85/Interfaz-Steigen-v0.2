@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Settings2, Database, Zap, Sliders, Tag, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, MousePointerClick, TrendingUp, BarChart2, AreaChart, Lock, Loader2 } from 'lucide-react';
-import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, StatusDisplayOptions, ProdHistoryDisplayOptions, MachineActivityDisplayOptions } from '../../domain/admin.types';
+import { Settings2, Database, Zap, Sliders, Tag, Gauge, Activity, Thermometer, Droplet, Wind, Settings, Fan, FoldVertical, History, HelpCircle, ChevronDown, MousePointerClick, TrendingUp, BarChart2, AreaChart, Lock, Loader2, AlignLeft, AlignCenter, AlignRight, HeartPulse, Siren, Wifi, LineChart } from 'lucide-react';
+import type { AggregationMode, WidgetConfig, WidgetBinding, WidgetLayout, KpiDisplayOptions, MetricCardDisplayOptions, AlertHistoryDisplayOptions, ConnectionStatusDisplayOptions, StatusDisplayOptions, ProdHistoryDisplayOptions, MachineActivityDisplayOptions, TextTitleDisplayOptions, TextTitleColor } from '../../domain/admin.types';
 import type { CatalogVariable } from '../../domain';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
@@ -28,6 +28,7 @@ import {
     ADMIN_SIDEBAR_PANEL_TITLE_CLS,
 } from './adminSidebarStyles';
 import { supportsCatalogVariable, supportsHierarchy } from '../../utils/widgetCapabilities';
+import { DEFAULT_TEXT_TITLE_FONT_SIZE } from '../../widgets/renderers/TextTitleWidget';
 
 // =============================================================================
 // PropertyDock
@@ -381,6 +382,7 @@ export default function PropertyDock(props: PropertyDockProps) {
         : binding.mode;
     const isKpi = selectedWidget?.type === 'kpi';
     const isMachineActivity = selectedWidget?.type === 'machine-activity';
+    const isDashboardTitle = selectedWidget?.type === 'text-title';
     const widgetType = selectedWidget?.type ?? '';
     const hasCatalogSupport = supportsCatalogVariable(widgetType);
     const hasHierarchySupport = supportsHierarchy(widgetType);
@@ -442,7 +444,7 @@ export default function PropertyDock(props: PropertyDockProps) {
     })();
     const shouldShowGeneralIconField = selectedWidget
         && selectedWidget.type !== 'connection-status'
-        
+        && selectedWidget.type !== 'text-title'
         && selectedWidget.type !== 'status';
     const genericDataUnitField = selectedWidget
         && selectedWidget.type !== 'alert-history'
@@ -536,13 +538,13 @@ export default function PropertyDock(props: PropertyDockProps) {
 
                         {/* ─── GENERAL ─── */}
                         <DockSection icon={<Tag size={11} />} title="General">
-                            <DockFieldRow label="Título">
+                            <DockFieldRow label={isDashboardTitle ? 'Texto' : 'Título'}>
                                 <input
                                     type="text"
                                     className={INPUT_CLS}
                                     value={selectedWidget.title || ''}
                                     onChange={e => onUpdateWidget({ ...selectedWidget, title: e.target.value })}
-                                    placeholder="ej. Velocidad"
+                                    placeholder={isDashboardTitle ? 'ej. Producción' : 'ej. Velocidad'}
                                 />
                             </DockFieldRow>
                             {/* Subtítulo: header del widget (debajo del título). KPI y MetricCard. */}
@@ -612,6 +614,11 @@ export default function PropertyDock(props: PropertyDockProps) {
                                             { value: 'Fan', label: 'Rotor', icon: <Fan size={12} /> },
                                             { value: 'FoldVertical', label: 'Compresión', icon: <FoldVertical size={12} /> },
                                             { value: 'TrendingUp', label: 'Tendencia', icon: <TrendingUp size={12} /> },
+                                            { value: 'HeartPulse', label: 'Pulso', icon: <HeartPulse size={12} /> },
+                                            { value: 'Siren', label: 'Sirena', icon: <Siren size={12} /> },
+                                            { value: 'Wifi', label: 'Conexión', icon: <Wifi size={12} /> },
+                                            { value: 'BarChart2', label: 'Barras', icon: <BarChart2 size={12} /> },
+                                            { value: 'LineChart', label: 'Líneas', icon: <LineChart size={12} /> },
                                         ]}
                                     />
                                 </DockFieldRow>
@@ -706,10 +713,63 @@ export default function PropertyDock(props: PropertyDockProps) {
                                     ))}
                                 </>
                             )}
+                            {isDashboardTitle && (() => {
+                                const currentAlign = (selectedWidget.displayOptions as TextTitleDisplayOptions | undefined)?.textAlign ?? 'left';
+                                const currentColor: TextTitleColor = (selectedWidget.displayOptions as TextTitleDisplayOptions | undefined)?.textColor ?? 'muted';
+                                return (
+                                    <>
+                                        <DockFieldRow label="Tamaño">
+                                            <AdminNumberInput
+                                                value={(selectedWidget.displayOptions as TextTitleDisplayOptions | undefined)?.fontSize ?? DEFAULT_TEXT_TITLE_FONT_SIZE}
+                                                min={12}
+                                                max={200}
+                                                step={1}
+                                                commitOnBlur
+                                                onChange={val => handleNumericDisplayOptionChange('fontSize', val)}
+                                            />
+                                        </DockFieldRow>
+                                        <DockFieldRow label="Alinear">
+                                            <div className="flex gap-1">
+                                                {([
+                                                    { value: 'left' as const, Icon: AlignLeft },
+                                                    { value: 'center' as const, Icon: AlignCenter },
+                                                    { value: 'right' as const, Icon: AlignRight },
+                                                ]).map(({ value, Icon }) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => handleDisplayOptionChange('textAlign', value)}
+                                                        className={`p-1.5 rounded transition-colors ${currentAlign === value ? 'bg-white/10 text-white' : 'text-industrial-muted hover:text-white hover:bg-white/5'}`}
+                                                    >
+                                                        <Icon size={14} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </DockFieldRow>
+                                        <DockFieldRow label="Color">
+                                            <div className="flex gap-1.5">
+                                                {([
+                                                    { value: 'white' as TextTitleColor, bg: 'var(--color-industrial-text)' },
+                                                    { value: 'soft' as TextTitleColor, bg: 'var(--color-industrial-text-soft)' },
+                                                    { value: 'muted' as TextTitleColor, bg: 'var(--color-industrial-muted)' },
+                                                ]).map(({ value, bg }) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => handleDisplayOptionChange('textColor', value)}
+                                                        className={`w-5 h-5 rounded-sm transition-all ${currentColor === value ? 'ring-1 ring-white/50' : 'border border-white/10'}`}
+                                                        style={{ backgroundColor: bg }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </DockFieldRow>
+                                    </>
+                                );
+                            })()}
                         </DockSection>
 
                         {/* ─── DATOS — no aplica para alert-history ni prod-history (datos mock propios) ─── */}
-                        {selectedWidget.type !== 'alert-history' && selectedWidget.type !== 'prod-history' && (
+                        {selectedWidget.type !== 'alert-history' && selectedWidget.type !== 'prod-history' && selectedWidget.type !== 'text-title' && (
                             <DockSection icon={<Database size={11} />} title="Datos">
                                 {hasHierarchySupport && (
                                     <DockFieldRow label="Fuente">
@@ -1071,7 +1131,7 @@ export default function PropertyDock(props: PropertyDockProps) {
 
                         {isMachineActivity && (
                             <DockSection icon={<Activity size={11} />} title="Estados Productivos">
-                                <DockFieldRow label="Calib. ≥">
+                                <DockFieldRow label="Setup ≥">
                                     <AdminNumberInput
                                         value={machineActivityOptions?.thresholdStopped ?? 0.15}
                                         min={0}
@@ -1195,13 +1255,13 @@ export default function PropertyDock(props: PropertyDockProps) {
                                         placeholder="Detenida"
                                     />
                                 </DockFieldRow>
-                                <DockFieldRow label="Calibrando">
+                                <DockFieldRow label="Setup">
                                     <input
                                         type="text"
                                         className={INPUT_CLS}
-                                        value={machineActivityOptions?.labelCalibrating ?? 'Calibrando'}
+                                        value={machineActivityOptions?.labelCalibrating ?? 'Setup'}
                                         onChange={e => handleDisplayOptionChange('labelCalibrating', e.target.value)}
-                                        placeholder="Calibrando"
+                                        placeholder="Setup"
                                     />
                                 </DockFieldRow>
                                 <DockFieldRow label="Produciendo">

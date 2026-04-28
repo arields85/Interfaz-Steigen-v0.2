@@ -2,7 +2,7 @@ import type { KpiWidgetConfig, ThresholdRule } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine } from '../../domain/dataContract.types';
 import { resolveBinding } from '../resolvers/bindingResolver';
-import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, type LucideIcon } from 'lucide-react';
+import { Activity, Thermometer, Zap, Droplet, Wind, Settings, Gauge, Fan, FoldVertical, HelpCircle, HeartPulse, Siren, Wifi, BarChart2, LineChart, type LucideIcon } from 'lucide-react';
 import GaugeDisplay from '../../components/ui/GaugeDisplay';
 import WidgetHeader from '../../components/ui/WidgetHeader';
 import WidgetCenteredContentLayout from '../../components/ui/WidgetCenteredContentLayout';
@@ -16,7 +16,12 @@ const ICON_MAP: Record<string, LucideIcon> = {
     'Wind': Wind,
     'Settings': Settings,
     'Fan': Fan,
-    'FoldVertical': FoldVertical
+    'FoldVertical': FoldVertical,
+    'HeartPulse': HeartPulse,
+    'Siren': Siren,
+    'Wifi': Wifi,
+    'BarChart2': BarChart2,
+    'LineChart': LineChart,
 };
 
 const WIDGET_VALUE_TEXT_STYLE = {

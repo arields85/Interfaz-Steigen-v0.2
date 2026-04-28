@@ -405,6 +405,28 @@ describe('PropertyDock Node-RED binding', () => {
     });
 });
 
+describe('PropertyDock text-title', () => {
+    it('shows a dedicated font size control in General and keeps the widget out of Datos', async () => {
+        const { user, updates } = renderPropertyDock({
+            type: 'text-title',
+            title: 'Título de texto',
+            binding: { mode: 'simulated_value', simulatedValue: 0 },
+            displayOptions: { fontSize: 64 },
+        });
+
+        const fontSizeInput = getInputInSection('General', 'Tamaño');
+
+        expect(fontSizeInput).toHaveValue('64');
+        expect(screen.queryByRole('button', { name: /datos/i })).not.toBeInTheDocument();
+
+        await user.clear(fontSizeInput);
+        await user.type(fontSizeInput, '72');
+        await user.tab();
+
+        expect(updates.at(-1)?.displayOptions).toMatchObject({ fontSize: 72 });
+    });
+});
+
 describe('PropertyDock machine-activity', () => {
     it('renders machine-activity sections with KPI-like general/data controls and default values', () => {
         renderPropertyDock({
@@ -443,7 +465,7 @@ describe('PropertyDock machine-activity', () => {
         expect(getFieldButtonInSection('Datos', 'Unidad')).toHaveTextContent('%');
 
         const productiveStatesSection = getSection('Estados Productivos');
-        expect(within(productiveStatesSection).getByText('Calib. ≥')).toBeInTheDocument();
+        expect(within(productiveStatesSection).getByText('Setup ≥')).toBeInTheDocument();
         expect(within(productiveStatesSection).getByText('Prod. ≥')).toBeInTheDocument();
         expect(within(productiveStatesSection).getByText('Conf. (ms)')).toBeInTheDocument();
         expect(within(productiveStatesSection).getByDisplayValue('0.15')).toBeInTheDocument();
@@ -465,7 +487,7 @@ describe('PropertyDock machine-activity', () => {
 
         const textsSection = getSection('Textos');
         expect(within(textsSection).getByDisplayValue('Detenida')).toBeInTheDocument();
-        expect(within(textsSection).getByDisplayValue('Calibrando')).toBeInTheDocument();
+        expect(within(textsSection).getByDisplayValue('Setup')).toBeInTheDocument();
         expect(within(textsSection).getByDisplayValue('Produciendo')).toBeInTheDocument();
     });
 

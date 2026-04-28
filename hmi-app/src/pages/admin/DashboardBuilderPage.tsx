@@ -38,10 +38,11 @@ import { createDefaultStatusDisplayOptions } from '../../utils/statusWidget';
 import {
     createDefaultConnectionStatusDisplayOptions,
 } from '../../utils/connectionWidget';
+import { DEFAULT_TEXT_TITLE_FONT_SIZE } from '../../widgets/renderers/TextTitleWidget';
 import { getAncestors } from '../../utils/hierarchyTree';
 import { loadNodeTypeLabels, resolveTypeLabel } from '../../utils/nodeTypeLabels';
 import { migrateLegacyBindings } from '../../utils/catalogMigration';
-import { supportsCatalogVariable } from '../../utils/widgetCapabilities';
+import { supportsCatalogVariable, getDefaultIcon, getDefaultSize } from '../../utils/widgetCapabilities';
 import { DEFAULT_COLS, DEFAULT_ROWS } from '../../utils/gridConfig';
 import { useUIStore } from '../../store/ui.store';
 import { useDataOverview } from '../../queries/useDataOverview';
@@ -644,8 +645,8 @@ export default function DashboardBuilderPage() {
 
         const handleAddWidget = (type: WidgetType) => {
             const newId = generateWidgetId(type);
-            const defaultWidth = type === 'trend-chart' || type === 'prod-history' ? 2 : 1;
-            const defaultHeight = type === 'kpi' || type === 'machine-activity' || type === 'alert-history' || type === 'prod-history' ? 2 : 1;
+            const { w: defaultWidth, h: defaultHeight } = getDefaultSize(type);
+            const defaultIcon = getDefaultIcon(type);
 
             const newWidget: WidgetConfig = type === 'trend-chart'
                 ? {
@@ -655,6 +656,9 @@ export default function DashboardBuilderPage() {
                     position: { x: 0, y: 0 },
                     size: { w: defaultWidth, h: defaultHeight },
                     binding: { mode: 'simulated_value', simulatedValue: 50 },
+                    displayOptions: {
+                        icon: defaultIcon,
+                    },
                 }
                 : type === 'kpi'
                     ? {
@@ -665,7 +669,20 @@ export default function DashboardBuilderPage() {
                         size: { w: defaultWidth, h: defaultHeight },
                         binding: { mode: 'simulated_value', simulatedValue: 0 },
                         displayOptions: {
+                            icon: defaultIcon,
                             unitOverride: false,
+                        },
+                    }
+                : type === 'metric-card'
+                    ? {
+                        id: newId,
+                        type,
+                        title: `Nuevo ${type.replace('-', ' ')}`,
+                        position: { x: 0, y: 0 },
+                        size: { w: defaultWidth, h: defaultHeight },
+                        binding: { mode: 'simulated_value', simulatedValue: 0 },
+                        displayOptions: {
+                            icon: defaultIcon,
                         },
                     }
                 : type === 'alert-history'
@@ -678,6 +695,7 @@ export default function DashboardBuilderPage() {
                         binding: { mode: 'simulated_value', simulatedValue: 0 },
                         displayOptions: {
                             dashboardId: draft.id,
+                            icon: defaultIcon,
                             maxVisible: 5,
                             pollInterval: 10000,
                         },
@@ -691,7 +709,7 @@ export default function DashboardBuilderPage() {
                             size: { w: defaultWidth, h: defaultHeight },
                             binding: { mode: 'simulated_value', simulatedValue: 0 },
                             displayOptions: {
-                                icon: 'Activity',
+                                icon: defaultIcon,
                                 kpiMode: 'circular',
                                 unitOverride: true,
                                 unit: '%',
@@ -707,7 +725,7 @@ export default function DashboardBuilderPage() {
                                 showDynamicColor: true,
                                 showStateAnimation: true,
                                 labelStopped: 'Detenida',
-                                labelCalibrating: 'Calibrando',
+                                labelCalibrating: 'Setup',
                                 labelProducing: 'Produciendo',
                             },
                         }
@@ -721,6 +739,7 @@ export default function DashboardBuilderPage() {
                             binding: { mode: 'simulated_value', simulatedValue: 0 },
                             displayOptions: {
                                 sourceLabel: 'Simulado',
+                                icon: defaultIcon,
                                 productionLabel: 'Producción',
                                 oeeLabel: 'OEE (%)',
                                 chartTitle: 'PRODUCCIÓN HISTÓRICA',
@@ -758,6 +777,18 @@ export default function DashboardBuilderPage() {
                                 },
                                 displayOptions: createDefaultStatusDisplayOptions(),
                             }
+                            : type === 'text-title'
+                                ? {
+                                    id: newId,
+                                    type,
+                                    title: 'Texto',
+                                    position: { x: 0, y: 0 },
+                                    size: { w: defaultWidth, h: defaultHeight },
+                                    binding: { mode: 'simulated_value', simulatedValue: 0 },
+                                    displayOptions: {
+                                        fontSize: DEFAULT_TEXT_TITLE_FONT_SIZE,
+                                    },
+                                }
                             : {
                                     id: newId,
                                     type,

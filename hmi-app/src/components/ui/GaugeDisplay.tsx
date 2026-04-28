@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type GaugeMode = 'circular' | 'bar';
 
@@ -17,6 +17,8 @@ export interface GaugeDisplayProps {
     mode?: GaugeMode;
     animation?: GaugeDisplayAnimation;
     size?: 'sm' | 'md' | 'lg' | number;
+    arcOpacity?: number;
+    gradientNormalized?: number;
     className?: string;
     circularContent?: (layout: {
         center: number;
@@ -46,6 +48,8 @@ const ANIMATION_DURATION_PRESETS = {
     subtle: 550,
     active: 350,
 } as const;
+const CIRCULAR_SEGMENT_COUNT = 90;
+const CIRCULAR_SEGMENT_OVERLAP = 0.75;
 
 function clampNormalizedValue(value: number) {
     if (!Number.isFinite(value)) {
@@ -61,14 +65,16 @@ export default function GaugeDisplay({
     mode = 'circular',
     animation,
     size,
+    arcOpacity,
+    gradientNormalized,
     className,
     circularContent,
 }: GaugeDisplayProps) {
     const svgRef = useRef<SVGSVGElement>(null);
     const [renderedSize, setRenderedSize] = useState(0);
     const normalized = clampNormalizedValue(normalizedValue);
-    const gradientId = useId().replace(/:/g, '');
-    const glowFilterId = `${gradientId}-glow`;
+    const instanceId = useId().replace(/:/g, '');
+    const glowFilterId = `${instanceId}-glow`;
     const strokeWidth = 8;
     const animationEnabled = animation?.enabled !== false;
     const animationIntensity = animation?.intensity ?? 'subtle';
@@ -128,6 +134,7 @@ export default function GaugeDisplay({
                             background: backgroundStyle,
                             transitionDuration: `${animationDuration}ms`,
                             boxShadow: showGlow ? `0 0 15px ${primaryColor}` : undefined,
+                            opacity: arcOpacity,
                         }}
                     />
                 </div>
@@ -142,18 +149,62 @@ export default function GaugeDisplay({
             : undefined;
     const radius = circularSize ? Math.max((circularSize - strokeWidth) / 2, 0) : CIRCULAR_RADIUS;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - normalized * circumference;
     const svgSize = circularSize ?? CIRCULAR_DIAMETER;
     const viewBoxInset = strokeWidth + 2;
     const center = circularSize ? svgSize / 2 : CIRCULAR_CENTER;
     const viewBoxSize = circularSize ? svgSize : CIRCULAR_VIEWBOX_SIZE;
-    const strokeColor = `url(#${gradientId})`;
     const circularScale = renderedSize > 0 ? renderedSize / viewBoxSize : 1;
+    const gradientNorm = clampNormalizedValue(gradientNormalized ?? normalized);
+    const circularSegments = useMemo(() => {
+        if (circumference <= 0) {
+            return [];
+        }
+
+        const visibleArcLength = normalized * circumference;
+        const gradientArcNorm = gradientNorm > 0 ? gradientNorm : 1;
+        const gradientArcLength = gradientArcNorm * circumference;
+        const baseSegmentArcLength = gradientArcLength / CIRCULAR_SEGMENT_COUNT;
+
+        if (baseSegmentArcLength <= 0) {
+            return [];
+        }
+
+        const segments = [] as Array<{
+            key: number;
+            stroke: string;
+            strokeDasharray: string;
+            strokeDashoffset: number;
+            hasVisibleArc: boolean;
+        }>;
+
+        for (let index = 0; index < CIRCULAR_SEGMENT_COUNT; index += 1) {
+            const segmentStart = index * baseSegmentArcLength;
+            const remainingVisibleLength = Math.max(visibleArcLength - segmentStart, 0);
+            const visibleSegmentLength = Math.min(baseSegmentArcLength, remainingVisibleLength);
+            const segmentArcLength = visibleSegmentLength > 0
+                ? Math.min(visibleSegmentLength + CIRCULAR_SEGMENT_OVERLAP, circumference)
+                : 0;
+            const mixPercent = CIRCULAR_SEGMENT_COUNT === 1
+                ? 0
+                : Math.round((index / (CIRCULAR_SEGMENT_COUNT - 1)) * 100);
+
+            segments.push({
+                key: index,
+                stroke: `color-mix(in srgb, ${gradientColors[1]} ${mixPercent}%, ${gradientColors[0]})`,
+                strokeDasharray: `${segmentArcLength} ${Math.max(circumference - segmentArcLength, 0)}`,
+                strokeDashoffset: circumference - segmentStart,
+                hasVisibleArc: visibleSegmentLength > 0,
+            });
+        }
+
+        return segments;
+    }, [circumference, gradientColors, gradientNorm, normalized]);
 
     const circularStyle: CSSProperties & { '--gauge-circular-scale': string } = {
         '--gauge-circular-scale': String(circularScale),
         transitionDuration: `${animationDuration}ms`,
     };
+    const lastVisibleSegmentIndex = circularSegments.findLastIndex((segment) => segment.hasVisibleArc);
 
     return (
         <svg
@@ -165,10 +216,6 @@ export default function GaugeDisplay({
             style={circularStyle}
         >
             <defs>
-                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop data-testid="gauge-circular-gradient-stop" offset="0%" stopColor={gradientColors[1]} />
-                    <stop data-testid="gauge-circular-gradient-stop" offset="100%" stopColor={gradientColors[0]} />
-                </linearGradient>
                 <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
                     <feGaussianBlur stdDeviation="5" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -182,21 +229,34 @@ export default function GaugeDisplay({
                 strokeWidth={strokeWidth}
                 fill="none"
             />
-            <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                fill="none"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                className="transition-all duration-500 ease-out"
+            <g
                 data-testid="gauge-circular-arc"
-                filter={showGlow ? `url(#${glowFilterId})` : undefined}
-                style={{ transitionDuration: `${animationDuration}ms` }}
-            />
+            >
+                {circularSegments.map((segment, index) => {
+                    const isEndpoint = segment.hasVisibleArc && (index === 0 || index === lastVisibleSegmentIndex);
+
+                    return (
+                        <circle
+                            key={segment.key}
+                            cx={center}
+                            cy={center}
+                            r={radius}
+                            stroke={segment.stroke}
+                            strokeWidth={strokeWidth}
+                            fill="none"
+                            strokeDasharray={segment.strokeDasharray}
+                            strokeDashoffset={segment.strokeDashoffset}
+                            strokeLinecap={isEndpoint ? 'round' : 'butt'}
+                            data-testid="gauge-circular-arc-segment"
+                            filter={showGlow ? `url(#${glowFilterId})` : undefined}
+                            style={{
+                                opacity: arcOpacity,
+                                transition: `opacity ${animationDuration}ms ease-out`,
+                            }}
+                        />
+                    );
+                })}
+            </g>
             {circularContent && (
                 <g transform={`rotate(90 ${center} ${center})`} data-testid="gauge-circular-center-content">
                     {circularContent({ center, radius, viewBoxSize, renderedSize })}

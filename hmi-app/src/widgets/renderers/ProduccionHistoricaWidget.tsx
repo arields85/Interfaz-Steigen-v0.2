@@ -7,10 +7,15 @@ import {
     Fan,
     FoldVertical,
     Gauge,
+    HeartPulse,
     History,
+    LineChart,
+    BarChart2,
+    Siren,
     Settings,
     Thermometer,
     TrendingUp,
+    Wifi,
     Wind,
     Zap,
     type LucideProps,
@@ -62,6 +67,11 @@ const HEADER_ICON_MAP: Record<string, LucideIcon> = {
     FoldVertical,
     TrendingUp,
     History,
+    HeartPulse,
+    Siren,
+    Wifi,
+    BarChart2,
+    LineChart,
 };
 
 function resolveHeaderIcon(iconName: string | null | undefined): LucideIcon | null {

@@ -1,4 +1,4 @@
-import { CircleHelp, Wifi, WifiOff, WifiSync, type LucideIcon } from 'lucide-react';
+import { CircleHelp, Wifi, WifiHigh, WifiOff, type LucideIcon } from 'lucide-react';
 import type { ConnectionStatusDisplayOptions, WidgetConfig } from '../../domain/admin.types';
 import type { EquipmentSummary } from '../../domain/equipment.types';
 import type { ContractMachine, ContractStatus, ConnectionHealth } from '../../domain/dataContract.types';
@@ -47,7 +47,7 @@ const STATUS_VISUAL: Record<ContractStatus, StatusVisualConfig> = {
         dotClass: 'bg-status-normal animate-pulse-slow led-glow-green',
     },
     degradado: {
-        icon: WifiSync,
+        icon: WifiHigh,
         iconColor: 'var(--color-status-warning)',
         dotClass: 'bg-status-warning animate-pulse-medium led-glow-amber',
     },

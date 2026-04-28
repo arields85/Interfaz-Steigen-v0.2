@@ -25,20 +25,19 @@ import { DATA_HISTORY_QUERY_KEY_PREFIX } from '../../queries/useDataHistory';
 
 interface ConnectionSettingsTabProps {
     onStatusChange?: (saved: boolean) => void;
+    onDirtyChange?: (dirty: boolean) => void;
+    saveRef?: { current: (() => void) | null };
 }
 
-export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSettingsTabProps) {
+export default function ConnectionSettingsTab({ onStatusChange, onDirtyChange, saveRef }: ConnectionSettingsTabProps) {
     const queryClient = useQueryClient();
     const [draftUrl, setDraftUrl] = useState('');
     const [draftEndpoint, setDraftEndpoint] = useState(DATA_DEFAULT_ENDPOINT);
     const [draftHistoryEndpoint, setDraftHistoryEndpoint] = useState('');
-    const [status, setStatus] = useState<'idle' | 'saved'>('idle');
-
     useEffect(() => {
         setDraftUrl(getSavedDataBaseUrl() || (getDataBaseUrl() ?? ''));
         setDraftEndpoint(getSavedDataEndpoint() || DATA_DEFAULT_ENDPOINT);
         setDraftHistoryEndpoint(getSavedDataHistoryEndpoint());
-        setStatus('idle');
     }, []);
 
     const previewSnapshotUrl = useMemo(() => {
@@ -92,8 +91,8 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
 
         queryClient.invalidateQueries({ queryKey: DATA_OVERVIEW_QUERY_KEY });
         queryClient.invalidateQueries({ queryKey: DATA_HISTORY_QUERY_KEY_PREFIX });
-        setStatus('saved');
         onStatusChange?.(true);
+        onDirtyChange?.(false);
     };
 
     const handleClear = () => {
@@ -105,9 +104,13 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
         setDraftHistoryEndpoint('');
         queryClient.invalidateQueries({ queryKey: DATA_OVERVIEW_QUERY_KEY });
         queryClient.invalidateQueries({ queryKey: DATA_HISTORY_QUERY_KEY_PREFIX });
-        setStatus('saved');
         onStatusChange?.(true);
+        onDirtyChange?.(false);
     };
+
+    if (saveRef) {
+        saveRef.current = handleSave;
+    }
 
     return (
         <div className="space-y-4">
@@ -119,7 +122,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                     value={draftUrl}
                     onChange={(e) => {
                         setDraftUrl(e.target.value);
-                        setStatus('idle');
+                        onDirtyChange?.(true);
                     }}
                     placeholder="https://192.168.50.250:51880"
                     className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
@@ -137,7 +140,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                     value={draftEndpoint}
                     onChange={(e) => {
                         setDraftEndpoint(e.target.value);
-                        setStatus('idle');
+                        onDirtyChange?.(true);
                     }}
                     placeholder="/api/hmi/overview"
                     className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
@@ -155,7 +158,7 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                     value={draftHistoryEndpoint}
                     onChange={(e) => {
                         setDraftHistoryEndpoint(e.target.value);
-                        setStatus('idle');
+                        onDirtyChange?.(true);
                     }}
                     placeholder="/api/hmi-data/history"
                     className={`${ADMIN_SIDEBAR_INPUT_CLS} px-3 py-2`}
@@ -184,18 +187,9 @@ export default function ConnectionSettingsTab({ onStatusChange }: ConnectionSett
                 </div>
             </div>
 
-            {status === 'saved' && (
-                <p className="uppercase text-admin-accent">
-                    Configuracion guardada. Los datos se actualizaran automaticamente.
-                </p>
-            )}
-
-            <div className="flex justify-between">
+            <div>
                 <AdminActionButton variant="secondary" onClick={handleClear}>
                     Limpiar URL guardada
-                </AdminActionButton>
-                <AdminActionButton variant="primary" onClick={handleSave}>
-                    Guardar
                 </AdminActionButton>
             </div>
         </div>

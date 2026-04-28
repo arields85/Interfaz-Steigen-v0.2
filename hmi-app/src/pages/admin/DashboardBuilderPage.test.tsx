@@ -425,7 +425,7 @@ describe('DashboardBuilderPage', () => {
             const snapshot = getBuilderCanvasSnapshot();
             expect(snapshot.layout).toHaveLength(1);
             expect(snapshot.widgetIds).toHaveLength(1);
-            expect(snapshot.layout[0]).toMatchObject({ x: 0, y: 0, w: 1, h: 2 });
+            expect(snapshot.layout[0]).toMatchObject({ x: 0, y: 0, w: 6, h: 10 });
         });
 
         await user.click(screen.getByRole('button', { name: 'Agregar widget header' }));
@@ -451,7 +451,7 @@ describe('DashboardBuilderPage', () => {
         await waitFor(() => {
             const snapshot = getBuilderCanvasSnapshot();
             expect(snapshot.layout).toHaveLength(1);
-            expect(snapshot.layout[0]).toMatchObject({ x: 0, y: 0, w: 1, h: 2 });
+            expect(snapshot.layout[0]).toMatchObject({ x: 0, y: 0, w: 6, h: 10 });
         });
 
         await waitFor(() => {
@@ -460,10 +460,10 @@ describe('DashboardBuilderPage', () => {
                 selectedWidget: {
                     type: 'machine-activity',
                     title: 'Actividad de Máquina',
-                    size: { w: 1, h: 2 },
+                    size: { w: 6, h: 10 },
                     binding: { mode: 'simulated_value', simulatedValue: 0 },
                     displayOptions: {
-                        icon: 'Activity',
+                        icon: 'HeartPulse',
                         kpiMode: 'circular',
                         thresholdStopped: 0.15,
                         thresholdProducing: 0.25,
@@ -479,7 +479,7 @@ describe('DashboardBuilderPage', () => {
                         unitOverride: true,
                         unit: '%',
                         labelStopped: 'Detenida',
-                        labelCalibrating: 'Calibrando',
+                        labelCalibrating: 'Setup',
                         labelProducing: 'Produciendo',
                     },
                 },
@@ -487,7 +487,7 @@ describe('DashboardBuilderPage', () => {
         });
     });
 
-    it('adds kpi widgets with unitOverride disabled by default', async () => {
+    it('adds kpi widgets with default icon and unitOverride disabled by default', async () => {
         const user = userEvent.setup();
 
         await renderBuilderPage(makeDashboard({
@@ -506,7 +506,34 @@ describe('DashboardBuilderPage', () => {
                 selectedWidget: {
                     type: 'kpi',
                     displayOptions: {
+                        icon: 'Gauge',
                         unitOverride: false,
+                    },
+                },
+            });
+        });
+    });
+
+    it('adds metric-card widgets with the configured default icon', async () => {
+        const user = userEvent.setup();
+
+        await renderBuilderPage(makeDashboard({
+            id: 'dashboard-1',
+            cols: 20,
+            rows: 12,
+            widgets: [],
+            layout: [],
+        }));
+
+        await user.click(screen.getByRole('button', { name: 'Agregar Métrica' }));
+
+        await waitFor(() => {
+            expect(propertyDockMock).toHaveBeenCalled();
+            expect(propertyDockMock.mock.calls.at(-1)?.[0]).toMatchObject({
+                selectedWidget: {
+                    type: 'metric-card',
+                    displayOptions: {
+                        icon: 'BarChart2',
                     },
                 },
             });

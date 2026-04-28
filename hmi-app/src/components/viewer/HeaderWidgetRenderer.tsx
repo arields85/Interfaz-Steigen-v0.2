@@ -14,7 +14,7 @@ import {
     normalizeSimulatedToContractStatus,
     resolveContractStatusLabel,
 } from '../../utils/connectionWidget';
-import { CircleHelp, Wifi, WifiOff, WifiSync, type LucideIcon } from 'lucide-react';
+import { CircleHelp, Wifi, WifiOff, WifiHigh, type LucideIcon } from 'lucide-react';
 
 // =============================================================================
 // HeaderWidgetRenderer
@@ -67,7 +67,7 @@ const CONNECTION_COPY: Record<ContractStatus, { color: string; pulse?: boolean; 
     degradado: {
         color: 'var(--color-status-warning)',
         pulse: true,
-        icon: WifiSync,
+        icon: WifiHigh,
     },
     offline: {
         color: 'var(--color-status-critical)',

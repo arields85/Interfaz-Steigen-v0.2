@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminActionButton from './AdminActionButton';
 import AdminNumberInput from './AdminNumberInput';
 import AdminSelect from './AdminSelect';
@@ -76,6 +76,7 @@ const COLOR_GROUPS = [
             { key: '--color-industrial-hover', label: 'Hover', defaultValue: '#161b22' },
             { key: '--color-industrial-border', label: 'Borde Industrial', defaultValue: '#ffffff14' },
             { key: '--color-industrial-text', label: 'Texto Principal', defaultValue: '#f1f5f9' },
+            { key: '--color-industrial-text-soft', label: 'Texto Suave', defaultValue: '#c5c9d1' },
             { key: '--color-industrial-muted', label: 'Texto Secundario', defaultValue: '#94a3b8' },
         ],
     },
@@ -484,12 +485,26 @@ export function applyThemeOverrides(): void {
     } catch { /* ignore corrupt data */ }
 }
 
-export default function DesignSettingsTab() {
+interface DesignSettingsTabProps {
+    onDirtyChange?: (dirty: boolean) => void;
+    saveRef?: { current: (() => void) | null };
+    revertRef?: { current: (() => void) | null };
+}
+
+export default function DesignSettingsTab({ onDirtyChange, saveRef, revertRef }: DesignSettingsTabProps) {
     const [fontValues, setFontValues] = useState<Record<FontTokenKey, FontName>>(DEFAULT_FONT_VALUES);
     const [weightValues, setWeightValues] = useState<Record<string, string>>(DEFAULT_WEIGHT_VALUES);
     const [fontSizeValues, setFontSizeValues] = useState<Record<FontSizeTokenKey, string>>(DEFAULT_FONT_SIZE_VALUES);
     const [trackingValues, setTrackingValues] = useState<Record<TrackingTokenKey, string>>(DEFAULT_TRACKING_VALUES);
     const [colorValues, setColorValues] = useState<Record<ColorTokenKey, string>>(DEFAULT_COLOR_VALUES);
+
+    const snapshotRef = useRef<{
+        fontValues: Record<FontTokenKey, FontName>;
+        weightValues: Record<string, string>;
+        fontSizeValues: Record<FontSizeTokenKey, string>;
+        trackingValues: Record<TrackingTokenKey, string>;
+        colorValues: Record<ColorTokenKey, string>;
+    } | null>(null);
 
     useEffect(() => {
         applyThemeOverrides();
@@ -526,14 +541,24 @@ export default function DesignSettingsTab() {
             nextTrackingValues[trackingKey] = String(config.parse(storedFonts[trackingKey]));
         }
 
+        const nextColorValues = {
+            ...DEFAULT_COLOR_VALUES,
+            ...(storedColors as Partial<Record<ColorTokenKey, string>>),
+        };
+
         setFontValues(nextFontValues);
         setWeightValues(nextWeightValues);
         setFontSizeValues(nextFontSizeValues);
         setTrackingValues(nextTrackingValues);
-        setColorValues({
-            ...DEFAULT_COLOR_VALUES,
-            ...(storedColors as Partial<Record<ColorTokenKey, string>>),
-        });
+        setColorValues(nextColorValues);
+
+        snapshotRef.current = {
+            fontValues: nextFontValues,
+            weightValues: nextWeightValues,
+            fontSizeValues: nextFontSizeValues,
+            trackingValues: nextTrackingValues,
+            colorValues: nextColorValues,
+        };
 
         writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(nextFontValues, nextWeightValues, nextFontSizeValues, nextTrackingValues));
     }, []);
@@ -603,7 +628,7 @@ export default function DesignSettingsTab() {
             }
         }
 
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(nextValues, nextWeights, fontSizeValues, trackingValues));
+        onDirtyChange?.(true);
     };
 
     const handleColorChange = (colorKey: ColorTokenKey, nextColor: string) => {
@@ -623,16 +648,7 @@ export default function DesignSettingsTab() {
             document.documentElement.style.setProperty(colorKey, nextColor);
         }
 
-        const nextOverrides = Object.entries(nextValues).reduce((accumulator, [key, value]) => {
-            const typedKey = key as ColorTokenKey;
-            if (normalizeColorForInput(value) !== normalizeColorForInput(DEFAULT_COLOR_VALUES[typedKey])) {
-                accumulator[typedKey] = value;
-            }
-
-            return accumulator;
-        }, {} as Record<string, string>);
-
-        writeStoredOverrides(COLOR_STORAGE_KEY, nextOverrides);
+        onDirtyChange?.(true);
     };
 
     const handleWeightChange = (weightKey: string, nextWeight: string) => {
@@ -649,7 +665,7 @@ export default function DesignSettingsTab() {
             document.documentElement.style.setProperty(weightKey, resolvedWeight);
         }
 
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, nextWeightValues, fontSizeValues, trackingValues));
+        onDirtyChange?.(true);
     };
 
     const handleFontSizeChange = (sizeKey: FontSizeTokenKey, nextValue: string) => {
@@ -671,7 +687,7 @@ export default function DesignSettingsTab() {
 
         setFontSizeValues(nextSizeValues);
         document.documentElement.style.setProperty(sizeKey, normalizedSize);
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, nextSizeValues, trackingValues));
+        onDirtyChange?.(true);
     };
 
     const handleFontSizeBlur = (sizeKey: FontSizeTokenKey) => {
@@ -689,8 +705,6 @@ export default function DesignSettingsTab() {
         } else {
             document.documentElement.style.setProperty(sizeKey, normalizedSize);
         }
-
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, nextSizeValues, trackingValues));
     };
 
     const handleTrackingChange = (trackingKey: TrackingTokenKey, nextValue: string) => {
@@ -712,7 +726,7 @@ export default function DesignSettingsTab() {
 
         setTrackingValues(nextTrackingValues);
         document.documentElement.style.setProperty(trackingKey, normalizedTracking);
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, nextTrackingValues));
+        onDirtyChange?.(true);
     };
 
     const handleTrackingBlur = (trackingKey: TrackingTokenKey) => {
@@ -730,8 +744,6 @@ export default function DesignSettingsTab() {
         } else {
             document.documentElement.style.setProperty(trackingKey, normalizedTracking);
         }
-
-        writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, nextTrackingValues));
     };
 
     const handleResetFonts = () => {
@@ -752,6 +764,20 @@ export default function DesignSettingsTab() {
         setWeightValues(DEFAULT_WEIGHT_VALUES);
         setFontSizeValues(DEFAULT_FONT_SIZE_VALUES);
         setTrackingValues(DEFAULT_TRACKING_VALUES);
+
+        const prevColorSnapshot = snapshotRef.current?.colorValues ?? DEFAULT_COLOR_VALUES;
+        snapshotRef.current = {
+            fontValues: DEFAULT_FONT_VALUES,
+            weightValues: DEFAULT_WEIGHT_VALUES,
+            fontSizeValues: DEFAULT_FONT_SIZE_VALUES,
+            trackingValues: DEFAULT_TRACKING_VALUES,
+            colorValues: prevColorSnapshot,
+        };
+        const colorsDirty = Object.entries(colorValues).some(([k, v]) => {
+            const snapV = prevColorSnapshot[k as ColorTokenKey];
+            return normalizeColorForInput(v) !== normalizeColorForInput(snapV);
+        });
+        onDirtyChange?.(colorsDirty);
     };
 
     const handleReset = () => {
@@ -782,7 +808,40 @@ export default function DesignSettingsTab() {
         setFontSizeValues(DEFAULT_FONT_SIZE_VALUES);
         setTrackingValues(DEFAULT_TRACKING_VALUES);
         setColorValues(DEFAULT_COLOR_VALUES);
+
+        snapshotRef.current = {
+            fontValues: DEFAULT_FONT_VALUES,
+            weightValues: DEFAULT_WEIGHT_VALUES,
+            fontSizeValues: DEFAULT_FONT_SIZE_VALUES,
+            trackingValues: DEFAULT_TRACKING_VALUES,
+            colorValues: DEFAULT_COLOR_VALUES,
+        };
+        onDirtyChange?.(false);
     };
+
+    // Expose save and revert functions via refs — reassigned on every render so closures stay current
+    if (saveRef) {
+        saveRef.current = () => {
+            writeStoredOverrides(FONT_STORAGE_KEY, buildFontStorageOverrides(fontValues, weightValues, fontSizeValues, trackingValues));
+            writeStoredOverrides(COLOR_STORAGE_KEY, colorStorageOverrides);
+            snapshotRef.current = { fontValues, weightValues, fontSizeValues, trackingValues, colorValues };
+            onDirtyChange?.(false);
+        };
+    }
+
+    if (revertRef) {
+        revertRef.current = () => {
+            if (!snapshotRef.current) return;
+            const snap = snapshotRef.current;
+            setFontValues(snap.fontValues);
+            setWeightValues(snap.weightValues);
+            setFontSizeValues(snap.fontSizeValues);
+            setTrackingValues(snap.trackingValues);
+            setColorValues(snap.colorValues);
+            applyThemeOverrides();
+            onDirtyChange?.(false);
+        };
+    }
 
     return (
         <div className="max-h-[55vh] overflow-y-auto hmi-scrollbar pr-1">
@@ -829,7 +888,6 @@ export default function DesignSettingsTab() {
                                                 onBlur={() => handleFontSizeBlur(fontToken.sizeKey!)}
                                                 min={FONT_SIZE_FIELD_CONFIG[fontToken.sizeKey].range.min}
                                                 max={FONT_SIZE_FIELD_CONFIG[fontToken.sizeKey].range.max}
-                                                className="shrink-0"
                                                 className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                                 aria-label={`${fontToken.label} tamaño base`}
                                             />
@@ -845,7 +903,6 @@ export default function DesignSettingsTab() {
                                                 min={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.min}
                                                 max={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.max}
                                                 step={TRACKING_FIELD_CONFIG[fontToken.trackingKey].range.step}
-                                                className="shrink-0"
                                                 className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                                 aria-label={`${fontToken.label} tracking`}
                                             />
@@ -876,7 +933,6 @@ export default function DesignSettingsTab() {
                                                 onBlur={() => handleFontSizeBlur('--font-size-widget-unit')}
                                                 min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit'].range.min}
                                                 max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit'].range.max}
-                                                className="shrink-0"
                                                 className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                                 aria-label="METRIC-CARD tamaño de las unidades"
                                             />
@@ -913,7 +969,6 @@ export default function DesignSettingsTab() {
                                     onBlur={() => handleFontSizeBlur('--font-size-widget-value-gauge')}
                                     min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-value-gauge'].range.min}
                                     max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-value-gauge'].range.max}
-                                    className="shrink-0"
                                     className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                     aria-label="VALORES EN KPI / MACHINE-ACTIVITY tamaño base"
                                 />
@@ -927,7 +982,6 @@ export default function DesignSettingsTab() {
                                     min={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.min}
                                     max={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.max}
                                     step={TRACKING_FIELD_CONFIG['--tracking-widget-value-gauge'].range.step}
-                                    className="shrink-0"
                                     className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                     aria-label="VALORES EN KPI / MACHINE-ACTIVITY tracking"
                                 />
@@ -953,7 +1007,6 @@ export default function DesignSettingsTab() {
                                     onBlur={() => handleFontSizeBlur('--font-size-widget-unit-gauge')}
                                     min={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit-gauge'].range.min}
                                     max={FONT_SIZE_FIELD_CONFIG['--font-size-widget-unit-gauge'].range.max}
-                                    className="shrink-0"
                                     className={TYPOGRAPHY_COMPACT_NUMBER_CLS}
                                     aria-label="VALORES EN KPI / MACHINE-ACTIVITY tamaño de las unidades"
                                 />
