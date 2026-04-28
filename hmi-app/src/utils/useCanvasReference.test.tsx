@@ -124,12 +124,12 @@ describe('computeCanvasMetrics', () => {
 
         expect(result.width).toBe(1600);
         expect(result.height).toBe(720);
-        expect(result.cols).toBe(20);
-        expect(result.rows).toBe(12);
-        expect(result.rowHeight).toBe(60);
+        expect(result.cols).toBe(40);
+        expect(result.rows).toBe(24);
+        expect(result.rowHeight).toBe(30);
         expect(result.offsetX).toBe(0);
         expect(result.offsetY).toBe(0);
-        expect(result.cellWidth).toBe(80);
+        expect(result.cellWidth).toBe(40);
     });
 });
 

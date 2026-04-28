@@ -54,7 +54,7 @@ describe('useMachineActivity', () => {
             powerMin: 0,
             powerMax: 1,
             labelStopped: 'Detenida',
-            labelCalibrating: 'Calibrando',
+            labelCalibrating: 'Setup',
             labelProducing: 'Produciendo',
         };
 
@@ -97,7 +97,7 @@ describe('useMachineActivity', () => {
         expect(result.current.stateLabel).toBe('Produciendo');
         expect(result.current.stateVisuals).toEqual({
             primary: 'var(--color-state-producing)',
-            gradientColors: ['var(--color-state-producing-from)', 'var(--color-state-producing-to)'],
+            gradientColors: ['var(--color-state-producing-to)', 'var(--color-state-producing-from)'],
             glowColor: 'color-mix(in srgb, var(--color-state-producing) 50%, transparent)',
             animationDuration: 350,
         });

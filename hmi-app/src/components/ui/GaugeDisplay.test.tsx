@@ -4,6 +4,9 @@ import GaugeDisplay from './GaugeDisplay';
 
 const CIRCULAR_RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * CIRCULAR_RADIUS;
+const LG_CIRCUMFERENCE = 2 * Math.PI * ((160 - 8) / 2);
+const SEGMENT_COUNT = 90;
+const SEGMENT_OVERLAP = 0.75;
 
 describe('GaugeDisplay', () => {
     it('defaults to circular mode and reflects the normalized arc fill with spec animation semantics', () => {
@@ -24,19 +27,31 @@ describe('GaugeDisplay', () => {
 
         const svg = screen.getByTestId('gauge-circular');
         const arc = screen.getByTestId('gauge-circular-arc');
-        const gradientStops = screen.getAllByTestId('gauge-circular-gradient-stop');
+        const segments = screen.getAllByTestId('gauge-circular-arc-segment');
+        const expectedSegmentArcLength = (CIRCUMFERENCE * 0.75) / SEGMENT_COUNT;
 
         expect(svg).toBeInTheDocument();
         expect(container.firstElementChild).toBe(svg);
         expect(svg).toHaveClass('w-full', 'h-full', 'transform', '-rotate-90', 'origin-center');
         expect(svg.style.width).toBe('');
         expect(svg.style.height).toBe('');
-        expect(Number(arc.getAttribute('stroke-dasharray'))).toBeCloseTo(CIRCUMFERENCE, 5);
-        expect(Number(arc.getAttribute('stroke-dashoffset'))).toBeCloseTo(CIRCUMFERENCE * 0.25, 5);
-        expect(gradientStops).toHaveLength(2);
-        expect(gradientStops[0]).toHaveAttribute('stop-color', 'var(--color-widget-gradient-to)');
-        expect(gradientStops[1]).toHaveAttribute('stop-color', 'var(--color-widget-gradient-from)');
-        expect(arc).toHaveStyle({ transitionDuration: '750ms' });
+        expect(arc.tagName.toLowerCase()).toBe('g');
+        expect(segments).toHaveLength(SEGMENT_COUNT);
+        expect(segments[0]).toHaveAttribute(
+            'stroke',
+            'color-mix(in srgb, var(--color-widget-gradient-to) 0%, var(--color-widget-gradient-from))',
+        );
+        expect(segments.at(-1)).toHaveAttribute(
+            'stroke',
+            'color-mix(in srgb, var(--color-widget-gradient-to) 100%, var(--color-widget-gradient-from))',
+        );
+        expect(segments[0]).toHaveAttribute(
+            'stroke-dasharray',
+            `${expectedSegmentArcLength + SEGMENT_OVERLAP} ${CIRCUMFERENCE - expectedSegmentArcLength - SEGMENT_OVERLAP}`,
+        );
+        expect(segments.at(-1)).toHaveAttribute('stroke-linecap', 'round');
+        expect(segments[1]).toHaveAttribute('stroke-linecap', 'butt');
+        expect(segments[0].style.transition).toBe('opacity 750ms ease-out');
         expect(svg.style.filter).toBe('');
     });
 
@@ -70,7 +85,7 @@ describe('GaugeDisplay', () => {
     });
 
     it('clamps edge-case normalized values and supports preset sizes', () => {
-        const { rerender } = render(
+        const { rerender, unmount } = render(
             <GaugeDisplay
                 normalizedValue={0}
                 color={{
@@ -82,9 +97,10 @@ describe('GaugeDisplay', () => {
             />,
         );
 
-        let arc = screen.getByTestId('gauge-circular-arc');
+        let segments = screen.queryAllByTestId('gauge-circular-arc-segment');
         let svg = screen.getByTestId('gauge-circular');
-        expect(Number(arc.getAttribute('stroke-dashoffset'))).toBeGreaterThan(CIRCUMFERENCE);
+        expect(segments).toHaveLength(SEGMENT_COUNT);
+        expect(segments[0]).toHaveAttribute('stroke-dasharray', `0 ${LG_CIRCUMFERENCE}`);
         expect(svg).toHaveAttribute('viewBox', '-10 -10 160 160');
         expect(svg).toHaveClass('w-full', 'h-full');
 
@@ -99,10 +115,23 @@ describe('GaugeDisplay', () => {
             />,
         );
 
-        arc = screen.getByTestId('gauge-circular-arc');
-        expect(Number(arc.getAttribute('stroke-dashoffset'))).toBeCloseTo(0, 5);
+        segments = screen.getAllByTestId('gauge-circular-arc-segment');
+        expect(segments).toHaveLength(SEGMENT_COUNT);
+        expect(Number(segments.at(-1)?.getAttribute('stroke-dashoffset'))).toBeCloseTo(CIRCUMFERENCE / SEGMENT_COUNT);
 
         rerender(
+            <GaugeDisplay
+                normalizedValue={1.5}
+                color={{
+                    primary: 'var(--color-accent-cyan)',
+                    gradient: ['var(--color-widget-gradient-from)', 'var(--color-widget-gradient-to)'],
+                }}
+            />,
+        );
+
+        unmount();
+
+        render(
             <GaugeDisplay
                 normalizedValue={1.5}
                 color={{
@@ -116,6 +145,33 @@ describe('GaugeDisplay', () => {
 
         expect(screen.getByTestId('gauge-bar-track')).toHaveStyle({ height: '6px' });
         expect(screen.getByTestId('gauge-bar-fill')).toHaveStyle({ width: '100%' });
+    });
+
+    it('keeps the segmented gradient distribution anchored to gradientNormalized during retraction', () => {
+        render(
+            <GaugeDisplay
+                normalizedValue={0.5}
+                gradientNormalized={1}
+                color={{
+                    primary: 'var(--color-accent-cyan)',
+                    gradient: ['var(--color-widget-gradient-from)', 'var(--color-widget-gradient-to)'],
+                }}
+            />,
+        );
+
+        const segments = screen.getAllByTestId('gauge-circular-arc-segment');
+        const fullCircleSegmentLength = CIRCUMFERENCE / SEGMENT_COUNT;
+
+        expect(segments).toHaveLength(SEGMENT_COUNT);
+        expect(segments[0]).toHaveAttribute(
+            'stroke-dasharray',
+            `${fullCircleSegmentLength + SEGMENT_OVERLAP} ${CIRCUMFERENCE - fullCircleSegmentLength - SEGMENT_OVERLAP}`,
+        );
+        expect(segments.at(-1)).toHaveAttribute('stroke-dasharray', `0 ${CIRCUMFERENCE}`);
+        expect(segments.at(-1)).toHaveAttribute(
+            'stroke',
+            'color-mix(in srgb, var(--color-widget-gradient-to) 100%, var(--color-widget-gradient-from))',
+        );
     });
 
     it('renders optional circular center content inside the svg so it scales with the gauge', () => {

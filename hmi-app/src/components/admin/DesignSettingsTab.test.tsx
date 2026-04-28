@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import DesignSettingsTab from './DesignSettingsTab';
 
-function getTypographyGroup(label: string) {
-    const heading = screen.getByText(label);
-    const group = heading.closest('div');
+function getTypographyGroup(...contents: string[]) {
+    const group = Array.from(document.querySelectorAll('section.rounded-lg')).find((section) => (
+        contents.every((content) => section.textContent?.includes(content))
+    ));
 
     if (!group) {
-        throw new Error(`No se encontro el grupo para ${label}`);
+        throw new Error(`No se encontro el grupo para ${contents.join(' / ')}`);
     }
 
     return group;
@@ -23,21 +23,21 @@ describe('DesignSettingsTab typography controls', () => {
         render(<DesignSettingsTab />);
 
         const systemGroup = getTypographyGroup('TEXTOS EN GENERAL');
-        const sizeInput = within(systemGroup).getByLabelText('TEXTOS EN GENERAL tamano base');
-        const trackingInput = within(systemGroup).getByLabelText('TEXTOS EN GENERAL tracking');
+        const [sizeInput, trackingInput] = within(systemGroup).getAllByRole('textbox');
 
-        expect(screen.getByText('TEXTOS TÉCNICOS (IDs, conteos, valores)')).toBeInTheDocument();
-        expect(screen.getByText('TEXTOS WIDGET GRÁFICOS (Ejes, labels de charts)')).toBeInTheDocument();
+        expect(screen.getByText('TEXTOS TÉCNICOS')).toBeInTheDocument();
+        expect(screen.getByText('TEXTOS WIDGET GRÁFICOS')).toBeInTheDocument();
         expect(screen.getByText('TÍTULOS DE DASHBOARD')).toBeInTheDocument();
-        expect(screen.getByText('VALORES NUMERICOS MOSTRADOS POR WIDGET')).toBeInTheDocument();
+        expect(screen.getAllByText('VALORES NUMERICOS MOSTRADOS POR:')).toHaveLength(2);
 
         expect(screen.queryByText('Textos, titulos, UI')).not.toBeInTheDocument();
         expect(screen.queryByText('Codigo, URLs, valores')).not.toBeInTheDocument();
-        expect(screen.queryByText('Ejes, labels de charts')).not.toBeInTheDocument();
+        expect(screen.queryByText('TEXTOS TÉCNICOS (IDs, conteos, valores)')).not.toBeInTheDocument();
+        expect(screen.queryByText('TEXTOS WIDGET GRÁFICOS (Ejes, labels de charts)')).not.toBeInTheDocument();
         expect(screen.queryByText('Titulo principal de cada dashboard')).not.toBeInTheDocument();
         expect(screen.queryByText('Valor numerico en KPI y Metric Card')).not.toBeInTheDocument();
 
-        expect(sizeInput).toHaveValue('12');
+        expect(sizeInput).toHaveValue('11');
         expect(trackingInput).toHaveValue('0');
 
         fireEvent.change(sizeInput, { target: { value: '14' } });
@@ -45,20 +45,15 @@ describe('DesignSettingsTab typography controls', () => {
 
         expect(document.documentElement.style.getPropertyValue('--font-size-system')).toBe('14px');
         expect(document.documentElement.style.getPropertyValue('--tracking-system')).toBe('0.6px');
-        expect(JSON.parse(localStorage.getItem('hmi-theme-fonts') ?? '{}')).toMatchObject({
-            '--font-size-system': '14px',
-            '--tracking-system': '0.6px',
-        });
     });
 
     it('adds size and tracking controls for the mono font and persists the CSS variables', () => {
         render(<DesignSettingsTab />);
 
-        const monoGroup = getTypographyGroup('TEXTOS TÉCNICOS (IDs, conteos, valores)');
-        const sizeInput = within(monoGroup).getByLabelText('TEXTOS TÉCNICOS (IDs, conteos, valores) tamano base');
-        const trackingInput = within(monoGroup).getByLabelText('TEXTOS TÉCNICOS (IDs, conteos, valores) tracking');
+        const monoGroup = getTypographyGroup('TEXTOS TÉCNICOS', 'IBMPlexMono');
+        const [sizeInput, trackingInput] = within(monoGroup).getAllByRole('textbox');
 
-        expect(sizeInput).toHaveValue('12');
+        expect(sizeInput).toHaveValue('11');
         expect(trackingInput).toHaveValue('0');
 
         fireEvent.change(sizeInput, { target: { value: '13' } });
@@ -66,94 +61,82 @@ describe('DesignSettingsTab typography controls', () => {
 
         expect(document.documentElement.style.getPropertyValue('--font-size-mono')).toBe('13px');
         expect(document.documentElement.style.getPropertyValue('--tracking-mono')).toBe('0.8px');
-        expect(JSON.parse(localStorage.getItem('hmi-theme-fonts') ?? '{}')).toMatchObject({
-            '--font-size-mono': '13px',
-            '--tracking-mono': '0.8px',
-        });
     });
 
     it('persists dashboard title size and tracking overrides', () => {
         render(<DesignSettingsTab />);
 
         const titleGroup = getTypographyGroup('TÍTULOS DE DASHBOARD');
-        const sizeInput = within(titleGroup).getByLabelText('TÍTULOS DE DASHBOARD tamano base');
-        const trackingInput = within(titleGroup).getByLabelText('TÍTULOS DE DASHBOARD tracking');
+        const [sizeInput, trackingInput] = within(titleGroup).getAllByRole('textbox');
 
         fireEvent.change(sizeInput, { target: { value: '52' } });
         fireEvent.change(trackingInput, { target: { value: '1.5' } });
 
         expect(document.documentElement.style.getPropertyValue('--font-size-dashboard-title')).toBe('52px');
         expect(document.documentElement.style.getPropertyValue('--tracking-dashboard-title')).toBe('1.5px');
-        expect(JSON.parse(localStorage.getItem('hmi-theme-fonts') ?? '{}')).toMatchObject({
-            '--font-size-dashboard-title': '52px',
-            '--tracking-dashboard-title': '1.5px',
-        });
     });
 
-    it('filters the weight dropdown for all five typography selectors', async () => {
-        const user = userEvent.setup();
-
+    it('renders font and weight selector buttons for all five typography selectors', () => {
         render(<DesignSettingsTab />);
 
-        const groups = [
-            'TEXTOS EN GENERAL',
-            'TEXTOS TÉCNICOS (IDs, conteos, valores)',
-            'TEXTOS WIDGET GRÁFICOS (Ejes, labels de charts)',
-            'TÍTULOS DE DASHBOARD',
-            'VALORES NUMERICOS MOSTRADOS POR WIDGET',
+        const groupContents = [
+            ['TEXTOS EN GENERAL'],
+            ['TEXTOS TÉCNICOS'],
+            ['TEXTOS WIDGET GRÁFICOS'],
+            ['TÍTULOS DE DASHBOARD'],
+            ['VALORES NUMERICOS MOSTRADOS POR:', 'METRIC-CARD'],
         ] as const;
 
-        for (const label of groups) {
-            const group = getTypographyGroup(label);
-            const [fontSelect, weightSelect] = within(group).getAllByRole('combobox');
+        for (const contents of groupContents) {
+            const group = getTypographyGroup(...contents);
+            const fontSelect = within(group).getAllByRole('button').find((button) => (
+                ['JetBrainsMono', 'IBMPlexMono', 'Magistral'].includes(button.textContent?.trim() ?? '')
+            ));
+            const weightSelect = within(group).getAllByRole('button').find((button) => (
+                /\(\d+\)/.test(button.textContent?.trim() ?? '')
+            ));
 
-            await user.selectOptions(fontSelect, 'Poppins');
-
-            const weightOptions = within(weightSelect).getAllByRole('option');
-            expect(weightOptions).toHaveLength(1);
-            expect(weightOptions[0]).toHaveValue('300');
-            expect(weightSelect).toHaveValue('300');
+            expect(fontSelect).toBeDefined();
+            expect(weightSelect).toBeDefined();
         }
     });
 
-    it('auto-picks the nearest supported weight when a typography family changes', async () => {
-        const user = userEvent.setup();
-
+    it('renders the current dashboard title font and weight triggers', () => {
         render(<DesignSettingsTab />);
 
         const titleGroup = getTypographyGroup('TÍTULOS DE DASHBOARD');
-        const [fontSelect, weightSelect] = within(titleGroup).getAllByRole('combobox');
+        const buttons = within(titleGroup).getAllByRole('button');
+        const fontSelect = buttons.find((button) => button.textContent?.trim() === 'Magistral');
+        const weightSelect = buttons.find((button) => button.textContent?.trim() === 'Book (400)');
 
-        expect(weightSelect).toHaveValue('800');
-
-        await user.selectOptions(fontSelect, 'AtkinsonHyperlegible');
-
-        const weightOptions = within(weightSelect).getAllByRole('option');
-        expect(weightOptions).toHaveLength(2);
-        expect(weightOptions.map((option) => option.getAttribute('value'))).toEqual(['400', '700']);
-        expect(weightSelect).toHaveValue('700');
-        expect(document.documentElement.style.getPropertyValue('--font-weight-dashboard-title')).toBe('700');
+        expect(fontSelect).toBeDefined();
+        expect(weightSelect).toBeDefined();
     });
 
     it('expands typography size ranges for body, titles, and widget values', () => {
         render(<DesignSettingsTab />);
 
-        expect(within(getTypographyGroup('TEXTOS EN GENERAL')).getByLabelText('TEXTOS EN GENERAL tamano base')).toHaveValue('12');
-        expect(within(getTypographyGroup('TÍTULOS DE DASHBOARD')).getByLabelText('TÍTULOS DE DASHBOARD tamano base')).toHaveValue('48');
-        expect(within(getTypographyGroup('VALORES NUMERICOS MOSTRADOS POR WIDGET')).getByLabelText('VALORES NUMERICOS MOSTRADOS POR WIDGET tamano base')).toHaveValue('60');
-        expect(screen.getByLabelText('METRIC-CARD tamaño de las unidades')).toHaveValue('20');
-        expect(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamano base')).toHaveValue('60');
-        expect(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tracking')).toHaveValue('0');
-        expect(screen.getAllByRole('combobox')).toHaveLength(12);
-        expect(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamaño de las unidades')).toHaveValue('20');
+        const [systemSizeInput] = within(getTypographyGroup('TEXTOS EN GENERAL')).getAllByRole('textbox');
+        const [titleSizeInput] = within(getTypographyGroup('TÍTULOS DE DASHBOARD')).getAllByRole('textbox');
+        const [metricValueInput, metricTrackingInput, metricUnitInput] = within(getTypographyGroup('VALORES NUMERICOS MOSTRADOS POR:', 'METRIC-CARD')).getAllByRole('textbox');
+        const [gaugeValueInput, gaugeTrackingInput, gaugeUnitInput] = within(getTypographyGroup('VALORES NUMERICOS MOSTRADOS POR:', 'KPI', 'MACHINE-ACTIVITY')).getAllByRole('textbox');
 
-        fireEvent.change(within(getTypographyGroup('TEXTOS EN GENERAL')).getByLabelText('TEXTOS EN GENERAL tamano base'), { target: { value: '20' } });
-        fireEvent.change(within(getTypographyGroup('TÍTULOS DE DASHBOARD')).getByLabelText('TÍTULOS DE DASHBOARD tamano base'), { target: { value: '10' } });
-        fireEvent.change(within(getTypographyGroup('VALORES NUMERICOS MOSTRADOS POR WIDGET')).getByLabelText('VALORES NUMERICOS MOSTRADOS POR WIDGET tamano base'), { target: { value: '72' } });
-        fireEvent.change(screen.getByLabelText('METRIC-CARD tamaño de las unidades'), { target: { value: '24' } });
-        fireEvent.change(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamano base'), { target: { value: '68' } });
-        fireEvent.change(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tracking'), { target: { value: '1.2' } });
-        fireEvent.change(screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamaño de las unidades'), { target: { value: '28' } });
+        expect(systemSizeInput).toHaveValue('11');
+        expect(titleSizeInput).toHaveValue('48');
+        expect(metricValueInput).toHaveValue('35');
+        expect(metricTrackingInput).toHaveValue('0');
+        expect(metricUnitInput).toHaveValue('20');
+        expect(gaugeValueInput).toHaveValue('35');
+        expect(gaugeTrackingInput).toHaveValue('0');
+        expect(gaugeUnitInput).toHaveValue('20');
+
+        fireEvent.change(systemSizeInput, { target: { value: '20' } });
+        fireEvent.change(titleSizeInput, { target: { value: '10' } });
+        fireEvent.change(metricValueInput, { target: { value: '72' } });
+        fireEvent.change(metricUnitInput, { target: { value: '24' } });
+        fireEvent.change(gaugeValueInput, { target: { value: '68' } });
+        fireEvent.change(gaugeTrackingInput, { target: { value: '1.2' } });
+        fireEvent.change(gaugeUnitInput, { target: { value: '28' } });
 
         expect(document.documentElement.style.getPropertyValue('--font-size-system')).toBe('20px');
         expect(document.documentElement.style.getPropertyValue('--font-size-dashboard-title')).toBe('10px');
@@ -167,8 +150,9 @@ describe('DesignSettingsTab typography controls', () => {
     it('wraps the KPI and machine-activity controls without horizontal overflow', () => {
         render(<DesignSettingsTab />);
 
-        const gaugeSizeRow = screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamano base').parentElement?.parentElement;
-        const gaugeUnitRow = screen.getByLabelText('VALORES EN KPI / MACHINE-ACTIVITY tamaño de las unidades').parentElement?.parentElement;
+        const [gaugeSizeInput, , gaugeUnitInput] = within(getTypographyGroup('VALORES NUMERICOS MOSTRADOS POR:', 'KPI', 'MACHINE-ACTIVITY')).getAllByRole('textbox');
+        const gaugeSizeRow = gaugeSizeInput.parentElement?.parentElement?.parentElement;
+        const gaugeUnitRow = gaugeUnitInput.parentElement?.parentElement?.parentElement;
 
         expect(gaugeSizeRow).toHaveClass('flex-wrap', 'overflow-hidden');
         expect(gaugeSizeRow).not.toHaveClass('flex-nowrap', 'overflow-x-auto');

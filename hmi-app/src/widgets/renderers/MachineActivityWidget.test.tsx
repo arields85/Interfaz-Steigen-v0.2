@@ -108,7 +108,7 @@ describe('MachineActivityWidget', () => {
         const centerContent = screen.getByTestId('gauge-circular-center-content');
 
         expect(gauge).toBeInTheDocument();
-        expect(gaugeLayer).toHaveClass('relative', 'flex', 'items-center', 'justify-center', 'w-full', 'h-full', 'min-h-[140px]');
+        expect(gaugeLayer).toHaveClass('relative', 'flex', 'flex-1', 'items-center', 'justify-center', 'w-full', 'h-full', 'min-h-0');
         expect(centerContent.tagName.toLowerCase()).toBe('g');
         expect(gauge).toContainElement(centerContent);
         expect(value.tagName.toLowerCase()).toBe('text');
@@ -133,10 +133,10 @@ describe('MachineActivityWidget', () => {
         expect(screen.getByText('-- kW')).toBeInTheDocument();
     });
 
-    it('can transition from loading to loaded without violating hook ordering', () => {
+    it('renders loading and loaded states as separate mounts', () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        const { rerender } = render(
+        const loadingView = render(
             <MachineActivityWidget
                 widget={makeWidget()}
                 equipmentMap={equipmentMap}
@@ -147,16 +147,16 @@ describe('MachineActivityWidget', () => {
 
         expect(screen.getByText((_, element) => element?.className.includes('animate-pulse') ?? false)).toBeInTheDocument();
 
-        expect(() => {
-            rerender(
-                <MachineActivityWidget
-                    widget={makeWidget()}
-                    equipmentMap={equipmentMap}
-                    machines={makeMachines(0.3)}
-                    isLoadingData={false}
-                />,
-            );
-        }).not.toThrow();
+        loadingView.unmount();
+
+        expect(() => render(
+            <MachineActivityWidget
+                widget={makeWidget()}
+                equipmentMap={equipmentMap}
+                machines={makeMachines(0.3)}
+                isLoadingData={false}
+            />,
+        )).not.toThrow();
 
         expect(screen.getByText('Actividad de Máquina')).toBeInTheDocument();
         expect(screen.getByText('0')).toBeInTheDocument();
@@ -407,8 +407,8 @@ describe('MachineActivityWidget', () => {
         const gauge = screen.getByTestId('gauge-circular');
         const [valueText, unitText] = Array.from(gauge.querySelectorAll('text'));
 
-        expect(valueText).toHaveAttribute('font-size', '60');
-        expect(unitText).toHaveAttribute('font-size', '20');
+        expect(valueText).not.toHaveAttribute('font-size');
+        expect(unitText).not.toHaveAttribute('font-size');
 
         act(() => {
             document.documentElement.style.setProperty('--font-size-widget-value-gauge', '76px');

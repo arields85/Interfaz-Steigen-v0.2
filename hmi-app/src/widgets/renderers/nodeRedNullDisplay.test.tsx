@@ -312,7 +312,7 @@ describe('Node-RED null renderer fallbacks', () => {
         expect(label.parentElement).toHaveClass('flex', 'flex-1', 'flex-col', 'items-center', 'justify-center');
         expect(screen.getByText('0s')).toBeInTheDocument();
         expect(screen.queryByText('Sin datos')).not.toBeInTheDocument();
-        expect(screen.getByTestId('connection-header-icon-degradado')).toHaveClass('lucide-wifi-sync');
+        expect(screen.getByTestId('connection-header-icon-degradado')).toHaveClass('lucide-wifi-high');
     });
 
     it('renders header machine connection widgets from contract machine status', () => {
@@ -377,7 +377,7 @@ describe('Node-RED null renderer fallbacks', () => {
         );
 
         expect(screen.getByText('Degradado')).toHaveClass('text-industrial-muted');
-        expect(screen.getByTestId('connection-status-icon-degradado')).toHaveClass('lucide-wifi-sync');
+        expect(screen.getByTestId('connection-status-icon-degradado')).toHaveClass('lucide-wifi-high');
 
         rerender(
             <ConnectionStatusWidget

@@ -116,7 +116,7 @@ describe('getStateVisuals', () => {
 
     it('returns transitional visuals and medium animation for calibrating', () => {
         expect(getStateVisuals('calibrating')).toEqual({
-            primary: 'var(--color-state-calibrating)',
+            primary: 'var(--color-accent-blue-glow)',
             gradientColors: ['var(--color-state-calibrating-from)', 'var(--color-state-calibrating-to)'],
             glowColor: 'color-mix(in srgb, var(--color-state-calibrating) 45%, transparent)',
             animationDuration: 550,
@@ -126,7 +126,7 @@ describe('getStateVisuals', () => {
     it('returns active visuals and faster animation for producing', () => {
         expect(getStateVisuals('producing')).toEqual({
             primary: 'var(--color-state-producing)',
-            gradientColors: ['var(--color-state-producing-from)', 'var(--color-state-producing-to)'],
+            gradientColors: ['var(--color-state-producing-to)', 'var(--color-state-producing-from)'],
             glowColor: 'color-mix(in srgb, var(--color-state-producing) 50%, transparent)',
             animationDuration: 350,
         });

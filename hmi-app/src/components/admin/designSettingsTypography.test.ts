@@ -37,7 +37,7 @@ describe('designSettingsTypography', () => {
     });
 
     it('resolves CSS values with the correct fallback stacks', () => {
-        expect(resolveFontCssVariableValue('--font-system', 'Magistral')).toBe('"Magistral", system-ui, sans-serif');
-        expect(resolveFontCssVariableValue('--font-mono', 'IBMPlexMono')).toBe('"IBMPlexMono", monospace');
+        expect(resolveFontCssVariableValue('--font-system', 'Magistral')).toBe('"Magistral"');
+        expect(resolveFontCssVariableValue('--font-mono', 'IBMPlexMono')).toBe('"IBMPlexMono"');
     });
 });
